@@ -1,0 +1,9 @@
+# Campaign backups and exports stay off GitHub: they hold your players' characters and your lore.
+*.backup.json
+untsf-comm-backup-*.json
+*-personnel-record*.docx
+untsf-comm-personnel-records-*.docx
+.DS_Store
+Thumbs.db
+supabase/.temp/
+supabase/.branches/

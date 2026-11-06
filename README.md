@@ -1,0 +1,35 @@
+# UNTSF-COMM
+
+Command and logistics system for a Muv-Luv military roleplay: applications and character rolls, eishi files and dashboards, TSFs and loadouts, missions and combat, the 2012 campaign map, research, production, and personnel records.
+
+**To set it up, follow [SETUP.md](SETUP.md).**
+
+## What's in this repository
+
+```
+site/                       the website (published to GitHub Pages)
+  index.html                page and styles
+  app.js                    the application
+  bridge.js                 connects the app to Supabase: sign-in, data, live updates, images, downloads
+  config.js                 YOUR Supabase Project URL and publishable key (the only file you edit)
+  starter.json              starter catalogue for a fresh campaign
+supabase/
+  config.toml               Supabase CLI settings
+  migrations/               database set-up, applied automatically by GitHub Actions
+.github/workflows/
+  publish-site.yml          publishes site/ when it changes
+  database.yml              applies new migrations to Supabase
+  keep-awake.yml            pings the database every three days so the free plan doesn't pause
+```
+
+## How it fits together
+
+- **GitHub Pages** serves the site. Free, from this public repository.
+- **Supabase** holds the database, accounts and uploaded images. Free plan: 500 MB database, 1 GB images, 50,000 accounts.
+- **GitHub Actions** publishes the site, updates the database and keeps it awake, using three repository secrets. No secret ever appears in the code.
+
+Your campaign data lives only in Supabase, behind sign-in. Backups you download stay off GitHub (see `.gitignore`).
+
+## Updating
+
+Replace the changed files, commit and push. Keep your `site/config.js`.
