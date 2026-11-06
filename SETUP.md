@@ -25,7 +25,7 @@ Keep a password manager or a notes app open: you'll collect a few values along t
    - **Publishable key**, starting `sb_publishable_`.
 
    These two are safe to put in a public website. **Never** put the *secret* key (`sb_secret_…`) or the database password anywhere in the repository.
-5. Open **Authentication → Sign In / Providers → Email** and switch **Confirm email** off, then save. **This is required.**
+5. Open **Authentication → Sign In / Providers → Email** and switch **Confirm email** off, then click **Save**. **This is required.** If it's left on, sign-up fails with *"Email address … is invalid"*.
    UNTSF-COMM uses **usernames, not email addresses**. No email is ever collected, stored or sent. Leave the Email provider itself switched on: Supabase uses it behind the scenes for username sign-in.
 6. Create a **personal access token**: click your avatar → **Account preferences → Access Tokens → Generate new token**. Name it `github-untsf`, and save the value. It's shown once.
 
@@ -103,7 +103,7 @@ Use a **private/incognito window** for the second account.
 - **Removing someone:** **Delete account** removes their sign-in entirely. Their characters stay in the campaign until you archive them.
 
 **Want sign-ups closed to strangers?** Supabase → **Authentication → Sign In / Providers** → switch off **Allow new users to sign up**. Then create each player's account yourself under **Authentication → Users → Add user → Create new user**:
-- **Email:** `theirusername@players.untsf.invalid`. This is the internal sign-in name, not a real address.
+- **Email:** `theirusername@jymixxlpueosbnccwgci.supabase.co`, i.e. their username @ your project's address. This is the internal sign-in name, not a real inbox.
 - **Password:** a temporary one.
 - Tick **Auto confirm user**.
 
@@ -139,6 +139,7 @@ The free plan has no automatic backups. Every few sessions, download one from **
 | **Set up database** is red: *Secrets missing* | Add the three secrets (Part 3), then *Run workflow* again. |
 | **Set up database** is red: *password authentication failed* | `SUPABASE_DB_PASSWORD` is wrong. Reset it in Supabase (*Settings → Database → Reset database password*), update the secret, run again. |
 | **"Your account isn't set up in the database yet"** at sign-in | The database workflow hasn't run successfully. Run **Set up database**. |
+| **"Email address … is invalid"** when creating an account | **Confirm email** is still on: Supabase is trying to send a confirmation. Switch it off (Part 1, step 5), click **Save**, and try again. |
 | **"The account was created but needs confirming"** | **Confirm email** is still on. Switch it off (Part 1, step 5). Then in Authentication → Users, delete the stuck account and sign up again. |
 | A player forgot their password | System Administration → Accounts → **Reset password**. |
 | **"Project paused"** in Supabase | The keep-awake job was switched off (GitHub does this after 60 days without commits). Resume the project in Supabase, then *Actions → Keep database awake → Enable workflow*. |
@@ -149,7 +150,7 @@ The free plan has no automatic backups. Every few sessions, download one from **
 
 UNTSF-COMM collects **no personal data**:
 - **Accounts are a username and a password,** stored as a bcrypt hash by Supabase.
-- **Each username becomes an internal sign-in name,** `username@players.untsf.invalid`. The `.invalid` domain is reserved by internet standards so that it can never receive mail, and Supabase refuses to send to it.
+- **Each username becomes an internal sign-in name** on your own Supabase project's domain, e.g. `kestrel@jymixxlpueosbnccwgci.supabase.co`. It's not an inbox, it belongs to nobody else, and with Confirm email off nothing is ever sent to it.
 - **No real email address, name or contact detail** is asked for or stored anywhere.
 - **Characters are fiction,** and portraits are whatever players choose to upload.
 

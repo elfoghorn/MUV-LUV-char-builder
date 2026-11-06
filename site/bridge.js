@@ -29,9 +29,10 @@
   window.UNTSF_ASSET_BASE = url + '/storage/v1/object/public/assets/';
 
   /* ------------------------------------------------------------ sign-in screen: usernames only, no email
-     Supabase signs people in with an address, so a username becomes an internal sign-in name on the reserved
-     .invalid domain (RFC 2606): it can never receive mail, and Supabase refuses to send to it. */
-  var ACCOUNT_DOMAIN = 'players.untsf.invalid';
+     Supabase signs people in with an address, so a username becomes an internal sign-in name on this project's
+     own Supabase domain (e.g. kestrel@abcd.supabase.co). Supabase only accepts domains that really exist, and this
+     one always does, belongs to no one else, and never changes. With "Confirm email" off, nothing is ever sent. */
+  var ACCOUNT_DOMAIN = url.replace(/^https:\/\//, '');
   var USERNAME = /^[a-z0-9][a-z0-9_-]{2,23}$/;
   var toLogin = function (u) { return u.toLowerCase() + '@' + ACCOUNT_DOMAIN; };
   var mode = 'signin', note = null, started = false, inviteNeeded = null;
