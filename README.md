@@ -7,26 +7,28 @@ Command and logistics system for a Muv-Luv military roleplay: applications and c
 ## What's in this repository
 
 ```
-site/                       the website (published to GitHub Pages)
+site/                       the website (published by Cloudflare Pages: output directory "site")
   index.html                page and styles
   app.js                    the application
   bridge.js                 connects the app to Supabase: sign-in, data, live updates, images, downloads
   config.js                 YOUR Supabase Project URL and publishable key (the only file you edit)
   starter.json              starter catalogue for a fresh campaign
+  manifest.webmanifest, sw.js, icon-*.png   installable on phones
+  _headers, robots.txt      keep it out of search engines; no referrer leaks
 supabase/
   config.toml               Supabase CLI settings
   migrations/               database set-up, applied automatically by GitHub Actions
 .github/workflows/
-  publish-site.yml          publishes site/ when it changes
   database.yml              applies new migrations to Supabase
   keep-awake.yml            pings the database every three days so the free plan doesn't pause
 ```
 
 ## How it fits together
 
-- **GitHub Pages** serves the site. Free, from this public repository.
+- **Cloudflare Pages** serves the site from this **private** repository, at an address that doesn't identify you. Free, unlimited bandwidth.
 - **Supabase** holds the database, accounts and uploaded images. Free plan: 500 MB database, 1 GB images, 50,000 accounts.
-- **GitHub Actions** publishes the site, updates the database and keeps it awake, using three repository secrets. No secret ever appears in the code.
+- **GitHub Actions** updates the database and keeps it awake, using three repository secrets. No secret ever appears in the code.
+- **Accounts** are usernames only, with an optional sign-up invite code. No email or personal data is collected.
 
 Your campaign data lives only in Supabase, behind sign-in. Backups you download stay off GitHub (see `.gitignore`).
 

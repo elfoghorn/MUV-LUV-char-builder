@@ -2,9 +2,10 @@
 
 About an hour, start to finish. Nothing here costs money. You'll end up with:
 
-- **The site** on GitHub Pages: `https://YOUR-USERNAME.github.io/untsf-comm/`
-- **The database, accounts and images** on Supabase
-- **Automation** that publishes the site, sets up the database and keeps it awake
+- **The site** on Cloudflare Pages, at an address you choose, such as `https://untsf-comm.pages.dev`. Nothing in it points to you or your GitHub account.
+- **The code** in a **private** GitHub repository that only you can see.
+- **The database, accounts and images** on Supabase.
+- **Automation:** Cloudflare publishes the site on every push, and GitHub sets up the database and keeps it awake.
 
 Keep a password manager or a notes app open: you'll collect a few values along the way.
 
@@ -24,61 +25,53 @@ Keep a password manager or a notes app open: you'll collect a few values along t
    - **Publishable key**, starting `sb_publishable_`.
 
    These two are safe to put in a public website. **Never** put the *secret* key (`sb_secret_…`) or the database password anywhere in the repository.
-5. Open **Authentication → Sign In / Providers → Email** and switch **Confirm email** off, then save.
-   Supabase's built-in email sending is heavily rate-limited, so confirmation emails get stuck when several people sign up at once. You can switch it back on after adding your own email service (Authentication → Emails → SMTP).
+5. Open **Authentication → Sign In / Providers → Email** and switch **Confirm email** off, then save. **This is required.**
+   UNTSF-COMM uses **usernames, not email addresses**. No email is ever collected, stored or sent. Leave the Email provider itself switched on: Supabase uses it behind the scenes for username sign-in.
 6. Create a **personal access token**: click your avatar → **Account preferences → Access Tokens → Generate new token**. Name it `github-untsf`, and save the value. It's shown once.
 
-## Part 2: The repository (about 15 minutes)
+## Part 2: The repository (about 10 minutes)
 
 1. Create a **GitHub** account if you don't have one, and install **GitHub Desktop** (desktop.github.com). Sign in to GitHub inside it.
-2. In GitHub Desktop: **File → New repository**
-   - **Name:** `untsf-comm`
-   - **Local path:** anywhere you like, e.g. Documents
-   - Click **Create repository**.
-3. Unzip this package and copy **everything inside it** into that new folder: `site`, `supabase`, `.github`, `README.md`, `SETUP.md` and `.gitignore`.
-   Folders starting with a dot are hidden by default. On Windows, tick *View → Hidden items* in Explorer; on a Mac, press **Cmd + Shift + .** in Finder. Make sure `.github` is copied.
-4. Open **`site/config.js`** in any text editor (Notepad is fine) and put in your two values from Part 1, step 4:
-
-   ```js
-   window.UNTSF_CONFIG = {
-     supabaseUrl: 'https://abcdefghijkl.supabase.co',
-     publishableKey: 'sb_publishable_…'
-   };
-   ```
-
-   Save the file.
-5. In GitHub Desktop, type a summary such as `First version` and click **Commit to main**.
-6. Click **Publish repository**. **Untick "Keep this code private"**: free GitHub Pages needs a public repository. Your campaign data never goes into the repository; it lives in Supabase behind sign-in.
+2. In GitHub Desktop: **File → New repository**, name it `untsf-comm`, choose where to keep it, and click **Create repository**.
+3. Unzip this package and copy **everything inside it** into that folder, including the hidden `.github` folder. (Windows: *View → Hidden items* in Explorer. Mac: **Cmd + Shift + .** in Finder.)
+4. `site/config.js` is already filled in with your Supabase project. Leave it as it is.
+5. Type a summary such as `First version`, then click **Commit to main**.
+6. Click **Publish repository** and **leave "Keep this code private" ticked.** Nobody else can see the repository.
 
 ## Part 3: Connect GitHub to Supabase (about 5 minutes)
 
-On **github.com**, open your `untsf-comm` repository.
+On **github.com**, open your `untsf-comm` repository, then **Settings → Secrets and variables → Actions → New repository secret**. Add three:
 
-1. **Settings → Secrets and variables → Actions → New repository secret.** Add three:
+| Name | Value |
+|---|---|
+| `SUPABASE_ACCESS_TOKEN` | the personal access token (Part 1, step 6) |
+| `SUPABASE_DB_PASSWORD` | the database password (Part 1, step 2) |
+| `SUPABASE_PROJECT_ID` | `jymixxlpueosbnccwgci` |
 
-   | Name | Value |
-   |---|---|
-   | `SUPABASE_ACCESS_TOKEN` | the personal access token (Part 1, step 6) |
-   | `SUPABASE_DB_PASSWORD` | the database password (Part 1, step 2) |
-   | `SUPABASE_PROJECT_ID` | the project reference (Part 1, step 4) |
+Then open the **Actions** tab, choose **Set up database → Run workflow → Run workflow**, and wait for the green tick. If it goes red, copy the error from the red step; the troubleshooting section covers the usual causes.
 
-2. **Settings → Pages → Build and deployment → Source:** choose **GitHub Actions**.
+## Part 4: Put the site online with Cloudflare Pages (about 10 minutes)
 
-## Part 4: Go live (about 5 minutes)
+1. Sign up at **cloudflare.com** (free plan).
+2. In the dashboard, go to **Workers & Pages → Create → Pages → Connect to Git**.
+3. Connect your GitHub account. When GitHub asks which repositories Cloudflare may see, choose **Only select repositories → untsf-comm**.
+4. Select `untsf-comm`, then **Begin setup**:
+   - **Project name:** this becomes your address, e.g. `untsf-comm` gives `untsf-comm.pages.dev`. Pick something that isn't your name or GitHub username. If it's taken, Cloudflare adds a few characters.
+   - **Production branch:** `main`
+   - **Framework preset:** None
+   - **Build command:** leave empty
+   - **Build output directory:** `site`
+5. Click **Save and Deploy**. After a minute or so, your address is shown, e.g. `https://untsf-comm.pages.dev`.
+6. From now on, **every push from GitHub Desktop publishes automatically.**
 
-1. Open the **Actions** tab. The first push ran before the secrets existed, so start both workflows by hand:
-   - **Set up database** → **Run workflow** → **Run workflow**
-   - **Publish site** → **Run workflow** → **Run workflow**
-2. Wait for **two green ticks** (a minute or two each). If one goes red, open it, click the red step, and copy the error text. The troubleshooting section below covers the usual causes.
-3. Your site's address is shown on the **Publish site** run, and under **Settings → Pages**: `https://YOUR-USERNAME.github.io/untsf-comm/`.
-4. Back in Supabase, go to **Authentication → URL Configuration**:
-   - **Site URL:** your site's address
-   - **Redirect URLs:** add the same address
-   - Save. Password-reset links now come back to your site.
+The site sends no-index headers, so search engines leave it alone, and it doesn't pass its address on to other sites. Nothing on it mentions GitHub or you.
+
+*If you'd ever used GitHub Pages for this:* repository **Settings → Pages**, and unpublish or set Source to **None**.
 
 ## Part 5: Your campaign (about 10 minutes)
 
-1. **Before anyone else:** open your site, choose **Create an account**, and sign up. **The first account becomes Administrator and Command Authority.**
+1. **Before anyone else:** open your site, choose **Create an account**, and pick a **username** and **password**. **The first account becomes Administrator and Command Authority.**
+   *Already made an account with your email before this change?* In Supabase go to **Authentication → Users**, delete it, then sign up again here with a username. You'll be Administrator again.
 2. You'll see **Set up your campaign**. Choose one:
    - **Bring your campaign across.** In the claude.ai version, open **System Administration → Download backup**, then come back here and choose **Import a backup (.json)**. Everything comes across except uploaded images (portraits, TSF artwork), which you or your players upload again.
    - **Start fresh** loads the TSF and equipment catalogue, rules, nations and the 2012 situation map, with no characters or units.
@@ -88,7 +81,7 @@ On **github.com**, open your `untsf-comm` repository.
 
 Use a **private/incognito window** for the second account.
 
-- [ ] Create a second account. It lands on **Apply for service** and sees only its application and notifications.
+- [ ] Create a second account with a username. It lands on **Apply for service** and sees only its application and notifications.
 - [ ] Fill in a few sections, click **Save and exit**, sign out, sign back in. The draft is still there.
 - [ ] Upload a portrait on the Insignia & portrait step. It shows on the review.
 - [ ] Roll attributes, choose a posting if you've opened slots, and submit.
@@ -97,26 +90,38 @@ Use a **private/incognito window** for the second account.
 - [ ] As the player: open the Eishi File and export the **Personnel record**. A Word file downloads with their portrait.
 - [ ] As yourself: change something small (e.g. a situation report). It appears on the player's screen within a few seconds.
 - [ ] Open the campaign map, zoom into Japan and the Channel, and check it reads cleanly.
+- [ ] On your phone: open the site, sign in, and add it to your home screen (see *Phones* below). It opens full-screen with the bottom bar.
+- [ ] As yourself: **System Administration → Accounts** lists both usernames. Reset the test account's password, and sign in with the temporary one.
 
 ## Part 7: Invite players
 
-Send them the site address. They create an account, apply, and you approve them in the Approval Centre.
+**First, turn on the invite code:** System Administration → Accounts → **Turn on with a new code**. Strangers who find the address then can't create accounts. Send each player the **site address** and the **invite code** privately. They create an account with a username and the code, apply, and you approve them in the Approval Centre. Change the code whenever you like; existing accounts aren't affected.
 
-**Want sign-ups closed to strangers?** Supabase → **Authentication → Sign In / Providers** → switch off **Allow new users to sign up**. Then create each player's account yourself under **Authentication → Users → Add user → Create new user** (tick *Auto confirm*), and send them their email and a temporary password.
+**Your Accounts panel** (System Administration → Accounts, Administrator only):
+- **Forgotten passwords:** click **Reset password**. A temporary password is shown once; send it to the player privately. It signs them out everywhere, and they can choose their own from their menu (**Change password**).
+- **Making another GM:** change their role to **Command Authority**. It applies at their next sign-in.
+- **Removing someone:** **Delete account** removes their sign-in entirely. Their characters stay in the campaign until you archive them.
 
-**Making another GM:** Supabase → **SQL Editor** → run, with their email:
+**Want sign-ups closed to strangers?** Supabase → **Authentication → Sign In / Providers** → switch off **Allow new users to sign up**. Then create each player's account yourself under **Authentication → Users → Add user → Create new user**:
+- **Email:** `theirusername@players.untsf.invalid`. This is the internal sign-in name, not a real address.
+- **Password:** a temporary one.
+- Tick **Auto confirm user**.
 
-```sql
-update public.members set role = 'gm' where email = 'their@email.com';
-```
-
-They see Command Authority after their next sign-in.
+Tell them their username and temporary password.
 
 ---
 
+## Phones
+
+UNTSF-COMM works in any phone browser, with a bottom bar for the main screens and **More** for the full menu. To install it like an app:
+- **iPhone (Safari):** tap **Share → Add to Home Screen → Add**.
+- **Android (Chrome):** tap **⋮ → Add to Home screen** (or **Install app**), then **Install**.
+
+It then opens full-screen from its own icon, and keeps itself up to date.
+
 ## Updating later
 
-When you get new files: copy them into the folder, then in GitHub Desktop click **Commit to main** and **Push origin**. The site updates within a couple of minutes; database changes apply automatically.
+When you get new files: copy them into the folder, then in GitHub Desktop click **Commit to main** and **Push origin**. Cloudflare publishes the site within a couple of minutes, and database changes apply automatically. Phones pick up the new version the next time it's opened.
 
 Keep your `site/config.js`. It's the only file with your own values in it.
 
@@ -129,13 +134,26 @@ The free plan has no automatic backups. Every few sessions, download one from **
 | You see | Do this |
 |---|---|
 | **"Almost there"** on the site | `site/config.js` still has the placeholder values. Fill it in, commit and push. |
+| Cloudflare shows a blank page or 404 | **Build output directory** must be `site` (Workers & Pages → your project → Settings → Build). Then **Retry deployment**. |
+| Cloudflare can't see the repository | GitHub → **Settings → Applications → Cloudflare Workers and Pages → Configure**, and add `untsf-comm`. |
 | **Set up database** is red: *Secrets missing* | Add the three secrets (Part 3), then *Run workflow* again. |
 | **Set up database** is red: *password authentication failed* | `SUPABASE_DB_PASSWORD` is wrong. Reset it in Supabase (*Settings → Database → Reset database password*), update the secret, run again. |
-| **Publish site** is red: *Get Pages site failed* | Settings → Pages → Source isn't set to **GitHub Actions** yet. |
 | **"Your account isn't set up in the database yet"** at sign-in | The database workflow hasn't run successfully. Run **Set up database**. |
-| Sign-up says it sent a confirmation email that never arrives | Switch **Confirm email** off (Part 1, step 5), or add your own SMTP. |
+| **"The account was created but needs confirming"** | **Confirm email** is still on. Switch it off (Part 1, step 5). Then in Authentication → Users, delete the stuck account and sign up again. |
+| A player forgot their password | System Administration → Accounts → **Reset password**. |
 | **"Project paused"** in Supabase | The keep-awake job was switched off (GitHub does this after 60 days without commits). Resume the project in Supabase, then *Actions → Keep database awake → Enable workflow*. |
-| The site shows an old version | Hard-refresh: **Ctrl + Shift + R** (Windows) or **Cmd + Shift + R** (Mac). |
+| The site shows an old version | Hard-refresh: **Ctrl + Shift + R** (Windows) or **Cmd + Shift + R** (Mac). On a phone, close the app fully and reopen it. |
+| A stranger made an account | Delete it in **Accounts**, then turn on (or change) the **invite code**. |
+
+## Privacy
+
+UNTSF-COMM collects **no personal data**:
+- **Accounts are a username and a password,** stored as a bcrypt hash by Supabase.
+- **Each username becomes an internal sign-in name,** `username@players.untsf.invalid`. The `.invalid` domain is reserved by internet standards so that it can never receive mail, and Supabase refuses to send to it.
+- **No real email address, name or contact detail** is asked for or stored anywhere.
+- **Characters are fiction,** and portraits are whatever players choose to upload.
+
+**The platforms keep routine logs.** Supabase and GitHub keep short-lived access logs (IP addresses and browser type) for security, as any website host does. The app never reads or stores them.
 
 ## What the database enforces
 
@@ -145,5 +163,6 @@ The free plan has no automatic backups. Every few sessions, download one from **
 - Each person's **draft application** and private settings are theirs alone.
 - Only the Administrator changes roles, and nobody can promote themselves.
 - Images: members upload; only the uploader or Command Authority can delete.
+- With the invite code on, new accounts need the current code. It's stored only as a one-way hash, in a part of the database the site can't read.
 
 **What it doesn't yet enforce:** any signed-in member can technically read the rest of the campaign records through their browser's developer tools, including intel above their clearance, and could edit other players' records. The app hides and blocks these normally; a determined, technically minded player could get round it. If your group needs that sealed tight, the full Supabase edition (server-enforced clearance, private journals, server-side dice) is the next step.

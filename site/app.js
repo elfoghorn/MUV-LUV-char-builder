@@ -1,4 +1,4 @@
-/* UNTSF-COMM 12691fe8bc: built from the same sources as the claude.ai edition. */
+/* UNTSF-COMM 8788c34fba: built from the same sources as the claude.ai edition. */
 /* =====================================================================
    TSF COMMAND engine — statistics, validation and change classification.
    Pure functions, no I/O. The SQL functions tsf_calculate_configuration
@@ -923,7 +923,7 @@ function topbarHtml() {
       ${p ? `<button class="btn ghost" data-act="nav" data-route="pilot">${icon('user', 16)} Eishi File</button>` : ''}
       ${sessionExtras()}
       <button class="btn ghost" data-act="toggle-collapse">${icon('menu', 16)} ${S.navCollapsed ? 'Expand' : 'Collapse'} navigation</button>
-      <p class="small muted" style="margin:8px 0 0">Access: ${S.isOwner ? (HOSTED() ? 'Administrator and Command Authority' : 'Administrator and Command Authority (artifact owner)') : S.isGm ? (HOSTED() ? 'Command Authority' : 'Command Authority (Editor)') : S.readOnly ? 'Read-only' : 'Personnel (Contributor)'}. ${HOSTED() ? 'Signed in as ' + esc(window.UNTSF_ACCOUNT.email || '') + '.' : 'Signed in through claude.ai.'}</p></div>` : '';
+      <p class="small muted" style="margin:8px 0 0">Access: ${S.isOwner ? (HOSTED() ? 'Administrator and Command Authority' : 'Administrator and Command Authority (artifact owner)') : S.isGm ? (HOSTED() ? 'Command Authority' : 'Command Authority (Editor)') : S.readOnly ? 'Read-only' : 'Personnel (Contributor)'}. ${HOSTED() ? 'Signed in as ' + esc(window.UNTSF_ACCOUNT.username || '') + '.' : 'Signed in through claude.ai.'}</p></div>` : '';
   return `<button class="btn ghost menu-btn" data-act="toggle-nav" aria-label="Menu">${icon('menu')}</button>
     <div class="brand">${S.navCollapsed ? logoHtml('compact') : logoHtml('primary')}</div>
     <div class="crumb"><span class="dept">${esc(r.dept || 'CMD')}</span><span>${esc(DEPTS[r.dept] || '')}</span></div>
@@ -955,7 +955,7 @@ function mainHtml() {
   if (r.gm && !S.isGm) return `<div class="empty">This screen is for Command Authority.</div>`;
   if (r.owner && !S.isOwner) return `<div class="empty">This screen is for the Administrator.</div>`;
   if (!r.gm && !S.isGm && S.ui.enlisting) return enlistView();
-  if (!r.gm && !S.pilotId && !(S.isGm && r.shared)) {
+  if (!r.gm && !r.owner && !S.pilotId && !(S.isGm && r.shared)) {
     if (S.isGm) return `<div class="page-head"><div><h1>${esc(r.title)}</h1><p>Choose a pilot in the top bar to see their player screens.</p></div></div>`;
     return claimView();
   }
@@ -2963,7 +2963,9 @@ function mapHtml(mode) {
       ${lb ? `<text class="lbl" x="${lb.x}" y="${lb.y}" text-anchor="${lb.anchor}" font-size="${fs}" stroke-width="${3 * k}">${esc(z.name)}</text>` : `<text class="lbl peek" x="${cx + s * 1.8}" y="${cy + s * .5}" font-size="${fs}" stroke-width="${3 * k}" aria-hidden="true">${esc(z.name)}</text>`}</g>`;
   }).join('');
   const frontLabels = frontItems.filter(f => placed[f.id]).map(f => { const lb = placed[f.id]; return `<text class="front-name" x="${lb.x}" y="${lb.y}" text-anchor="${lb.anchor}" font-size="${f.fs}" stroke-width="${3 * k}">${esc(f.text)}</text>`; }).join('');
-  const regions = zoom < 2.2 ? `<g class="regions" style="opacity:${zoom < 1.4 ? 0.9 : 0.5}">${MAP_REGIONS.map(([t, lon, lat, size]) => { const [x, y] = proj(lon, lat); return `<text x="${x}" y="${y}" font-size="${size * k}" text-anchor="middle">${esc(t)}</text>`; }).join('')}</g>` : '';
+  /* Region names are sized for a desktop map; on a phone-width map they shrink with it. */
+  const rscale = Math.max(0.42, Math.min(1, (m.px || 900) / 1000));
+  const regions = zoom < 2.2 ? `<g class="regions" style="opacity:${zoom < 1.4 ? 0.9 : 0.5}">${MAP_REGIONS.map(([t, lon, lat, size]) => { const [x, y] = proj(lon, lat); return `<text x="${x}" y="${y}" font-size="${size * k * rscale}" text-anchor="middle">${esc(t)}</text>`; }).join('')}</g>` : '';
   const views = [['world', 'World'], ['east-asia', 'East Asia'], ['europe', 'Europe'], ['mediterranean', 'Mediterranean'], ['americas', 'Americas'], ['africa', 'Africa']];
   return `<div class="mapwrap ${m.placing ? 'placing' : ''}">
     <svg class="worldmap" viewBox="${vb.join(' ')}" data-act="map-click" data-mode="${mode}" preserveAspectRatio="xMidYMid meet" aria-label="World operations map">
@@ -9108,7 +9110,7 @@ function hostedEmptyFrame() {
   if (!S.isGm) return `<div class="boot"><div class="plate boot-card"><h1>Setting up</h1><p>Command Authority hasn’t set up this campaign yet. Check back soon.</p>
     <button class="btn ghost" data-act="account-logout">${icon('logout', 16)} Log out</button></div></div>`;
   return `<div class="boot"><div class="plate boot-card hosted-setup"><p class="kicker">UNTSF-COMM · FIRST-TIME SET-UP</p><h1>Set up your campaign</h1>
-    <p>Signed in as <b>${esc(acct.email || '')}</b>, Administrator and Command Authority. The database is empty; choose how to start.</p>
+    <p>Signed in as <b>${esc(acct.username || '')}</b>, Administrator and Command Authority. The database is empty; choose how to start.</p>
     <div class="setup-choices">
       <div class="plate"><h2>Bring your campaign across</h2><p class="small">Use a backup downloaded from the claude.ai version (System Administration → Download backup). Everything comes across except uploaded images, which you upload again.</p>
         <label class="btn primary file-btn">${busy === 'import' ? 'Importing…' : 'Import a backup (.json)'}<input type="file" accept="application/json,.json" data-change="hosted-import" ${busy ? 'disabled' : ''}></label></div>
@@ -9143,6 +9145,109 @@ ACTIONS['account-logout'] = () => { if (window.UNTSF_ACCOUNT) window.UNTSF_ACCOU
 /* Log out of the account from the user menu, for players and Command Authority alike. */
 const _sessionExtrasHosted = sessionExtras;
 sessionExtras = () => _sessionExtrasHosted() + (window.UNTSF_ACCOUNT ? `<button class="btn ghost" data-act="account-logout">${icon('logout', 16)} Log out of account</button>` : '');
+
+/* ---------------------------------------------------------------- accounts (self-hosted): usernames, roles, passwords */
+const ROLE_LABEL = { owner: 'Administrator', gm: 'Command Authority', player: 'Player' };
+function tempPassword() {
+  const abc = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789', a = new Uint32Array(12);
+  crypto.getRandomValues(a); return Array.from(a, n => abc[n % abc.length]).join('').replace(/(.{4})(?=.)/g, '$1-');
+}
+function loadMembers() {
+  S.mem.membersLoading = true;
+  window.UNTSF_ACCOUNT.listMembers().then(m => { S.mem.members = m; S.mem.membersLoading = false; render(); }, e => { S.mem.members = []; S.mem.membersLoading = false; toast('Couldn’t load accounts: ' + (e.message || e), true); });
+}
+function accountsPanelHtml() {
+  if (S.mem.members === undefined && !S.mem.membersLoading) loadMembers();
+  const ms = S.mem.members || [], me = window.UNTSF_ACCOUNT, done = S.ui.acctMsg;
+  return `<section class="plate" style="margin-top:16px" aria-labelledby="acct-h"><div class="record-head"><h2 id="acct-h">Accounts</h2><button class="btn ghost" data-act="acct-refresh">Refresh</button></div>
+    <p class="small muted" style="margin-top:0">Accounts are usernames only: no email addresses are collected or stored. Reset forgotten passwords here, and make trusted players Command Authority.</p>
+    ${done ? `<div class="notice ${done.bad ? 'warn' : ''}" role="status">${done.html}</div>` : ''}
+    ${inviteHtml()}
+    ${S.mem.membersLoading && !ms.length ? '<p class="small muted">Loading accounts…</p>' : `<div class="scroll-x"><table class="data"><thead><tr><th>Username</th><th>Role</th><th>Joined</th><th>Characters</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
+      ${ms.map(m => { const chars = list('pilots').filter(p => p.userId === m.user_id), self = m.user_id === me.id;
+        return `<tr><td><b>${esc(m.username)}</b>${self ? ' <span class="chip">YOU</span>' : ''}</td>
+          <td>${m.role === 'owner' ? 'Administrator' : `<label><span class="sr-only">Role for ${esc(m.username)}</span><select id="acct-role-${esc(m.user_id)}" data-change="acct-role" data-id="${esc(m.user_id)}">${['player', 'gm'].map(r => `<option value="${r}" ${m.role === r ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select></label>`}</td>
+          <td>${fmtDate(m.created_at)}</td><td>${chars.length ? chars.map(p => esc(p.callsign || p.fullName)).join(', ') : '<span class="small muted">None yet</span>'}</td>
+          <td class="btn-row nowrap">${self ? '<span class="small muted">Use Change password in your menu</span>' : `<button class="btn ghost" data-act="acct-reset" data-id="${esc(m.user_id)}" data-name="${esc(m.username)}">Reset password</button><button class="btn ghost" data-act="acct-delete" data-id="${esc(m.user_id)}" data-name="${esc(m.username)}">Delete account</button>`}</td></tr>`; }).join('')}</tbody></table></div>`}</section>`;
+}
+ACTIONS['acct-refresh'] = () => { S.ui.acctMsg = null; loadMembers(); render(); };
+CHANGES['acct-role'] = (v, d) => window.UNTSF_ACCOUNT.setRole(d.id, v).then(() => { S.ui.acctMsg = { html: `Role updated. The change applies at their next sign-in.` }; loadMembers(); }, e => { S.ui.acctMsg = { bad: true, html: esc(e.message || 'Not permitted') }; render(); });
+ACTIONS['acct-reset'] = d => askConfirm(`Give ${d.name} a new temporary password? They’ll be signed out everywhere.`, 'Reset password', () => {
+  const pw = tempPassword();
+  window.UNTSF_ACCOUNT.resetPassword(d.id, pw).then(() => { S.ui.acctMsg = { html: `New temporary password for <b>${esc(d.name)}</b>: <code class="temp-pass">${esc(pw)}</code><br><span class="small">Send it to them privately. It isn’t shown again; they can change it from their menu.</span>` }; render(); },
+    e => { S.ui.acctMsg = { bad: true, html: esc(e.message || 'Not permitted') }; render(); });
+});
+ACTIONS['acct-delete'] = d => askConfirm(`Delete the account ${d.name}? They can no longer sign in. Their characters stay in the campaign until you archive them.`, 'Delete account', () =>
+  window.UNTSF_ACCOUNT.deleteAccount(d.id).then(() => { S.ui.acctMsg = { html: `Account <b>${esc(d.name)}</b> deleted.` }; loadMembers(); }, e => { S.ui.acctMsg = { bad: true, html: esc(e.message || 'Not permitted') }; render(); }), true);
+if (ROUTES.admin) { const _adminViewHosted = ROUTES.admin.view; ROUTES.admin.view = function () { const html = _adminViewHosted.call(this); return HOSTED() && S.isOwner ? html + accountsPanelHtml() : html; }; }
+
+/* Everyone: change your own password. */
+ACTIONS['account-password'] = () => { S.ui.form.pw = { a: '', b: '' }; S.ui.menu = null; openDrawer('account-password'); };
+DRAWERS_REG('account-password', function () {
+  return `<header><div><p class="kicker">ACCOUNT · ${esc((window.UNTSF_ACCOUNT || {}).username || '')}</p><h2>Change password</h2></div><button class="btn ghost" data-act="close-drawer" aria-label="Close">${icon('x')}</button></header>
+    <div class="body"><div class="form-grid"><label class="field">New password (at least 8 characters)<input id="pw-a" type="password" autocomplete="new-password" data-bind="ui/form/pw/a"></label>
+      <label class="field">New password again<input id="pw-b" type="password" autocomplete="new-password" data-bind="ui/form/pw/b"></label></div></div>
+    <footer><button class="btn primary" data-act="account-password-save">Save password</button></footer>`;
+});
+ACTIONS['account-password-save'] = () => {
+  const f = S.ui.form.pw;
+  if ((f.a || '').length < 8) { toast('Use a password of at least 8 characters.', true); return; }
+  if (f.a !== f.b) { toast('The two passwords don’t match.', true); return; }
+  window.UNTSF_ACCOUNT.changePassword(f.a).then(() => { S.ui.form.pw = null; S.ui.drawer = null; toast('Password changed.'); }, e => toast('Couldn’t change it: ' + (e.message || 'unknown error'), true));
+};
+const _sessionExtrasPw = sessionExtras;
+sessionExtras = () => (window.UNTSF_ACCOUNT ? `<button class="btn ghost" data-act="account-password">${icon('lock', 16)} Change password</button>` : '') + _sessionExtrasPw();
+
+/* Sign-up invite code: strangers who find the site can't create accounts. */
+function inviteHtml() {
+  if (S.mem.invite === undefined) { S.mem.invite = null; window.UNTSF_ACCOUNT.inviteRequired().then(v => { S.mem.invite = v; render(); }, () => {}); }
+  const on = S.mem.invite === true;
+  return `<div class="invite-box plate"><h3 style="margin:0 0 4px">Sign-up invite code</h3>
+    <p class="small" style="margin:0 0 8px">${S.mem.invite === null ? 'Checking…' : on ? '<b>On.</b> New accounts need the current code. Give it to players privately.' : '<b>Off.</b> Anyone who finds the site can create an account and apply.'}</p>
+    <div class="btn-row"><button class="btn ${on ? '' : 'primary'}" data-act="invite-new">${on ? 'Change the code' : 'Turn on with a new code'}</button>${on ? '<button class="btn ghost" data-act="invite-off">Turn off</button>' : ''}</div></div>`;
+}
+ACTIONS['invite-new'] = () => { const code = tempPassword();
+  window.UNTSF_ACCOUNT.setInviteCode(code).then(() => { S.mem.invite = true; S.ui.acctMsg = { html: `New sign-up invite code: <code class="temp-pass">${esc(code)}</code><br><span class="small">Give it to new players privately. It isn’t shown again; make a new one any time. Existing accounts aren’t affected.</span>` }; render(); },
+    e => { S.ui.acctMsg = { bad: true, html: esc(e.message || 'Not permitted') }; render(); }); };
+ACTIONS['invite-off'] = () => askConfirm('Turn off the invite code? Anyone who finds the site could then create an account.', 'Turn off', () =>
+  window.UNTSF_ACCOUNT.setInviteCode('').then(() => { S.mem.invite = false; S.ui.acctMsg = { html: 'Invite code turned off.' }; render(); }, e => { S.ui.acctMsg = { bad: true, html: esc(e.message || 'Not permitted') }; render(); }), true);
+
+;
+/* =====================================================================
+   UNTSF-COMM — phones.
+   A bottom navigation bar on narrow screens (players: Home, Eishi File,
+   Missions, Hangar, More; Command Authority: Command, Approvals, Map,
+   Personnel, More), following Access Control. Applicants get none.
+   ===================================================================== */
+'use strict';
+
+function bottomNavItems() {
+  const v = typeof viewer === 'function' ? viewer() : null;
+  if (v && v.applicant) return [];
+  if (S.isGm && !S.ui.previewAs) {
+    const pending = list('approvals').filter(a => a.status === 'pending').length;
+    return [['gm', 'shield', 'Command'], ['approvals', 'check', 'Approvals', pending], ['campaign', 'map', 'Map'], ['personnel', 'users', 'Personnel']];
+  }
+  if (!S.pilotId) return [];
+  const briefed = myMissions ? myMissions().filter(m => m.status === 'briefed' || m.status === 'active').length : 0;
+  return [['dashboard', 'grid', 'Home'], ['pilot', 'user', 'Eishi'], moduleOn('operations') ? ['missions', 'map', 'Missions', briefed] : null, ['hangar', 'wrench', 'Hangar']]
+    .filter(Boolean).filter(([r]) => ROUTES[r] && routeAllowed(r));
+}
+function bottomNavHtml() {
+  const items = bottomNavItems();
+  if (!items.length) return '';
+  return items.map(([r, ic, label, badge]) => `<button class="bn-item ${S.route === r ? 'on' : ''}" data-act="nav" data-route="${r}" ${S.route === r ? 'aria-current="page"' : ''}>
+      ${icon(ic, 22)}<span>${esc(label)}</span>${badge ? `<b class="bn-badge" aria-label="${badge} waiting">${badge > 9 ? '9+' : badge}</b>` : ''}</button>`).join('')
+    + `<button class="bn-item" data-act="toggle-nav" aria-label="More: open the full menu">${icon('menu', 22)}<span>More</span></button>`;
+}
+AFTER_RENDER.push(() => {
+  const shell = document.querySelector('.shell'); if (!shell) return;
+  let bn = document.getElementById('bottomnav');
+  if (!bn) { bn = document.createElement('nav'); bn.id = 'bottomnav'; bn.className = 'bottomnav'; bn.setAttribute('aria-label', 'Quick navigation'); shell.appendChild(bn); }
+  const html = bottomNavHtml();
+  if (bn.innerHTML !== html) bn.innerHTML = html;
+  shell.classList.toggle('has-bottomnav', !!html);
+});
 
 ;
 /* start-up: every module has registered its routes, drawers and actions */

@@ -10,6 +10,8 @@
    ===================================================================== */
 (function () {
   'use strict';
+  /* Installable on phones: register the offline helper (HTTPS only). */
+  if ('serviceWorker' in navigator && location.protocol === 'https:') { navigator.serviceWorker.register('sw.js').catch(function () {}); }
   var cfg = window.UNTSF_CONFIG || {};
   var url = String(cfg.supabaseUrl || '').replace(/\/+$/, ''), key = String(cfg.publishableKey || '');
   var gate = function () { return document.getElementById('auth-root'); };
@@ -25,50 +27,54 @@
   if (!window.supabase || typeof window.supabase.createClient !== 'function') { card('<h1>Can’t reach Supabase</h1><p>The Supabase library didn’t load. Check your connection and refresh.</p>'); return; }
   var sb = window.supabase.createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
   window.UNTSF_ASSET_BASE = url + '/storage/v1/object/public/assets/';
-  var here = location.origin + location.pathname;
 
-  /* ------------------------------------------------------------ sign-in screen */
-  /* A password-reset link carries type=recovery: ask for the new password before opening the app. */
-  var recovering = /type=recovery/.test(location.hash + location.search), mode = recovering ? 'newpass' : 'signin', note = null, started = false;
+  /* ------------------------------------------------------------ sign-in screen: usernames only, no email
+     Supabase signs people in with an address, so a username becomes an internal sign-in name on the reserved
+     .invalid domain (RFC 2606): it can never receive mail, and Supabase refuses to send to it. */
+  var ACCOUNT_DOMAIN = 'players.untsf.invalid';
+  var USERNAME = /^[a-z0-9][a-z0-9_-]{2,23}$/;
+  var toLogin = function (u) { return u.toLowerCase() + '@' + ACCOUNT_DOMAIN; };
+  var mode = 'signin', note = null, started = false, inviteNeeded = null;
+  function checkInvite() { sb.rpc('invite_required').then(function (r) { var v = !r.error && r.data === true; if (v !== inviteNeeded) { inviteNeeded = v; if (mode === 'signup') showGate(); } }, function () {}); }
   function field(id, label, type, extra) { return '<label class="field">' + label + '<input id="' + id + '" type="' + type + '" ' + (extra || '') + '></label>'; }
   function showGate() {
-    var title = { signin: 'Sign in', signup: 'Create an account', reset: 'Reset your password', newpass: 'Choose a new password' }[mode];
-    var body = mode === 'signin' ? field('au-email', 'Email', 'email', 'autocomplete="email" required') + field('au-pass', 'Password', 'password', 'autocomplete="current-password" required')
-      : mode === 'signup' ? field('au-name', 'Your name (shown to Command Authority)', 'text', 'autocomplete="nickname"') + field('au-email', 'Email', 'email', 'autocomplete="email" required') + field('au-pass', 'Password (at least 8 characters)', 'password', 'autocomplete="new-password" minlength="8" required')
-      : mode === 'reset' ? field('au-email', 'Email', 'email', 'autocomplete="email" required')
-      : field('au-pass', 'New password (at least 8 characters)', 'password', 'autocomplete="new-password" minlength="8" required');
-    var go = { signin: 'Sign in', signup: 'Create account', reset: 'Send reset link', newpass: 'Save password' }[mode];
+    var title = { signin: 'Sign in', signup: 'Create an account' }[mode];
+    var body = field('au-user', 'Username', 'text', 'autocomplete="username" autocapitalize="none" spellcheck="false" required')
+      + field('au-pass', mode === 'signup' ? 'Password (at least 8 characters)' : 'Password', 'password', 'autocomplete="' + (mode === 'signup' ? 'new-password' : 'current-password') + '" required')
+      + (mode === 'signup' ? field('au-pass2', 'Password again', 'password', 'autocomplete="new-password" required')
+        + field('au-invite', inviteNeeded === false ? 'Invite code (not needed at the moment)' : 'Invite code (from Command Authority)', 'text', 'autocomplete="off" autocapitalize="none" spellcheck="false"') : '');
     card('<p class="kicker">UNITED NATIONS · UNTSF-COMM</p><h1>' + title + '</h1>' + (note ? '<p class="notice ' + (note.bad ? 'warn' : '') + '" role="status">' + esc(note.text) + '</p>' : '')
-      + '<form id="au-form" class="auth-form" novalidate>' + body + '<button class="btn primary" type="submit" id="au-go">' + go + '</button></form>'
-      + '<div class="auth-links">' + (mode === 'signin' ? '<button class="link-row" data-au="signup">New here? Create an account</button><button class="link-row" data-au="reset">Forgotten your password?</button>'
-        : mode === 'newpass' ? '' : '<button class="link-row" data-au="signin">Back to sign in</button>') + '</div>');
+      + (mode === 'signup' ? '<p class="small muted">Choose a username: 3 to 24 letters, numbers, hyphens or underscores. No email address is needed or stored.</p>' : '')
+      + '<form id="au-form" class="auth-form" novalidate>' + body + '<button class="btn primary" type="submit" id="au-go">' + (mode === 'signup' ? 'Create account' : 'Sign in') + '</button></form>'
+      + '<div class="auth-links">' + (mode === 'signin' ? '<button class="link-row" data-au="signup">New here? Create an account</button><p class="small muted" style="margin:6px 0 0">Forgotten your password? Ask the Administrator to reset it.</p>'
+        : '<button class="link-row" data-au="signin">Back to sign in</button>') + '</div>');
     var f = document.getElementById('au-form'); if (f) f.addEventListener('submit', function (e) { e.preventDefault(); submit(); });
-    Array.prototype.forEach.call(document.querySelectorAll('[data-au]'), function (b) { b.addEventListener('click', function () { mode = b.getAttribute('data-au'); note = null; showGate(); }); });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-au]'), function (b) { b.addEventListener('click', function () { mode = b.getAttribute('data-au'); note = null; showGate(); if (mode === 'signup') checkInvite(); }); });
     var first = document.querySelector('#au-form input'); if (first) first.focus();
   }
-  function val(id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; }
+  function val(id) { var el = document.getElementById(id); return el ? el.value : ''; }
   function busy(on) { var b = document.getElementById('au-go'); if (b) { b.disabled = on; if (on) b.textContent = 'Working…'; } }
   async function submit() {
-    var email = val('au-email'), pass = (document.getElementById('au-pass') || {}).value || '';
-    if (mode !== 'newpass' && !/^\S+@\S+\.\S+$/.test(email)) { note = { bad: true, text: 'Enter your email address.' }; return showGate(); }
-    if ((mode === 'signup' || mode === 'newpass') && pass.length < 8) { note = { bad: true, text: 'Use a password of at least 8 characters.' }; return showGate(); }
+    var user = val('au-user').trim().toLowerCase(), pass = val('au-pass');
+    if (!USERNAME.test(user)) { note = { bad: true, text: 'Usernames are 3 to 24 letters, numbers, hyphens or underscores, starting with a letter or number.' }; return showGate(); }
+    if (mode === 'signup' && pass.length < 8) { note = { bad: true, text: 'Use a password of at least 8 characters.' }; return showGate(); }
+    if (mode === 'signup' && pass !== val('au-pass2')) { note = { bad: true, text: 'The two passwords don’t match.' }; return showGate(); }
     busy(true);
     try {
-      if (mode === 'signin') { var r = await sb.auth.signInWithPassword({ email: email, password: pass }); if (r.error) throw r.error; return start(r.data.session); }
-      if (mode === 'signup') {
-        var s = await sb.auth.signUp({ email: email, password: pass, options: { data: { display_name: val('au-name') || email.split('@')[0] }, emailRedirectTo: here } });
-        if (s.error) throw s.error;
-        if (s.data.session) return start(s.data.session);
-        mode = 'signin'; note = { text: 'Account created. Check your email for the confirmation link, then sign in.' }; return showGate();
-      }
-      if (mode === 'reset') { var x = await sb.auth.resetPasswordForEmail(email, { redirectTo: here }); if (x.error) throw x.error; mode = 'signin'; note = { text: 'If that address has an account, a reset link is on its way.' }; return showGate(); }
-      if (mode === 'newpass') { var u = await sb.auth.updateUser({ password: pass }); if (u.error) throw u.error; recovering = false; try { history.replaceState(null, '', here); } catch (e) { /* ignore */ } var g = await sb.auth.getSession(); return start(g.data.session); }
+      if (mode === 'signin') { var r = await sb.auth.signInWithPassword({ email: toLogin(user), password: pass }); if (r.error) throw r.error; return start(r.data.session); }
+      var code = val('au-invite').trim(), meta = { username: user }; if (code) meta.invite = code;
+      var s = await sb.auth.signUp({ email: toLogin(user), password: pass, options: { data: meta } });
+      if (s.error) throw s.error;
+      if (s.data.session) return start(s.data.session);
+      mode = 'signin'; note = { bad: true, text: 'The account was created but needs confirming. Ask the Administrator to switch off “Confirm email” in Supabase.' }; return showGate();
     } catch (e) {
       var m = (e && e.message) || 'Something went wrong.';
-      if (/invalid login/i.test(m)) m = 'That email and password don’t match an account.';
-      else if (/already registered/i.test(m)) m = 'That email already has an account. Sign in instead.';
-      else if (/rate limit/i.test(m)) m = 'Too many emails sent recently. Wait a while and try again, or ask Command Authority.';
-      else if (/not confirmed/i.test(m)) m = 'Confirm your email address first: check your inbox for the link.';
+      if (/invalid login/i.test(m)) m = 'That username and password don’t match an account.';
+      else if (/already registered|already exists/i.test(m)) m = 'That username is taken. Choose another.';
+      else if (/rate limit/i.test(m)) m = 'Too many attempts. Wait a minute and try again.';
+      else if (/not confirmed/i.test(m)) m = 'This account still needs confirming. Ask the Administrator to switch off “Confirm email” in Supabase.';
+      else if (/signups? not allowed|disabled/i.test(m)) m = 'New accounts are closed. Ask the Administrator to create one for you.';
+      else if (/invite_code_invalid|database error saving new user/i.test(m)) m = 'That invite code isn’t right. Ask Command Authority for the current one.';
       note = { bad: true, text: m }; showGate();
     }
   }
@@ -173,21 +179,23 @@
   /* ------------------------------------------------------------ start the app once signed in */
   async function memberRow(uid) {
     for (var i = 0; i < 6; i++) {
-      var r = await sb.from('members').select('role,email,display_name').eq('user_id', uid).maybeSingle();
+      var r = await sb.from('members').select('role,username').eq('user_id', uid).maybeSingle();
       if (r.data) return r.data;
       await new Promise(function (ok) { setTimeout(ok, 500); });
     }
     return null;
   }
   async function start(session) {
-    if (started || !session || recovering) return;
+    if (started || !session) return;
     started = true;
     card('<h1>Connecting…</h1><p>Opening the campaign.</p>');
     var user = session.user, member = await memberRow(user.id);
     if (!member) { started = false; note = { bad: true, text: 'Your account isn’t set up in the database yet. Ask Command Authority to check the database set-up has run.' }; mode = 'signin'; await sb.auth.signOut(); return showGate(); }
+    var uname = member.username;
     window.UNTSF_ACCOUNT = {
-      email: user.email, role: member.role, name: member.display_name,
+      username: uname, email: uname, role: member.role, name: uname, id: user.id,
       signOut: async function () { try { sessionStorage.clear(); } catch (e) { /* ignore */ } await sb.auth.signOut(); location.reload(); },
+      changePassword: async function (pass) { var r = await sb.auth.updateUser({ password: pass }); if (r.error) throw mapError(r.error); },
       /* Command Authority set-up: write many records at once. */
       bulkPut: async function (rows, progress) {
         for (var i = 0; i < rows.length; i += 400) {
@@ -196,7 +204,14 @@
           if (res.error) throw mapError(res.error);
           if (progress) progress(Math.min(rows.length, i + 400));
         }
-      }
+      },
+      /* Administrator: accounts. */
+      listMembers: async function () { var r = await sb.from('members').select('user_id,username,role,created_at').order('created_at'); if (r.error) throw mapError(r.error); return r.data; },
+      setRole: async function (uid, role) { var r = await sb.from('members').update({ role: role }).eq('user_id', uid); if (r.error) throw mapError(r.error); },
+      resetPassword: async function (uid, pass) { var r = await sb.rpc('admin_reset_password', { p_user: uid, p_password: pass }); if (r.error) throw mapError(r.error); },
+      inviteRequired: async function () { var r = await sb.rpc('invite_required'); if (r.error) throw mapError(r.error); return r.data === true; },
+      setInviteCode: async function (code) { var r = await sb.rpc('admin_set_invite_code', { p_code: code || null }); if (r.error) throw mapError(r.error); },
+      deleteAccount: async function (uid) { var r = await sb.rpc('admin_delete_account', { p_user: uid }); if (r.error) throw mapError(r.error); }
     };
     var gm = member.role === 'owner' || member.role === 'gm';
     window.claude = { use: async function (name) {
@@ -211,9 +226,6 @@
     var s = document.createElement('script'); s.src = 'app.js?v=' + (window.UNTSF_BUILD || '1'); document.body.appendChild(s);
   }
 
-  sb.auth.onAuthStateChange(function (event, session) {
-    if (event === 'PASSWORD_RECOVERY') { recovering = true; mode = 'newpass'; note = null; return showGate(); }
-    if (event === 'SIGNED_IN' && session && !started && !recovering) start(session);
-  });
-  sb.auth.getSession().then(function (r) { if (recovering) return showGate(); if (r.data && r.data.session) start(r.data.session); else if (!started) showGate(); }, function () { showGate(); });
+  sb.auth.onAuthStateChange(function (event, session) { if (event === 'SIGNED_IN' && session && !started) start(session); });
+  sb.auth.getSession().then(function (r) { if (r.data && r.data.session) start(r.data.session); else if (!started) showGate(); }, function () { showGate(); });
 })();
