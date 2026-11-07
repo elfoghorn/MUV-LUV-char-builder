@@ -4118,7 +4118,7 @@ route('personnel', 'Personnel Administration', function () {
     <div class="scroll-x"><table class="data"><thead><tr><th>Reference</th><th>Personnel</th><th>Rank</th><th>Organisation</th><th>Unit / squadron</th><th>Assigned TSF</th><th>Account</th><th>Status</th></tr></thead><tbody>
     ${pg.rows.map(p => `<tr class="click" data-act="pilot-open" data-id="${p.id}"><td>${ref('pers', p)}</td><td><span class="who">${avatarHtml(p, 28)}<span><b>${esc(p.callsign || '')}</b> ${esc(p.fullName)}</span></span></td>
       <td>${esc((rankById(p.rankId) || {}).name || '–')}</td><td>${esc(facName(p.factionId))}</td><td class="small">${esc(unitPathText(p) || '–')}${p.unitId ? `<br><span class="muted">${esc(roleName(p.unitRole))}</span>` : ''}</td>
-      <td class="small">${tsfs.filter(t => t.ownerPilotId === p.id).map(t => esc(t.serial)).join(', ') || '–'}</td><td>${p.userId ? chip('approved', 'Linked') : '<span class="small muted">Not linked</span>'}</td>
+      <td class="small">${tsfs.filter(t => t.ownerPilotId === p.id).map(t => esc(t.serial)).join(', ') || '–'}</td><td>${p.userId ? chip('approved', accountName(p.userId) || 'Linked') : '<span class="small muted">Not linked</span>'}</td>
       <td>${chip(p.status === 'active' ? 'operational' : p.status === 'pending' ? 'pending' : 'retired', p.status)}</td></tr>`).join('')}</tbody></table></div>${pg.bar}${rows.length ? '' : '<div class="empty">No personnel match these filters.</div>'}`;
 });
 
@@ -9227,6 +9227,57 @@ ACTIONS['acct-reset'] = d => askConfirm(`Give ${d.name} a new temporary password
 });
 ACTIONS['acct-delete'] = d => askConfirm(`Delete the account ${d.name}? They can no longer sign in. Their characters stay in the campaign until you archive them.`, 'Delete account', () =>
   window.UNTSF_ACCOUNT.deleteAccount(d.id).then(() => { S.ui.acctMsg = { html: `Account <b>${esc(d.name)}</b> deleted.` }; loadMembers(); }, e => { S.ui.acctMsg = { bad: true, html: esc(e.message || 'Not permitted') }; render(); }), true);
+/* ---------------------------------------------------------------- the full personnel record, and which account plays it */
+/* Username for an account id, once the account list has loaded (self-hosted only). */
+function accountName(uid) {
+  if (!HOSTED() || !uid) return '';
+  if (S.mem.members === undefined && !S.mem.membersLoading) loadMembers();
+  const m = (S.mem.members || []).find(x => x.user_id === uid);
+  return m ? m.username : '';
+}
+function accountLinkHtml(p) {
+  const was = (get('pilots', p.id) || {}).userId || null, now = p.userId || null;
+  const who = id => id ? accountName(id) || (S.mem.membersLoading ? 'loading…' : 'a deleted account') : 'no account';
+  if (!S.isOwner) return `<p class="small">Player account: <b>${esc(who(now))}</b>. Only the Administrator moves characters between accounts.</p>`;
+  const ms = S.mem.members || [];
+  const opts = [['', 'No account (unclaimed)']].concat(ms.map(m => [m.user_id, `${m.username}${m.user_id === S.uid ? ' (you)' : ''} · ${ROLE_LABEL[m.role === 'gm' ? 'mod' : m.role] || m.role}`]));
+  if (now && !ms.some(m => m.user_id === now)) opts.push([now, who(now)]);
+  return `<div class="row-edit"><label class="field">Player account<select id="p-acct" data-change="pilot-account">${opts.map(([v, l]) => `<option value="${esc(v)}" ${(now || '') === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label></div>
+    <p class="small muted">The account that plays this character. Give it to another player, take it yourself, or leave it unclaimed.</p>
+    ${now !== was ? `<p class="small warn-text" role="status">Moves from ${esc(who(was))} to ${esc(who(now))} when you save.${p.accessCode && now ? ' Its access code is removed so the new player can sign in.' : ''}</p>` : ''}`;
+}
+CHANGES['pilot-account'] = v => { S.ui.edit.pilot.userId = v || null; render(); };
+const _pilotEditFull = DRAWERS['pilot-edit'];
+DRAWERS_REG('pilot-edit', d => {
+  const html = _pilotEditFull(d), p = S.ui.edit && S.ui.edit.pilot; if (!p) return html;
+  const b = 'ui/edit/pilot', qs = applicationRules().questions;
+  const area = (id, k, l, wide) => `<label class="field${wide === false ? '' : ' wide'}">${l}<textarea id="${id}" data-bind="${b}/${k}">${esc(p[k] || '')}</textarea></label>`;
+  const details = `<section><h3>Personal details</h3><div class="form-grid">
+      <label class="field">Date of birth${txt('p-dob', b + '/dob', p.dob, 'e.g. 14 March 1983')}</label>
+      <label class="field">Place of birth${txt('p-pob', b + '/birthplace', p.birthplace, 'e.g. Sendai')}</label>
+      ${FC_KINDS.map(([k, l, ph], i) => `<label class="field">${l}${txt('p-fc' + i, b + '/' + k, p[k], ph)}</label>`).join('')}
+      <label class="field">Preferred role${sel('p-prole', b + '/preferredRoleId', p.preferredRoleId || '', vocab('classifications').map(c => [c.id, c.name]), 'No preference')}</label>
+      <label class="field">Years of service${num('p-yrs', b + '/yearsService', p.yearsService)}</label></div>
+      ${faceClaimClashes(p, p.id).map(x => `<p class="notice warn small">${esc(x)}</p>`).join('')}</section>
+    <section><h3>Service and background</h3><div class="form-grid">${area('p-prior', 'priorService', 'Training and previous units')}${area('p-mot', 'motivation', 'Why they serve')}
+      ${area('p-pers', 'personality', 'Personality and conduct')}${area('p-str', 'strengths', 'Strengths', false)}${area('p-weak', 'weaknesses', 'Weaknesses', false)}</div></section>
+    ${qs.length ? `<section><h3>Application answers</h3>${qs.map(x => `<label class="field wide" style="margin-bottom:10px">${esc(x.text)}<textarea id="p-ans-${esc(x.id)}" data-bind="${b}/answers/${esc(x.id)}">${esc((p.answers || {})[x.id] || '')}</textarea></label>`).join('')}</section>` : ''}`;
+  const out = html.replace('<section><h3>Portrait and insignia</h3>', details + '<section><h3>Portrait and insignia</h3>');
+  return HOSTED() ? out.replace(/<p class="small">Linked to a player account\.[\s\S]*?<\/p>|<p class="small muted">Not yet claimed by a player\.<\/p>/, accountLinkHtml(p)) : out;
+});
+/* Saving: a character given to a different account loses its access code, which only the old player knew. */
+const _pilotGmSaveFull = ACTIONS['pilot-gm-save'];
+ACTIONS['pilot-gm-save'] = (d, el) => {
+  const p = S.ui.edit && S.ui.edit.pilot;
+  if (p) {
+    const was = S.ui.edit.isNew ? null : (get('pilots', p.id) || {}).userId || null;
+    if (HOSTED() && !S.isOwner && (p.userId || null) !== was) { toast('Only the Administrator moves characters between accounts.', true); return; }
+    if ((p.userId || null) !== was && p.userId) delete p.accessCode;
+    FC_KINDS.forEach(([k]) => { if (typeof p[k] === 'string') p[k] = p[k].trim(); });
+  }
+  return _pilotGmSaveFull(d, el);
+};
+
 if (ROUTES.admin) { const _adminViewHosted = ROUTES.admin.view; ROUTES.admin.view = function () { const html = _adminViewHosted.call(this); return HOSTED() && S.isOwner ? html + accountsPanelHtml() : html; }; }
 
 /* Everyone: change your own password. */
