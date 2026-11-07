@@ -685,7 +685,7 @@ function insignia(size, compact) {
   return `<svg class="insignia-brand" viewBox="0 0 64 72" width="${size}" height="${Math.round(size * 72 / 64)}" aria-hidden="true">
     <path d="M32 3 L59 12 L56 44 Q51 62 32 69 Q13 62 8 44 L5 12 Z" fill="none" stroke="currentColor" stroke-width="2.4"/>
     <path d="M32 8 L54 15.5 L51.5 43 Q47 58 32 64 Q17 58 12.5 43 L10 15.5 Z" fill="currentColor" opacity=".08"/>
-    <ellipse cx="32" cy="${compact ? 36 : 33}" rx="21" ry="7" fill="none" stroke="currentColor" stroke-width="1.3" opacity=".6" transform="rotate(-18 32 ${compact ? 36 : 33})"/>
+    <ellipse cx="32" cy="${compact ? 36 : 33}" rx="21" ry="7" fill="none" stroke="#d9a441" stroke-width="1.6" transform="rotate(-18 32 ${compact ? 36 : 33})"/>
     <g transform="translate(0 ${compact ? 3 : 0})">
       <path d="M32 13 L38.5 30 L32 27 L25.5 30 Z" fill="currentColor"/>
       <rect x="30.4" y="28.5" width="3.2" height="15" fill="currentColor"/>
@@ -7688,7 +7688,7 @@ function faceClaimClashes(c, selfId) {
 const faceClaimRows = (c, row) => FC_KINDS.map(([k, l]) => row(l, c[k])).join('');
 function applicationRules() { const o = get('settings', 'application') || {}, r = clone(APP_DEFAULTS); Object.keys(o).forEach(k => { if (k === 'id') return; if (k === 'required') r.required = Object.assign({}, r.required, o.required); else r[k] = o[k]; }); return r; }
 const APP_STEPS_ALL = [['identity', 'Identity'], ['service', 'Service'], ['posting', 'Posting'], ['background', 'Background'], ['attributes', 'Attributes'], ['qualifications', 'Qualifications'], ['insignia', 'Insignia & portrait'], ['questions', 'Questions'], ['review', 'Review']];
-const appSteps = () => APP_STEPS_ALL.filter(([k]) => (k !== 'questions' || applicationRules().questions.length)
+const appSteps = () => APP_STEPS_ALL.filter(([k]) => (k !== 'questions' || applicationRules().questions.length) && (k !== 'attributes' || !(S.ui.enlist && S.ui.enlist.d.kind === 'support'))
   && (k !== 'posting' || (typeof openSlots === 'function' && (openSlots().length || ((S.ui.enlist && S.ui.enlist.d.postingChoices) || []).length))));
 
 /* ---------------------------------------------------------------- the form state */
@@ -8243,14 +8243,14 @@ ROUTE_DEPT.structure = 'CMD'; ROUTES.structure.dept = 'CMD';
 function structureUnitHtml(u, depth) {
   const slots = slotsOf(u.id), kids = structureChildren(u.id), t = unitType(u.type);
   return `<section class="plate st-unit depth-${Math.min(depth, 3)}" aria-label="${esc(u.name)}">
-    <div class="record-head"><div><p class="kicker">${esc(t.name.toUpperCase())}${u.designation ? ' · ' + esc(u.designation) : ''}${u.callsignPrefix ? ' · CALLSIGN ' + esc(u.callsignPrefix.toUpperCase()) : ''}</p><h2>${esc(u.name)}</h2>${u.description ? `<p class="small muted" style="margin:2px 0 0">${esc(u.description)}</p>` : ''}</div>
-      <div class="btn-row">${t.echelon > 10 ? `<button class="btn" data-act="st-unit-new" data-type="flight" data-parent="${u.id}">Add flight</button>` : ''}
+    <div class="record-head"><div><p class="kicker">${esc(t.name.toUpperCase())}${u.designation ? ' · ' + esc(u.designation) : ''}${u.callsignPrefix ? ' · CALLSIGN ' + esc(u.callsignPrefix.toUpperCase()) : ''}</p><h2>${esc(u.name)}</h2>${slots.length ? unitFillGauge(slots) : ''}${u.description ? `<p class="small muted" style="margin:2px 0 0">${esc(u.description)}</p>` : ''}</div>
+      <div class="btn-row">${t.echelon > 10 && !t.support ? `<button class="btn" data-act="st-unit-new" data-type="flight" data-parent="${u.id}">Add flight</button>` : ''}${supportTypeUnder(t) ? `<button class="btn" data-act="st-unit-new" data-type="${supportTypeUnder(t).code}" data-parent="${u.id}">${icon('tool', 14)} Add support unit</button>` : ''}
         <button class="btn" data-act="slot-new" data-unit="${u.id}">Add slot</button>
-        <select id="st-tpl-${u.id}" data-change="st-template" data-unit="${u.id}" aria-label="Add slots from a template to ${esc(u.name)}"><option value="">Add from template…</option>${SLOT_TEMPLATES.map(([k, l, xs]) => `<option value="${k}">${esc(l)} (${xs.length})</option>`).join('')}</select>
+        <select id="st-tpl-${u.id}" data-change="st-template" data-unit="${u.id}" aria-label="Add slots from a template to ${esc(u.name)}"><option value="">Add from template…</option><optgroup label="Eishi">${SLOT_TEMPLATES.filter(x => !x[3]).map(([k, l, xs]) => `<option value="${k}">${esc(l)} (${xs.length})</option>`).join('')}</optgroup><optgroup label="Support staff">${SLOT_TEMPLATES.filter(x => x[3]).map(([k, l, xs]) => `<option value="${k}">${esc(l)} (${xs.length})</option>`).join('')}</optgroup></select>
         <button class="btn ghost" data-act="st-unit-edit" data-id="${u.id}">Edit</button>${!slots.length && !kids.length ? `<button class="btn ghost" data-act="st-unit-remove" data-id="${u.id}">Remove</button>` : ''}</div></div>
     ${slots.length ? `<div class="scroll-x"><table class="data st-slots"><thead><tr><th>Slot</th><th>Role</th><th>Position</th><th>Held by</th><th>Applications</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
       ${slots.map(s => { const h = slotHolder(s), ch = slotChoosers(s.id);
-        return `<tr class="${slotVacant(s) ? 'vacant' : ''}"><td><b>${esc(s.title)}</b>${s.notes ? `<br><span class="small muted">${esc(s.notes)}</span>` : ''}</td><td>${esc(roleLabel(s.role))}</td><td>${esc(posName(s.position) || '–')}</td>
+        return `<tr class="${slotVacant(s) ? 'vacant' : ''}"><td><b>${esc(s.title)}</b>${s.notes ? `<br><span class="small muted">${esc(s.notes)}</span>` : ''}</td><td>${esc(roleLabel(s.role))}${isSupportRole(s.role) ? ' <span class="chip">SUPPORT</span>' : ''}</td><td>${esc(posName(s.position) || '–')}</td>
           <td>${h ? `${avatarHtml(h, 24)} ${esc(pilotLabel(h))}${h.fcIrl || h.fcAnime ? `<br><span class="small muted">FC: ${esc([h.fcIrl, h.fcAnime].filter(Boolean).join(' · '))}</span>` : ''}` : s.holderName ? `<span class="npc-avatar sm">${esc(s.holderName.slice(0, 2).toUpperCase())}</span> ${esc(s.holderName)} <span class="small muted">(NPC)</span>${s.fcIrl || s.fcAnime ? `<br><span class="small muted">FC: ${esc([s.fcIrl, s.fcAnime].filter(Boolean).join(' · '))}</span>` : ''}` : `<span class="chip ${s.open ? 'ok' : ''}">${s.open ? 'OPEN' : 'VACANT'}</span>${s.minBracket && chargenBracket(s.minBracket) ? ` <span class="small muted">${esc(chargenBracket(s.minBracket).label)} or above</span>` : ''}`}</td>
           <td>${ch.length ? ch.map(p => `<span class="chip acc">${esc(p.callsign || p.fullName)}${(p.postingChoices || [])[0] === s.id ? ' · 1st' : ' · 2nd'}</span>`).join(' ') : '<span class="small muted">–</span>'}</td>
           <td class="btn-row nowrap"><button class="btn ghost" data-act="slot-fill" data-id="${s.id}">${slotVacant(s) ? 'Fill' : 'Change'}</button>${!slotVacant(s) ? `<button class="btn ghost" data-act="slot-vacate" data-id="${s.id}">Vacate</button>` : ''}
@@ -8315,7 +8315,7 @@ DRAWERS_REG('slot-fill', function () {
   const pilots = list('pilots').filter(p => p.status === 'active' || p.status === 'pending').sort((a, b) => pilotLabel(a).localeCompare(pilotLabel(b)));
   return `<header><div><p class="kicker">FILL SLOT · ${esc(slotLabel(s).toUpperCase())}</p><h2>${esc(s.title)}</h2></div><button class="btn ghost" data-act="close-drawer" aria-label="Close">${icon('x')}</button></header>
     <div class="body">${ch.length ? `<p class="small">Applicants asking for this slot: ${ch.map(p => esc(p.callsign || p.fullName)).join(', ')}. Approving their application fills it.</p>` : ''}
-      <div class="form-grid"><label class="field">Filled by${sel('sf-k', P + '/kind', f.kind, [['eishi', 'An eishi in the app'], ['npc', 'A character of your own (NPC)']])}</label>
+      <div class="form-grid"><label class="field">Filled by${sel('sf-k', P + '/kind', f.kind, [['eishi', 'A character in the app (eishi or support staff)'], ['npc', 'A character of your own (NPC)']])}</label>
       ${f.kind === 'npc' ? `<label class="field">Name${txt('sf-n', P + '/name', f.name, 'e.g. Major Ilse Brandt')}</label>${FC_KINDS.map(([k, l, ph], i) => `<label class="field">${l}${txt('sf-fc' + i, P + '/' + k, f[k] || '', ph)}</label>`).join('')}` : `<label class="field">Eishi${sel('sf-p', P + '/pilotId', f.pilotId, pilots.map(p => [p.id, pilotLabel(p) + (p.status === 'pending' ? ' (applicant)' : '')]), 'Choose')}</label>`}</div>
       ${f.kind === 'eishi' ? '<p class="small muted">The eishi joins this unit in the slot’s role, and leaves any other slot they held.</p>' : ''}</div>
     <footer><button class="btn primary" data-act="slot-fill-save">Fill slot</button></footer>`;
@@ -8343,7 +8343,7 @@ function postingStepHtml(d) {
         ${s.notes ? `<br><span class="small">${esc(s.notes)}</span>` : ''}${!ok ? `<br><span class="small warn-text">Needs ${esc(chargenBracket(s.minBracket).label.toLowerCase())} experience or above.</span>` : ''}</div>
       <div class="btn-row"><button class="btn ${first ? 'primary' : 'ghost'}" data-act="post-pick" data-id="${s.id}" data-n="0" ${ok ? '' : 'disabled'} aria-pressed="${first}">${first ? 'First choice ✓' : 'First choice'}</button>
         <button class="btn ${second ? 'primary' : 'ghost'}" data-act="post-pick" data-id="${s.id}" data-n="1" ${ok && ch[0] && !first ? '' : 'disabled'} aria-pressed="${second}">${second ? 'Second choice ✓' : 'Second choice'}</button></div></div>`; };
-  const unitBlock = (u, depth) => { const open = slotsOf(u.id).filter(s => s.open && slotVacant(s)), filled = slotsOf(u.id).filter(s => !slotVacant(s)), kids = structureChildren(u.id).map(k => unitBlock(k, depth + 1)).filter(Boolean);
+  const unitBlock = (u, depth) => { const open = slotsOf(u.id).filter(s => s.open && slotVacant(s) && slotSuits(s, d)), filled = slotsOf(u.id).filter(s => !slotVacant(s)), kids = structureChildren(u.id).map(k => unitBlock(k, depth + 1)).filter(Boolean);
     if (!open.length && !kids.length) return '';
     return `<div class="posting-unit depth-${Math.min(depth, 3)}"><h3>${esc(u.name)}${u.callsignPrefix ? ` <span class="small muted">callsign ${esc(u.callsignPrefix)}</span>` : ''}</h3>
       ${u.description ? `<p class="small muted" style="margin:0 0 6px">${esc(u.description)}</p>` : ''}
@@ -8356,6 +8356,7 @@ function postingStepHtml(d) {
       <div class="btn-row"><button class="btn ${ch[0] === 'any' ? 'primary' : 'ghost'}" data-act="post-pick" data-id="any" data-n="0" aria-pressed="${ch[0] === 'any'}">${ch[0] === 'any' ? 'Chosen ✓' : 'Choose'}</button></div></div>`;
 }
 ACTIONS['post-pick'] = d => {
+  if (d.id !== 'any') { const sl = get('slots', d.id); if (!sl || !slotVacant(sl)) { toast('That post has already been filled. Choose another.', true); render(); return; } }
   const ch = S.ui.enlist.d.postingChoices || (S.ui.enlist.d.postingChoices = []), n = Number(d.n);
   if (ch[n] === d.id) ch[n] = null; else ch[n] = d.id;
   if (n === 0 && (d.id === 'any' || ch[1] === ch[0])) ch[1] = null;
@@ -9882,8 +9883,7 @@ ROUTES.dashboard.view = function () { return myCharactersHtml() + _dashMine.call
 const _pilotMine = ROUTES.pilot.view;
 ROUTES.pilot.view = function () { return (S.isGm ? '' : myCharactersHtml()) + _pilotMine.call(this); };
 /* Staff land on the Command Centre, so their characters show there too. */
-const _gmMine = ROUTES.gm.view;
-ROUTES.gm.view = function () { return myCharactersHtml() + _gmMine.call(this); };
+
 
 /* ---------------------------------------------------------------- upgrade levels, released by Command Authority */
 /* Each item can carry Mk II, Mk III and further levels; each stacks on the last. Command Authority releases a level to
@@ -10041,6 +10041,326 @@ function myUpgradesHtml(p) {
 }
 const _pilotViewLv = ROUTES.pilot.view;
 ROUTES.pilot.view = function () { const html = _pilotViewLv.call(this), p = currentPilot(); return p ? html + myUpgradesHtml(p) : html; };
+
+/* ---------------------------------------------------------------- support staff and support units */
+/* Non-eishi units (maintenance, CP, HQ, medical, logistics, intelligence, security) sit in the command structure,
+   and squadrons and flights carry posts for crew chiefs, mechanics, engineers, CP and command officers.
+   Players can enlist support characters; their application skips the pilot attributes. */
+const SUPPORT_UNIT_TYPES = [
+  { code: 'hq_staff', name: 'Headquarters staff', strength: 8, echelon: 25, support: true },
+  { code: 'maint_company', name: 'Maintenance company', strength: 40, echelon: 22, support: true },
+  { code: 'cp_section', name: 'Command post (CP) section', strength: 6, echelon: 15, support: true },
+  { code: 'medical_section', name: 'Medical section', strength: 8, echelon: 15, support: true },
+  { code: 'logistics_section', name: 'Logistics section', strength: 10, echelon: 15, support: true },
+  { code: 'intel_section', name: 'Intelligence section', strength: 6, echelon: 15, support: true },
+  { code: 'security_detachment', name: 'Security detachment', strength: 12, echelon: 15, support: true },
+  { code: 'maint_team', name: 'Maintenance team', strength: 6, echelon: 8, support: true }
+];
+const _unitTypesSup = unitTypes;
+unitTypes = function () { const v = _unitTypesSup(); return v.concat(SUPPORT_UNIT_TYPES.filter(t => !v.some(x => x.code === t.code))); };
+const supportTypeUnder = t => SUPPORT_UNIT_TYPES.find(x => x.echelon < (t.echelon || 0));
+const SUPPORT_ROLES = [['command_officer', 'Command officer'], ['ops_officer', 'Operations officer'], ['crew_chief', 'Crew chief'], ['mechanic', 'Mechanic'], ['engineer', 'Engineer'],
+  ['signals', 'Signals officer'], ['medic', 'Medical officer'], ['logistics', 'Logistics officer'], ['intel', 'Intelligence officer'], ['security', 'Security']];
+SUPPORT_ROLES.forEach(r => { if (!UNIT_ROLES.some(x => x[0] === r[0])) UNIT_ROLES.push(r); });
+const SUPPORT_TRADES = [['cp_officer', 'CP officer']].concat(SUPPORT_ROLES);
+const isSupportRole = r => SUPPORT_TRADES.some(x => x[0] === r);
+const isSupport = p => !!(p && p.kind === 'support');
+/* An eishi applies for eishi posts, a support character for support posts. */
+const slotSuits = (sl, d) => isSupportRole(sl.role) === ((d && d.kind) === 'support');
+SLOT_TEMPLATES.push(
+  ['flight_crew', 'Flight ground crew', [['Crew Chief', 'crew_chief', ''], ['Mechanic', 'mechanic', ''], ['Mechanic', 'mechanic', '']], true],
+  ['sq_support', 'Squadron support staff', [['Squadron Engineer', 'engineer', ''], ['Crew Chief', 'crew_chief', ''], ['CP Officer', 'cp_officer', ''], ['Adjutant', 'command_officer', '']], true],
+  ['maint_team', 'Maintenance team', [['Team Leader', 'crew_chief', ''], ['Engineer', 'engineer', ''], ['Mechanic', 'mechanic', ''], ['Mechanic', 'mechanic', ''], ['Mechanic', 'mechanic', '']], true],
+  ['cp_team', 'CP section', [['Senior CP Officer', 'cp_officer', ''], ['CP Officer', 'cp_officer', ''], ['CP Officer', 'cp_officer', ''], ['Signals Officer', 'signals', '']], true],
+  ['hq_team', 'Headquarters staff', [['Executive Officer', 'command_officer', ''], ['Operations Officer', 'ops_officer', ''], ['Intelligence Officer', 'intel', ''], ['Logistics Officer', 'logistics', ''], ['Signals Officer', 'signals', '']], true],
+  ['medical_team', 'Medical section', [['Medical Officer', 'medic', ''], ['Medic', 'medic', ''], ['Medic', 'medic', '']], true],
+  ['logistics_team', 'Logistics section', [['Logistics Officer', 'logistics', ''], ['Quartermaster', 'logistics', ''], ['Supply Clerk', 'logistics', '']], true],
+  ['intel_team', 'Intelligence section', [['Intelligence Officer', 'intel', ''], ['Analyst', 'intel', '']], true],
+  ['security_team', 'Security detachment', [['Security Officer', 'security', ''], ['Military Police', 'security', ''], ['Military Police', 'security', '']], true]
+);
+DOSSIER_FIELDS.push('kind', 'trade');
+const tradeName = c => (SUPPORT_TRADES.find(x => x[0] === c) || [0, 'Support staff'])[1];
+const serviceLabel = p => isSupport(p) ? tradeName(p.trade) : 'Eishi';
+
+/* The application: choose eishi or support staff first. */
+ACTIONS['en-kind'] = d => { const x = S.ui.enlist.d; if ((x.kind || 'eishi') === d.k) return; x.kind = d.k === 'support' ? 'support' : '';
+  x.postingChoices = (x.postingChoices || []).filter(id => id === 'any' || (get('slots', id) && slotSuits(get('slots', id), x))); scheduleSave(); render(); };
+function kindChooserHtml(d) {
+  const sup = d.kind === 'support';
+  return `<div class="kind-pick" role="radiogroup" aria-label="Service type">
+      <button class="kind-card ${sup ? '' : 'on'}" role="radio" aria-checked="${!sup}" data-act="en-kind" data-k="eishi">${icon('crosshair', 20)}<span><b>Eishi</b><span class="small muted">A TSF pilot in a flight or squadron.</span></span></button>
+      <button class="kind-card ${sup ? 'on' : ''}" role="radio" aria-checked="${sup}" data-act="en-kind" data-k="support">${icon('tool', 20)}<span><b>Support staff</b><span class="small muted">Crew chief, mechanic, engineer, CP or command officer, and other non-eishi posts.</span></span></button></div>
+    ${sup ? `<label class="field" style="max-width:360px">Trade <span class="req" aria-hidden="true">*</span>${sel('en-trade', 'ui/enlist/d/trade', d.trade, SUPPORT_TRADES, 'Choose…')}</label>` : ''}`;
+}
+const _enlistViewSup = enlistView;
+enlistView = function () {
+  const html = _enlistViewSup(), e = S.ui.enlist;
+  if (!e || e.step !== 'identity') return html;
+  return html.replace('<div class="form-grid"><label class="field">Full name', kindChooserHtml(e.d) + '<div class="form-grid"><label class="field">Full name');
+};
+const _stepProblemsSup = stepProblems;
+stepProblems = function (step, d) {
+  d = d || S.ui.enlist.d; const out = _stepProblemsSup(step, d);
+  if (step === 'identity' && d.kind === 'support' && !d.trade) out.push('Choose your support trade.');
+  if (step === 'posting') (d.postingChoices || []).forEach(id => { if (!id || id === 'any') return; const sl = get('slots', id); if (!sl) return;
+    if (!slotVacant(sl)) out.push(`${sl.title} has already been filled. Choose another post.`);
+    else if (!slotSuits(sl, d)) out.push(`${sl.title} is ${isSupportRole(sl.role) ? 'a support post' : 'an eishi post'}. Choose a post that matches your service type.`); });
+  return out;
+};
+/* Approving a support character doesn't register a TSF for them. */
+const _enlistReviewSup = enlistReviewHtml;
+enlistReviewHtml = function (a) {
+  const p = get('pilots', a.pilotId), f = S.ui.form.enl && S.ui.form.enl.id === a.id ? S.ui.form.enl : null;
+  if (isSupport(p) && f && !f.supChecked) { f.variantId = ''; f.supChecked = true; }
+  const html = _enlistReviewSup(a);
+  return isSupport(p) ? html.replace(/(<\/section>)/, `$1<div class="notice">${icon('tool', 14)} Support staff: <b>${esc(tradeName(p.trade))}</b>. No TSF is registered unless you choose one.</div>`) : html;
+};
+/* Command Authority sets the service type on the personnel record. */
+const _pilotEditSup = DRAWERS['pilot-edit'];
+DRAWERS_REG('pilot-edit', d => {
+  const html = _pilotEditSup(d), pp = S.ui.edit && S.ui.edit.pilot; if (!pp) return html;
+  const sec = `<section><h3>Service type</h3><div class="form-grid"><label class="field">Serves as${sel('pe-kind', 'ui/edit/pilot/kind', pp.kind || '', [['', 'Eishi (TSF pilot)'], ['support', 'Support staff']])}</label>
+    ${pp.kind === 'support' ? `<label class="field">Trade${sel('pe-trade', 'ui/edit/pilot/trade', pp.trade || '', SUPPORT_TRADES, 'Choose…')}</label>` : ''}</div></section>`;
+  const i = html.lastIndexOf('<footer>');
+  return i === -1 ? html : html.slice(0, i).replace(/<\/div>\s*$/, sec + '</div>') + html.slice(i);
+});
+/* A support character's dashboard has no TSF block. */
+const _eishiDashSup = eishiDashboard;
+eishiDashboard = function (p) {
+  const html = _eishiDashSup(p);
+  if (!isSupport(p)) return html;
+  return html.replace(/<h2>Your TSF and your flight<\/h2>[\s\S]*?(<div class="mates">)/, `<h2>Your unit</h2><p class="small"><b>${esc(tradeName(p.trade))}</b>${p.unitId && get('units', p.unitId) ? ' · ' + esc(get('units', p.unitId).name) : ''}</p>$1`);
+};
+/* Character cards say what each character does. */
+const _myCharsSup = myCharactersHtml;
+myCharactersHtml = function () {
+  let html = _myCharsSup();
+  myCharacters().filter(isSupport).forEach(p => { html = html.replace(`<span class="muted">${esc(REF.pers(p))}</span>`, `<span class="muted">${esc(REF.pers(p))}</span> <span class="chip">${esc(tradeName(p.trade).toUpperCase())}</span>`); });
+  return html;
+};
+
+/* Posts named for a support job but left with the Member role (as in older structures) can be set right in one go. */
+const ROLE_FROM_TITLE = [[/crew chief|team leader/i, 'crew_chief'], [/mechanic/i, 'mechanic'], [/engineer/i, 'engineer'], [/\bcp\b|command post|cpc/i, 'cp_officer'],
+  [/intelligence|\bj2\b|analyst/i, 'intel'], [/signals/i, 'signals'], [/medic|medical|surgeon/i, 'medic'], [/logistics|quartermaster|supply/i, 'logistics'],
+  [/security|military police/i, 'security'], [/adjutant|liaison|observer|staff officer|operations officer/i, 'command_officer']];
+const roleFromTitle = t => (ROLE_FROM_TITLE.find(([re]) => re.test(t || '')) || [])[1] || null;
+const mislabelledSlots = () => list('slots').filter(sl => sl.role === 'member' && roleFromTitle(sl.title) && inStructure(get('units', sl.unitId)));
+const _structureSup = ROUTES.structure.view;
+ROUTES.structure.view = function () {
+  const html = _structureSup.call(this), bad = mislabelledSlots(); if (!bad.length) return html;
+  const note = `<div class="notice">${icon('tool', 14)} ${plural(bad.length, 'post')} ${bad.length === 1 ? 'is' : 'are'} named for a support job but set to the Member role, so ${bad.length === 1 ? 'it shows' : 'they show'} as eishi posts: ${esc(bad.slice(0, 6).map(x => x.title).join(', '))}${bad.length > 6 ? '…' : ''}.
+    <button class="btn" data-act="st-fix-roles">Set support roles</button></div>`;
+  const i = html.indexOf('</div></div>');
+  return i === -1 ? note + html : html.slice(0, i + 12) + note + html.slice(i + 12);
+};
+ACTIONS['st-fix-roles'] = () => {
+  const bad = mislabelledSlots();
+  askConfirm(`Set support roles on ${plural(bad.length, 'post')}? ${bad.slice(0, 8).map(x => `${x.title} → ${roleLabel(roleFromTitle(x.title))}`).join('; ')}${bad.length > 8 ? '…' : ''}. Holders keep their posts.`, 'Set roles', () => run(async () => {
+    for (const sl of bad) { const c = clone(S.store.slots[sl.id]); c.role = roleFromTitle(sl.title); await Data.put('slots', sl.id, c);
+      const h = c.holderPilotId && S.store.pilots[c.holderPilotId]; if (h && h.unitRole === 'member') { const x = clone(h); x.unitRole = c.role; await Data.put('pilots', c.holderPilotId, x); } }
+    await Data.audit('structure.roles', 'slots', null, `Support roles set on ${bad.length} posts`);
+  }, 'Roles set.'));
+};
+
+/* ---------------------------------------------------------------- Command Authority menu: grouped and collapsible */
+Object.assign(ICON_PATHS, {
+  sitemap: 'M9 3h6v5H9zM3 16h6v5H3zM15 16h6v5h-6zM12 8v4M6 16v-4h12v4',
+  upgrade: 'M12 4l6 6M12 4l-6 6M12 4v9M6 15l6-5 6 5M6 20l6-5 6 5',
+  idcard: 'M3 6h18v12H3zM8 13a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM5 16c.4-1.5 1.6-2.3 3-2.3s2.6.8 3 2.3M14 10h4M14 13h4',
+  inbox: 'M4 13l2.5-8h11L20 13v6H4zM4 13h5l1 2h4l1-2h5',
+  compass: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM15.5 8.5l-2 5-5 2 2-5z',
+  history: 'M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 7v5l3 2',
+  truck: 'M2 7h11v9H2zM13 10h4l3 3v3h-7M6 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM17 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
+  image: 'M3 5h18v14H3zM3 16l5-5 4 4 3-3 6 6M15.5 9.5a1.5 1.5 0 1 0 0-.01',
+  pen: 'M4 20l4-1L19 8l-3-3L5 16zM14 7l3 3',
+  pulse: 'M3 12h4l2-6 4 12 2-6h6',
+  layers: 'M12 3l9 5-9 5-9-5zM3 13l9 5 9-5',
+  folder: 'M3 6h6l2 2h10v11H3z'
+});
+/* Command Authority, arranged by what you are doing. */
+const CA_GROUPS = [
+  ['cmd', 'Command', 'compass', [['gm', 'compass', 'Command Centre'], ['approvals', 'inbox', 'Approval Centre'], ['campaign', 'map', 'Campaign Map'], ['analytics', 'pulse', 'Analytics'], ['audit', 'history', 'Audit Records']]],
+  ['pers', 'Personnel and units', 'users', [['personnel', 'idcard', 'Personnel Administration'], ['units', 'grid', 'Unit Management'], ['structure', 'sitemap', 'Command Structure']]],
+  ['ops', 'Operations', 'radio', [['operations', 'radio', 'Operations Record'], ['combat', 'crosshair', 'Combat'], ['evaluation', 'clipboard', 'Evaluation and Training'], ['situation', 'globe', 'Global Situation']], 'operations'],
+  ['arm', 'Armament and engineering', 'crosshair', [['tsf-db', 'database', 'TSF Database'], ['equipment-admin', 'crosshair', 'Equipment Management'], ['upgrades', 'upgrade', 'Upgrade Release'], ['design', 'pen', 'Design Approval'], ['research', 'flask', 'Research and Development'], ['orgs', 'factory', 'Manufacturer Registry']]],
+  ['log', 'Logistics', 'boxes', [['maintenance', 'tool', 'Maintenance Control'], ['procurement', 'truck', 'Procurement'], ['production', 'factory', 'Production']]],
+  ['world', 'World and rules', 'globe', [['rules', 'scale', 'Rules & Balancing'], ['tuning', 'sliders', 'Stat Tuning'], ['media', 'image', 'Artwork and BETA Fronts']]]
+];
+const navOpenState = () => { if (!S.navOpen) { try { S.navOpen = JSON.parse(lsGet('untsf.navgroups') || '{}') || {}; } catch (e) { S.navOpen = {}; } } return S.navOpen; };
+ACTIONS['nav-group'] = d => { const o = navOpenState(); o[d.g] = !navGroupOpen(d.g); lsSet('untsf.navgroups', JSON.stringify(o)); render(); };
+function navGroupOpen(code) {
+  const o = navOpenState(), g = CA_GROUPS.find(x => x[0] === code) || (code === 'mine' ? [0, 0, 0, MY_SCREENS] : null);
+  if (g && g[3].some(([r]) => r === S.route)) return true;
+  return code in o ? !!o[code] : code === 'cmd';
+}
+/* Things waiting on staff, per group. */
+function caCounts() {
+  const pend = list('approvals').filter(a => a.status === 'pending' || a.status === 'on_hold');
+  const maint = list('maintenance').filter(m => m.status === 'requested').length;
+  return { approvals: pend.length, maintenance: maint, cmd: pend.length, log: maint };
+}
+const MY_SCREENS = [['pilot', 'user', 'Eishi File'], ['unit', 'users', 'Unit and Squadron'], ['hangar', 'hangar', 'TSF Hangar'], ['workshop', 'sliders', 'Configuration Workshop'],
+  ['armament', 'crosshair', 'Armament Catalogue'], ['equipment', 'book', 'Equipment Catalogue'], ['service', 'file', 'Service Records'], ['missions', 'map', 'Missions']];
+const _navHtmlCA = navHtml;
+navHtml = function () {
+  if (!S.isGm) return _navHtmlCA();
+  const counts = caCounts();
+  const item = (r, ic, label, count) => !routeAllowed(r) ? '' : `<button class="nav-item" data-act="nav" data-route="${r}" ${S.route === r ? 'aria-current="page"' : ''} title="${esc(label)}">
+      ${icon(ic)}<span class="nav-label">${esc(label)}</span>${count ? `<span class="count">${count}</span>` : ''}</button>`;
+  const sub = (code, label, ic, items, total, cls) => { const body = items.map(([r, i, l]) => item(r, i, l, counts[r])).join(''); if (!body.trim()) return '';
+    const open = navGroupOpen(code);
+    return `<div class="nav-sub ${open ? 'open' : 'closed'} ${cls || ''}"><button class="nav-sub-head" data-act="nav-group" data-g="${code}" aria-expanded="${open}" title="${esc(label)}">${icon(ic, 15)}<span class="nav-label">${esc(label)}</span>
+      ${!open && total ? `<span class="count">${total}</span>` : ''}<span class="nav-caret nav-label">${icon('chevron', 12)}</span></button><div class="nav-sub-items">${body}</div></div>`; };
+  let h = `<div class="nav-access"><span class="nav-label">COMMAND AUTHORITY</span><span class="chip authority-chip">${S.isOwner ? 'ADMIN' : isMod() ? 'MOD' : 'GM'}</span></div>`;
+  h += `<div class="nav-group">${item('dashboard', 'grid', 'Command Dashboard')}${item('notices', 'bell', 'Notifications', unreadCount())}</div>`;
+  h += `<div class="nav-group authority">${CA_GROUPS.filter(g => !g[4] || moduleOn(g[4])).map(([code, label, ic, items]) => sub(code, label, ic, items, counts[code])).join('')}</div>`;
+  h += `<div class="nav-group">${sub('mine', 'Player screens', 'folder', MY_SCREENS.filter(x => x[0] !== 'missions' || moduleOn('operations')), 0, 'mine')}</div>`;
+  if (S.isOwner) h += `<div class="nav-group sysadmin">${item('admin', 'server', 'System Administration')}</div>`;
+  h += `<button class="nav-item nav-collapse" data-act="toggle-collapse" aria-label="${S.navCollapsed ? 'Expand' : 'Collapse'} navigation">${icon('chevron')}<span class="nav-label">Collapse</span></button>`;
+  return h;
+};
+
+/* ---------------------------------------------------------------- Command Authority screens: shared frame */
+const caRouteInfo = r => { for (const g of CA_GROUPS) { const it = g[3].find(x => x[0] === r); if (it) return { group: g[1], icon: it[1], label: it[2] }; } return null; };
+const _mainHtmlCA = mainHtml;
+mainHtml = function () {
+  const html = _mainHtmlCA(), info = S.isGm && !S.ui.previewAs ? caRouteInfo(S.route) : null;
+  if (!info) return html;
+  const i = html.indexOf('<div class="page-head">'); if (i === -1) return `<div class="ca-page">${html}</div>`;
+  const rest = html.slice(i + 23), hasKicker = /^\s*<div>\s*<p class="kicker">/.test(rest);
+  const head = `<div class="page-head ca-head"><span class="ca-icon" aria-hidden="true">${icon(info.icon, 26)}</span>`;
+  const body = hasKicker ? rest : rest.replace(/^\s*<div>/, `<div><p class="kicker">COMMAND AUTHORITY · ${esc(info.group.toUpperCase())}</p>`);
+  return `<div class="ca-page">${html.slice(0, i)}${head}${body}</div>`;
+};
+const ago = iso => { if (!iso) return ''; const d = Math.floor((Date.now() - Date.parse(iso)) / 86400000); return d <= 0 ? 'today' : d === 1 ? '1 day' : d + ' days'; };
+function unitFillGauge(slots) {
+  const filled = slots.filter(x => !slotVacant(x)).length, pct = Math.round(filled * 100 / slots.length);
+  return `<div class="fill-gauge" title="${filled} of ${slots.length} posts filled"><span style="width:${pct}%"></span></div><span class="small muted">${filled}/${slots.length} filled</span>`;
+}
+
+/* ---------------------------------------------------------------- Command Centre */
+ACTIONS['cc-go'] = d => { if (d.tab) S.ui.aprTab = d.tab; if (d.scope) S.ui.apprFilter = d.scope; go(d.route); };
+const approvalTypeLabel = a => { const t = APR_TABS.find(x => x[0] === a.type); return t ? t[1] : approvalTitleShort(a); };
+function decisionRow(a) {
+  const p = get('pilots', a.pilotId);
+  return `<button class="dq-row" data-act="open-drawer" data-type="approval" data-id="${a.id}">${p ? avatarHtml(p, 34) : `<span class="ca-icon sm">${icon('inbox', 16)}</span>`}
+    <span class="dq-main"><b>${esc(approvalTitle(a))}</b><span class="small muted">${esc(approvalTypeLabel(a))} · ${esc(p ? pilotLabel(p) : '–')}${isSupport(p) ? ' · ' + esc(tradeName(p.trade)) : ''}</span></span>
+    <span class="dq-side">${chip(a.status)}<span class="small muted">${a.submittedAt ? 'waiting ' + esc(ago(a.submittedAt)) : ''}</span></span></button>`;
+}
+function rosterRows() {
+  const units = activeUnits().filter(u => inStructure(u) && ['squadron', 'battalion'].concat(SUPPORT_UNIT_TYPES.map(t => t.code)).indexOf(u.type) !== -1);
+  return units.map(u => { const ids = [u.id].concat(unitDescendants(u.id)), sl = list('slots').filter(x => ids.indexOf(x.unitId) !== -1);
+    const ppl = list('pilots').filter(p => p.status === 'active' && ids.indexOf(p.unitId) !== -1);
+    return { u, total: sl.length, filled: sl.filter(x => !slotVacant(x)).length, eishi: ppl.filter(p => !isSupport(p)).length, support: ppl.filter(isSupport).length, open: sl.filter(x => x.open && slotVacant(x)).length }; })
+    .filter(x => x.total).sort((a, b) => unitType(b.u.type).echelon - unitType(a.u.type).echelon || a.u.name.localeCompare(b.u.name));
+}
+ROUTES.gm.view = function () {
+  const pend = list('approvals').filter(a => a.status === 'pending' || a.status === 'on_hold').sort((a, b) => String(a.submittedAt || '').localeCompare(String(b.submittedAt || '')));
+  const applicants = pend.filter(a => a.type === 'pilot_registration').length, tsfs = list('tsfs');
+  const maint = list('maintenance').filter(m => m.status === 'requested').length, damaged = tsfs.filter(t => ['damaged', 'repair', 'maintenance'].indexOf(t.status) !== -1).length;
+  const active = list('pilots').filter(p => p.status === 'active'), open = typeof openSlots === 'function' ? openSlots().length : 0;
+  const tile = (n, label, sub, ic, act, tone) => `<button class="cc-tile ${n && tone ? tone : ''}" ${act}>${icon(ic, 20)}<b>${n}</b><span>${esc(label)}</span>${sub ? `<span class="small muted">${esc(sub)}</span>` : ''}</button>`;
+  const role = S.isOwner ? 'Administrator' : isMod() ? 'Moderator' : 'Game Master';
+  const pm = list('models'), pe = list('equipment'), audit = list('audit').sort((a, b) => b.at.localeCompare(a.at)).slice(0, 8);
+  const roster = rosterRows();
+  const fleet = tsfStatuses().map(st => [st, tsfs.filter(t => t.status === st.code).length]).filter(x => x[1]);
+  return `<div class="cc-hero"><span class="cc-crest">${insignia(58)}</span><div class="cc-title"><p class="kicker">COMMAND AUTHORITY · ${esc(role.toUpperCase())}</p><h1>Command Centre</h1>
+      <p class="muted">${esc(fmtCampaign(campaignDate()))}${typeof globalThreat === 'function' ? ` · Global threat index <b>${globalThreat()}</b>` : ''} · Rules v${activeRules().version}</p></div>
+      <div class="btn-row cc-actions"><button class="btn primary" data-act="nav" data-route="approvals">${icon('inbox', 16)} Approval Centre${pend.length ? ` <span class="count">${pend.length}</span>` : ''}</button>
+        ${routeAllowed('structure') ? `<button class="btn" data-act="nav" data-route="structure">${icon('sitemap', 16)} Command Structure</button>` : ''}
+        ${routeAllowed('upgrades') ? `<button class="btn" data-act="nav" data-route="upgrades">${icon('upgrade', 16)} Release upgrades</button>` : ''}</div></div>
+    <div class="cc-tiles">
+      ${tile(pend.length, 'Awaiting decision', pend.filter(a => a.status === 'on_hold').length ? pend.filter(a => a.status === 'on_hold').length + ' on hold' : '', 'inbox', 'data-act="cc-go" data-route="approvals" data-tab="all" data-scope="pending"', 'warn')}
+      ${tile(applicants, 'Applications', 'new characters', 'idcard', 'data-act="cc-go" data-route="approvals" data-tab="pilot_registration" data-scope="pending"', 'warn')}
+      ${tile(open, 'Open posts', 'taking applications', 'sitemap', 'data-act="nav" data-route="structure"', 'acc')}
+      ${tile(active.length, 'Active personnel', `${active.filter(p => !isSupport(p)).length} eishi · ${active.filter(isSupport).length} support`, 'users', 'data-act="nav" data-route="personnel"')}
+      ${tile(maint, 'Maintenance requests', damaged ? damaged + ' frames down' : 'fleet in order', 'tool', 'data-act="nav" data-route="maintenance"', 'warn')}
+      ${tile(tsfs.length, 'Registered TSFs', `${tsfs.filter(t => t.status === 'operational').length} operational`, 'hangar', 'data-act="nav" data-route="tsf-db"')}</div>
+    <div class="cc-grid">
+      <section class="plate"><div class="plate-head"><h2>Awaiting your decision</h2>${pend.length > 8 ? `<button class="btn ghost" data-act="cc-go" data-route="approvals" data-tab="all" data-scope="pending">All ${pend.length}</button>` : ''}</div>
+        ${pend.length ? `<div class="dq-list">${pend.slice(0, 8).map(decisionRow).join('')}</div>` : `<div class="cc-clear">${icon('check', 22)}<p>Nothing waiting. Every request has a decision.</p></div>`}</section>
+      <section class="plate"><div class="plate-head"><h2>Roster</h2><button class="btn ghost" data-act="nav" data-route="structure">Structure</button></div>
+        ${roster.length ? `<div class="roster-list">${roster.map(x => `<div class="roster-row"><div><b>${esc(x.u.name)}</b><span class="small muted">${esc(unitType(x.u.type).name)} · ${x.eishi} eishi${x.support ? ` · ${x.support} support` : ''}${x.open ? ` · ${x.open} open` : ''}</span></div>
+          <div class="roster-gauge"><div class="fill-gauge"><span style="width:${Math.round(x.filled * 100 / x.total)}%"></span></div><span class="small">${x.filled}/${x.total}</span></div></div>`).join('')}</div>` : '<p class="small muted">No command structure yet. Build it under Command Structure.</p>'}</section></div>
+    ${moduleOn('operations') ? `<div class="cc-ops">${operationsPanel()}</div>` : ''}
+    <div class="cc-grid three">
+      <section class="plate"><h2>Fleet</h2>${fleet.length ? fleet.map(([st, n]) => barRow(st.label, n, tsfs.length, '', st.tone === 'bad' ? 'p-interdicted' : st.tone === 'warn' ? 'p-strained' : '')).join('') : '<p class="small muted">No TSFs registered.</p>'}</section>
+      <section class="plate"><h2>Catalogue</h2><dl class="cc-kv"><dt>TSF models</dt><dd>${pm.filter(x => x.publishStatus === 'published').length} published${pm.filter(x => x.publishStatus === 'draft').length ? ` · ${pm.filter(x => x.publishStatus === 'draft').length} draft` : ''}</dd>
+        <dt>Equipment</dt><dd>${pe.filter(x => x.publishStatus === 'published').length} published${pe.filter(x => x.publishStatus === 'draft').length ? ` · ${pe.filter(x => x.publishStatus === 'draft').length} draft` : ''}</dd>
+        <dt>Restricted or GM-only</dt><dd>${pe.filter(e => e.availability !== 'standard').length}</dd><dt>With upgrade levels</dt><dd>${pe.filter(e => (e.levels || []).length).length}</dd></dl></section>
+      ${announcementsPanel()}</div>
+    <section class="plate"><h2>Recent activity</h2>${audit.length ? `<ul class="timeline">${audit.map(a => `<li><time>${fmtDT(a.at)}</time><div>${esc(a.summary)} <span class="muted small">· ${esc(a.actor)}</span></div></li>`).join('')}</ul>` : '<p class="small muted">Nothing recorded yet.</p>'}</section>
+    <div style="margin-top:16px">${myCharactersHtml()}</div>`;
+};
+
+/* ---------------------------------------------------------------- Approval Centre: grouped request types, request cards */
+const APR_GROUPS = [['Personnel', ['pilot_registration']], ['Machines', ['acquisition', 'configuration', 'refit', 'transfer', 'return_to_service', 'maintenance']], ['Equipment', ['equipment_unlock', 'experimental', 'procurement']], ['Development', ['improvement', 'research']]];
+ROUTES.approvals.view = function () {
+  const tab = S.ui.aprTab || 'all', scope = S.ui.apprFilter || 'pending';
+  const all = list('approvals').sort((a, b) => String(b.submittedAt || '').localeCompare(String(a.submittedAt || '')));
+  const rows = all.filter(a => aprMatches(a, tab) && (scope === 'all' || isOpen(a)));
+  const count = t => all.filter(a => isOpen(a) && aprMatches(a, t)).length;
+  const known = APR_GROUPS.flatMap(g => g[1]), groups = APR_GROUPS.concat([['Other', APR_TABS.map(x => x[0]).filter(k => k !== 'all' && known.indexOf(k) === -1)]]);
+  const lbl = k => (APR_TABS.find(x => x[0] === k) || [k, k])[1];
+  const railItem = (k, l) => { const n = count(k); return `<button class="rail-item ${tab === k ? 'on' : ''} ${n ? '' : 'quiet'}" data-act="set-path" data-path="ui/aprTab" data-value="${k}" aria-pressed="${tab === k}"><span>${esc(l)}</span>${n ? `<span class="count">${n}</span>` : ''}</button>`; };
+  const pg = paged(rows, 'apr', 20);
+  const stat = (n, l, tone, sc) => `<button class="cc-tile slim ${tone || ''} ${scope === sc ? 'on' : ''}" data-act="appr-filter" data-f="${sc}"><b>${n}</b><span>${l}</span></button>`;
+  const card = a => { const p = get('pilots', a.pilotId);
+    return `<button class="dq-row" data-act="open-drawer" data-type="approval" data-id="${a.id}">${p ? avatarHtml(p, 38) : `<span class="ca-icon sm">${icon('inbox', 16)}</span>`}
+      <span class="dq-main"><b>${esc(approvalTitle(a))}</b><span class="small muted">${ref('apr', a)} · ${esc(approvalTypeLabel(a))} · ${esc(p ? pilotLabel(p) : '–')}${isSupport(p) ? ' · ' + esc(tradeName(p.trade)) : ''}</span>${a.note ? `<span class="small">${esc(clip(a.note, 140))}</span>` : ''}</span>
+      <span class="dq-side">${chip(a.status)}<span class="small muted">${fmtDT(a.submittedAt)}${isOpen(a) ? ' · waiting ' + esc(ago(a.submittedAt)) : ''}</span></span></button>`; };
+  return `<div class="page-head"><div><p class="kicker">COMMAND AUTHORITY · APPROVAL CENTRE</p><h1>Approval Centre</h1><p>Requests awaiting a Command Authority decision. Every decision is recorded.</p></div></div>
+    <div class="apr-stats">${stat(all.filter(a => isOpen(a)).length, 'Open', 'warn', 'pending')}${stat(all.length, 'All decisions', '', 'all')}
+      <div class="cc-tile slim static"><b>${all.filter(a => a.status === 'approved').length}</b><span>Approved</span></div><div class="cc-tile slim static"><b>${all.filter(a => a.status === 'rejected' || a.status === 'cancelled').length}</b><span>Declined or cancelled</span></div></div>
+    <div class="apr-layout"><nav class="apr-rail" aria-label="Request types">${railItem('all', 'All requests')}
+      ${groups.filter(g => g[1].length).map(([g, ks]) => `<h4>${esc(g)}</h4>${ks.map(k => railItem(k, lbl(k))).join('')}`).join('')}</nav>
+      <div class="apr-main"><div class="plate-head"><h2>${esc(lbl(tab))}<span class="small muted"> · ${scope === 'all' ? 'all decisions' : 'open'}</span></h2></div>
+        ${pg.rows.length ? `<div class="dq-list">${pg.rows.map(card).join('')}</div>${pg.bar}` : `<div class="cc-clear">${icon('check', 22)}<p>${scope === 'all' ? 'No requests of this type yet.' : 'Nothing waiting here.'}</p></div>`}</div></div>`;
+};
+
+/* ---------------------------------------------------------------- Equipment Database: filters, frame fit, levels, paging */
+const fitsText = e => { const r = (e.compat || []).find(x => x.effect === 'allow'); if (!r) return 'Any frame';
+  if (r.type === 'model') { const m = get('models', r.targetId); return (m ? m.designation : r.targetId) + ' only'; }
+  if (r.type === 'manufacturer') return mfrName(r.targetId) + ' frames'; if (r.type === 'variant') return tsfLabelFromVariant(r.targetId) + ' only';
+  const g = { '1': '1st', '1.5': '1.5', q2: 'Quasi-2nd', '2': '2nd', '2.5': '2.5', q3: 'Quasi-3rd', '3': '3rd' }[r.targetId];
+  return g ? `${g} gen${r.match === 'minimum' ? '+' : ' only'}` : genName(r.targetId) + (r.match === 'minimum' ? ' or later' : ''); };
+ROUTES['equipment-admin'].view = function () {
+  const f = S.ui.eq; ['availability', 'lock', 'levels', 'maker', 'status'].forEach(k => { if (f[k] == null) f[k] = ''; });
+  const q = (f.q || '').toLowerCase(), all = list('equipment');
+  const items = all.filter(e => (!q || (e.name + ' ' + e.code + ' ' + (e.description || '')).toLowerCase().indexOf(q) !== -1) && (!f.category || e.category === f.category)
+    && (!f.availability || e.availability === f.availability) && (!f.status || e.publishStatus === f.status) && (!f.maker || (e.manufacturerId || '') === (f.maker === '-' ? '' : f.maker))
+    && (!f.lock || (f.lock === 'locked' ? (e.compat || []).some(x => x.effect === 'allow') : !(e.compat || []).some(x => x.effect === 'allow')))
+    && (!f.levels || (f.levels === 'yes' ? (e.levels || []).length : !(e.levels || []).length)))
+    .sort((a, b) => a.code.localeCompare(b.code));
+  const pg = paged(items, 'eqa', 30), weapons = all.filter(e => isWeaponCat(e.category)).length;
+  const fsel = (k, label, opts) => `<label class="field">${label}<select id="eqa-${k}" data-bind="ui/eq/${k}" data-rerender="1"><option value="">Any</option>${opts.map(([v, l]) => `<option value="${esc(v)}" ${String(f[k]) === String(v) ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>`;
+  const makers = list('manufacturers').sort((a, b) => a.name.localeCompare(b.name)).map(m => [m.id, m.name]).concat([['-', 'Unattributed']]);
+  return `<div class="page-head"><div><h1>Equipment Database</h1><p>Create, duplicate, restrict and publish weapons, systems and upgrades.</p></div>
+    <div class="btn-row">${routeAllowed('upgrades') ? `<button class="btn" data-act="nav" data-route="upgrades">${icon('upgrade', 16)} Upgrade Release</button>` : ''}<button class="btn primary" data-act="eq-new">${icon('plus', 16)} New equipment</button></div></div>
+    <div class="apr-stats"><div class="cc-tile slim static"><b>${all.length}</b><span>Items</span></div><div class="cc-tile slim static"><b>${weapons}</b><span>Weapons</span></div><div class="cc-tile slim static"><b>${all.length - weapons}</b><span>Systems and parts</span></div>
+      <div class="cc-tile slim static"><b>${all.filter(e => (e.compat || []).some(x => x.effect === 'allow')).length}</b><span>Frame-locked</span></div><div class="cc-tile slim static"><b>${all.filter(e => (e.levels || []).length).length}</b><span>With upgrade levels</span></div></div>
+    <div class="filters toolbar"><label class="field grow">Search<input type="text" id="eqa-q" data-bind="ui/eq/q" data-rerender="1" value="${esc(f.q || '')}" placeholder="Name, code or description"></label>
+      ${fsel('category', 'Type', vocab('categories').map(c => [c.code, c.name]))}${fsel('maker', 'Manufacturer', makers)}
+      ${fsel('availability', 'Availability', [['standard', 'Standard'], ['restricted', 'Restricted'], ['experimental', 'Experimental'], ['gm_only', 'GM only']])}
+      ${fsel('lock', 'Fits', [['locked', 'Frame-locked'], ['open', 'Any frame']])}${fsel('levels', 'Upgrade levels', [['yes', 'Has levels'], ['no', 'No levels']])}
+      ${fsel('status', 'Status', [['published', 'Published'], ['draft', 'Draft'], ['archived', 'Archived']])}</div>
+    <p class="small muted">${plural(items.length, 'item')} shown.</p>
+    ${pg.rows.length ? `<div class="scroll-x"><table class="data"><thead><tr><th>Code</th><th>Name</th><th>Type</th><th>Manufacturer</th><th>Modifiers</th><th>Fits</th><th>Levels</th><th>Availability</th><th>Status</th></tr></thead><tbody>
+    ${pg.rows.map(e => `<tr class="click" data-act="eq-edit" data-id="${e.id}"><td class="muted mono">${esc(e.code)}</td><td><b>${esc(e.name)}</b></td><td>${esc(catName(e.category))}</td><td>${esc(mfrName(e.manufacturerId))}</td>
+      <td class="small">${esc(modsText(e.modifiers) || '–')}</td><td class="small">${esc(fitsText(e))}</td><td class="small">${(e.levels || []).length ? esc(levelName(e, maxLevel(e))) : '–'}</td><td>${chip(e.availability)}</td><td>${chip(e.publishStatus)}</td></tr>`).join('')}</tbody></table></div>${pg.bar}` : '<div class="empty">No equipment matches these filters.</div>'}`;
+};
+
+/* ---------------------------------------------------------------- Personnel Administration: summary strip */
+const _personnelCA = ROUTES.personnel.view;
+ROUTES.personnel.view = function () {
+  const html = _personnelCA.call(this), ps = list('pilots');
+  const strip = `<div class="apr-stats"><div class="cc-tile slim static"><b>${ps.filter(p => p.status === 'active').length}</b><span>Active</span></div>
+    <div class="cc-tile slim static ${ps.some(p => p.status === 'pending') ? 'warn' : ''}"><b>${ps.filter(p => p.status === 'pending').length}</b><span>Awaiting approval</span></div>
+    <div class="cc-tile slim static"><b>${ps.filter(p => p.status === 'active' && !isSupport(p)).length}</b><span>Eishi</span></div>
+    <div class="cc-tile slim static"><b>${ps.filter(p => p.status === 'active' && isSupport(p)).length}</b><span>Support staff</span></div>
+    <div class="cc-tile slim static"><b>${ps.filter(p => p.status === 'active' && !p.unitId).length}</b><span>Unassigned</span></div></div>`;
+  const i = html.indexOf('<div class="filters'); return i === -1 ? html : html.slice(0, i) + strip + html.slice(i);
+};
 
 /* =====================================================================
    UNTSF-COMM — phones.

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b3045"/><stop offset="1" stop-color="#0b1520"/></linearGradient>
+    <linearGradient id="sh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4f7a99"/><stop offset="1" stop-color="#22394d"/></linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e6eef4"/><stop offset="1" stop-color="#9fb4c4"/></linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <!-- shield -->
+  <path d="M256 54 L430 112 L412 314 Q380 430 256 476 Q132 430 100 314 L82 112 Z" fill="url(#sh)" stroke="url(#rim)" stroke-width="16" stroke-linejoin="round"/>
+  <path d="M256 92 L398 139 L383 308 Q356 404 256 442 Q156 404 129 308 L114 139 Z" fill="none" stroke="#e6eef4" stroke-opacity=".22" stroke-width="4"/>
+  <!-- orbital ring, behind the frame -->
+  <ellipse cx="256" cy="262" rx="150" ry="46" fill="none" stroke="#d9a441" stroke-width="12" transform="rotate(-18 256 262)"/>
+  <!-- TSF silhouette -->
+  <g fill="#f4f8fb">
+    <path d="M256 128 L292 222 L256 205 L220 222 Z"/>
+    <rect x="245" y="206" width="22" height="104" rx="3"/>
+    <path d="M150 248 h72 l18 26 h-72 Z M362 248 h-72 l-18 26 h72 Z"/>
+    <rect x="216" y="322" width="80" height="12" rx="3"/>
+  </g>
+  <text x="256" y="400" text-anchor="middle" font-family="Rajdhani, 'Arial Narrow', Arial, sans-serif" font-weight="700" font-size="58" letter-spacing="8" fill="#f4f8fb">UNTSF</text>
+</svg>
