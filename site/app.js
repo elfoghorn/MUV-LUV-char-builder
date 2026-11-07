@@ -2195,6 +2195,7 @@ const ACTIONS = {
           const p = clone(S.store.pilots[a.pilotId]), f = S.ui.form.enl || {};
           if (decision === 'approved') {
             Object.assign(p, { status: 'active', rankId: f.rankId || p.rankId || null, applicationNotes: null });
+            Object.assign(p, dossierOnApproval(p, f, now));
             const accepted = (p.claimedQuals || []).filter((_, i) => !f.acceptQuals || f.acceptQuals.indexOf(i) !== -1);
             const br = chargenRules().method === 'roll' ? chargenBracket(f.bracket || p.experienceBracket) : null;
             if (br) { p.experienceBracket = br.id; p.devSpent = Math.max(p.devSpent || 0, (gradeOf(pilotXp(a.pilotId) + (br.xp || 0)).index - 1) * progRules().pointsPerGrade); }
@@ -2723,7 +2724,7 @@ function enlistView() {
       <label class="field">Callsign${txt('en-cs', p + '/callsign', d.callsign, 'e.g. Kestrel')}</label>
       <label class="field">Nationality${txt('en-nat', p + '/nationality', d.nationality)}</label></div>`;
   } else if (e.step === 2) {
-    const facs = list('factions').filter(f => f.type === 'military_branch' || f.type === 'international');
+    const facs = serviceBranches();
     body = `<div class="form-grid"><label class="field">Serving with${sel('en-fac', p + '/factionId', d.factionId, (facs.length ? facs : list('factions')).map(f => [f.id, f.name]), 'Choose')}</label>
       <label class="field">Preferred role${sel('en-role', p + '/roleId', d.roleId, vocab('classifications').map(c => [c.id, c.name]), 'No preference')}</label>
       <label class="field wide">Background<textarea id="en-bio" data-bind="${p}/biography" placeholder="Where they trained, what they’ve seen, why they fly">${esc(d.biography)}</textarea></label></div>
@@ -3642,6 +3643,8 @@ route('pilot', 'Eishi File', function () {
       <div class="plate"><h2>Asset service entries</h2>${timelineHtml(list('service').filter(x => ids.has(x.tsfId)).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 12), true)}</div></div>`;
   } else if (tab === 'progression') {
     body = progressionTabHtml(p);
+  } else if (tab === 'dossier') {
+    body = dossierHtml(p);
   } else if (tab === 'background') {
     body = applicationRecordHtml(p);
   } else {
@@ -3654,7 +3657,7 @@ route('pilot', 'Eishi File', function () {
       <div class="btn-row" style="margin-top:10px">${S.readOnly ? '' : uploadButton('my-portrait', p.portraitAssetId ? 'Change portrait' : 'Upload portrait')}</div>
       <div class="dossier-ins">${insigniaSvg(p.insignia, p.callsign, 72)}<span class="small muted">Unit insignia</span></div></div>
     <div class="dossier-main"><div class="grade-line">${gradeBadge(p)}${specOf(p) ? ` <span class="chip acc">${esc(specOf(p).name.toUpperCase())}</span>` : ''}</div><h1 class="dossier-name">${esc(p.fullName)}</h1><p class="kicker">${esc(rank ? rank.name.toUpperCase() : 'NO RANK')} · CALLSIGN ${esc((p.callsign || '–').toUpperCase())} · ${esc(facName(p.factionId).toUpperCase())}</p>
-      ${tabsHtml('ui/pfTab', tab, [['identity', 'Eishi file'], ['background', 'Application'], ['journal', 'Journal'], ['relationships', 'Relationships'], ['attributes', 'Attributes'], ['qualifications', 'Qualifications'], ['progression', 'Progression'], ['career', 'Service timeline'], ['service', 'Service record'], ['awards', 'Awards and commendations']])}
+      ${tabsHtml('ui/pfTab', tab, [['dossier', 'Dossier'], ['identity', 'Eishi file'], ['background', 'Application'], ['journal', 'Journal'], ['relationships', 'Relationships'], ['attributes', 'Attributes'], ['qualifications', 'Qualifications'], ['progression', 'Progression'], ['career', 'Service timeline'], ['service', 'Service record'], ['awards', 'Awards and commendations']])}
       ${body}</div></div>`;
 });
 
@@ -7741,20 +7744,22 @@ enlistView = function () {
       ${nationField(d)}
       ${FC_KINDS.map(([k, l, ph], i) => `<label class="field">${req('faceClaims', l)}${txt('en-fc' + i, P + '/' + k, d[k] || '', ph)}</label>`).join('')}</div>
       <p class="small muted">One real-life and one anime face claim. AU versions of existing characters are fine.</p>
-      ${faceClaimClashes(d, e.pilotId).map(x => `<p class="notice warn small" role="status">${esc(x)} Command Authority will decide whether both can keep it.</p>`).join('')}`;
-  else if (e.step === 'service') { const facs = list('factions').filter(f => f.type === 'military_branch' || f.type === 'international');
+      ${faceClaimClashes(d, e.pilotId).map(x => `<p class="notice warn small" role="status">${esc(x)} Command Authority will decide whether both can keep it.</p>`).join('')}${dossierIdentityHtml(d)}`;
+  else if (e.step === 'service') { const facs = serviceBranches();
     body = `<div class="form-grid"><label class="field">Serving with <span class="req" aria-hidden="true">*</span>${sel('en-fac', P + '/factionId', d.factionId, (facs.length ? facs : list('factions')).map(f => [f.id, f.name]), 'Choose')}</label>
       <label class="field">Preferred role${sel('en-role', P + '/roleId', d.roleId, vocab('classifications').map(c => [c.id, c.name]), 'No preference')}</label>
       <label class="field">Years of service${num('en-yrs', P + '/yearsService', d.yearsService)}</label>
       <label class="field wide">Training and previous units<textarea id="en-prior" data-bind="${P}/priorService" placeholder="Where they trained, units they served with, notable deployments">${esc(d.priorService)}</textarea></label>
-      <label class="field wide">${req('motivation', 'Why they want to serve here')}<textarea id="en-mot" data-bind="${P}/motivation" placeholder="What brings them to this unit">${esc(d.motivation)}</textarea></label></div>
+      <label class="field wide">${req('motivation', 'Why did you volunteer?')}<textarea id="en-mot" data-bind="${P}/motivation" placeholder="What brings them to this unit">${esc(d.motivation)}</textarea></label></div>
       <p class="small muted">Command Authority assigns rank, unit and squadron when approving the application.</p>${firstTsfHtml(d)}`; }
   else if (e.step === 'background') body = `<div class="form-grid"><label class="field wide">${req('biography', 'Background')}<textarea id="en-bio" rows="7" data-bind="${P}/biography" placeholder="Their story: family, schooling, what they have seen of the war">${esc(d.biography)}</textarea>
         <span class="small muted">${d.biography.trim().length} characters${q.biography ? ` · at least ${r.minBiography}` : ''}</span></label>
       <label class="field wide">${req('personality', 'Personality and conduct')}<textarea id="en-pers" data-bind="${P}/personality" placeholder="How they carry themselves, under pressure and off duty">${esc(d.personality)}</textarea></label>
       <label class="field">${req('strengths', 'Strengths')}<textarea id="en-str" data-bind="${P}/strengths">${esc(d.strengths)}</textarea></label>
-      <label class="field">${req('strengths', 'Weaknesses')}<textarea id="en-weak" data-bind="${P}/weaknesses">${esc(d.weaknesses)}</textarea></label></div>`;
+      <label class="field">${req('strengths', 'Weaknesses')}<textarea id="en-weak" data-bind="${P}/weaknesses">${esc(d.weaknesses)}</textarea></label></div>${dossierPersonalHtml(d)}`;
   else if (e.step === 'posting') body = postingStepHtml(d);
+  else if (e.step === 'history') body = historyStepHtml(d);
+  else if (e.step === 'j2') body = j2StepHtml(d);
   else if (e.step === 'attributes' && chargenRules().method === 'roll') body = rollStepHtml(e);
   else if (e.step === 'attributes') { const used = attrTotal(d.attributes), left = pr.pointBudget - used;
     body = `<p class="muted small" style="margin-top:0">Spend up to <b>${pr.pointBudget}</b> points. Each attribute must sit between ${pr.attrMin} and ${pr.attrMax}.</p><div class="budget ${left < 0 ? 'over' : ''}"><b>${left}</b> points left</div>
@@ -7765,7 +7770,7 @@ enlistView = function () {
   else if (e.step === 'qualifications') body = `<p class="small muted" style="margin-top:0">Qualifications your pilot already holds. Command Authority verifies each one when approving the application.</p>
       ${d.claimedQuals.map((x, i) => `<div class="row-edit"><label class="field">Qualification${txt('en-q' + i, `${P}/claimedQuals/${i}/title`, x.title, 'e.g. Advanced jump-unit handling')}</label>
         <label class="field" style="flex:1">Where and when${txt('en-qd' + i, `${P}/claimedQuals/${i}/detail`, x.detail, 'e.g. Sendai TSF school, 1999')}</label><button class="btn ghost" data-act="app-qual-remove" data-i="${i}">Remove</button></div>`).join('') || '<p class="small muted">None listed.</p>'}
-      <button class="btn" data-act="app-qual-add">Add a qualification</button>`;
+      <button class="btn" data-act="app-qual-add">Add a qualification</button>${regQualsHtml(d)}`;
   else if (e.step === 'insignia') body = `<div class="grid g2"><div><h3>Personal insignia</h3><p class="small muted">Shown wherever your pilot appears, and used if you don’t upload a portrait.</p>${insigniaEditor(P + '/insignia', d.insignia, d.callsign)}</div>
       <div><h3>Portrait (optional)</h3><div class="portrait-slot">${avatarHtml({ insignia: d.insignia, callsign: d.callsign, portraitAssetId: d.portraitAssetId }, 160)}</div>
         <div class="btn-row" style="margin-top:10px">${uploadButton('enlist', d.portraitAssetId ? 'Replace portrait' : 'Upload a portrait')}${d.portraitAssetId ? `<button class="btn ghost" data-act="set-path" data-path="${P}/portraitAssetId" data-value="">Remove</button>` : ''}</div>
@@ -7823,12 +7828,13 @@ ACTIONS['enlist-submit'] = () => {
       biography: d.biography, personality: d.personality.trim(), strengths: d.strengths.trim(), weaknesses: d.weaknesses.trim(),
       claimedQuals: d.claimedQuals.filter(x => (x.title || '').trim()).map(x => ({ title: x.title.trim(), detail: (x.detail || '').trim() })), answers: Object.assign({}, d.answers),
       nationId: d.nationId || null, postingChoices: (d.postingChoices || []).filter(Boolean), portraitAssetId: d.portraitAssetId || null, insignia: d.insignia, attributes: d.attributes, status: 'pending', appliedAt: now, applicationNotes: null,
-      experienceBracket: d.bracket || null, attributeRoll: d.roll ? Object.fromEntries(Object.entries(d.roll).filter(([k]) => k !== 'fromRecord')) : null, rollsUsed: d.rollsUsed || 0 });
+      experienceBracket: d.bracket || null, attributeRoll: d.roll ? Object.fromEntries(Object.entries(d.roll).filter(([k]) => k !== 'fromRecord')) : null, rollsUsed: d.rollsUsed || 0 }, dossierFromDraft(d));
   run(async () => {
     for (const a of list('approvals').filter(x => x.pilotId === pid && x.type === 'pilot_registration' && (x.status === 'pending' || x.status === 'on_hold'))) {
       const c = clone(S.store.approvals[a.id]); c.status = 'withdrawn'; c.events.push({ event: 'withdrawn', actor: pilot.personnelId, note: 'Replaced by a revised application', at: now }); await Data.put('approvals', a.id, c);
     }
     await Data.put('pilots', pid, pilot);
+    await saveSecrets(pid, d.secrets || {});
     await Data.put('approvals', newId('apr'), { type: 'pilot_registration', status: 'pending', pilotId: pid, configId: null, tsfId: null, variantId: null, note: e.pilotId ? 'Revised application' : null,
       submittedAt: now, decidedBy: null, decidedAt: null, reason: null, events: [{ event: e.pilotId ? 'resubmitted' : 'submitted', actor: pilot.personnelId, note: null, at: now }] });
     await Data.audit('pilot.enlist', 'pilot', pid, `${pilot.callsign || pilot.fullName} ${e.pilotId ? 'resubmitted' : 'submitted'} an application`);
@@ -9312,6 +9318,413 @@ ACTIONS['invite-off'] = () => askConfirm('Turn off the invite code? Anyone who f
   window.UNTSF_ACCOUNT.setInviteCode('').then(() => { S.mem.invite = false; S.ui.acctMsg = { html: 'Invite code turned off.' }; render(); }, e => { S.ui.acctMsg = { bad: true, html: esc(e.message || 'Not permitted') }; render(); }), true);
 
 ;
+;
+/* =====================================================================
+   UNTSF-COMM — the eishi dossier.
+   A fuller personnel record (native-script name, alias, nationalities,
+   Royal Guard standing, blood type and other particulars), personal
+   details, a service history built from the campaign's canon events
+   with lore checks, regulation qualifications, a J2 file that only
+   staff and the character's own player can read, in-world review
+   stages, the commanding officer's remarks, and the dossier itself: a
+   restricted document, redacted to each viewer's clearance, that
+   exports as an image.
+   ===================================================================== */
+'use strict';
+
+if (COLLECTIONS.indexOf('dossier_secrets') === -1) COLLECTIONS.push('dossier_secrets');
+
+/* ---------------------------------------------------------------- reference tables */
+const BLOOD_TYPES = ['A+', 'A−', 'B+', 'B−', 'AB+', 'AB−', 'O+', 'O−'];
+const BETA_CLASSES = [['soldier', 'Soldier'], ['tank', 'Tank'], ['grappler', 'Grappler'], ['destroyer', 'Destroyer'], ['laser', 'Laser'], ['heavy_laser', 'Heavy Laser'], ['fort', 'Fort']];
+/* Service branches and their service-number prefixes. Branches missing from the catalogue are skipped. */
+const SERVICE_BRANCHES = [['fac-ija', 'IJA'], ['fac-hda', 'HDA'], ['fac-guard', 'IRG'], ['fac-un', 'UN'], ['fac-usarmy', 'USA'], ['fac-uk', 'BA'], ['fac-ufc', 'UFC'], ['fac-ussr', 'SA']];
+function serviceBranches() {
+  const own = SERVICE_BRANCHES.map(([id]) => get('factions', id)).filter(Boolean);
+  return own.concat(list('factions').filter(f => (f.type === 'military_branch' || f.type === 'international') && !own.some(o => o.id === f.id)));
+}
+/* Royal Guard frame colours follow the family's standing. Purple is the Shogun's alone. Set by Command Authority in the personnel record. */
+const GUARD_STANDING = [
+  ['shogun', 'The Shogun’s house', 'purple', 'Purple'],
+  ['regent', 'One of the Five Regent Houses', 'blue', 'Blue'],
+  ['regent_kin', 'A house close to the Regent Houses', 'red', 'Red'],
+  ['fudai', 'A senior samurai (fudai) family', 'yellow', 'Yellow'],
+  ['samurai', 'A samurai family', 'white', 'White'],
+  ['commoner', 'No samurai lineage', 'black', 'Black']
+];
+const GUARD_SWATCH = { purple: '#6b3fa0', blue: '#2f5fa8', red: '#b0302c', yellow: '#d8b13a', white: '#ecebe4', black: '#1d1d1d' };
+const isGuard = d => d.factionId === 'fac-guard';
+const guardOf = code => GUARD_STANDING.find(g => g[0] === code) || null;
+/* Canon events for the service history. A settings record 'service_history' { events: [...] } replaces the list. */
+const HISTORY_DEFAULTS = [
+  { id: 'korea98', name: 'Korea 1998: the peninsula withdrawal', year: 1998 },
+  { id: 'kyoto98', name: 'Kyoto 1998: the fall of Kyoto', year: 1998 },
+  { id: 'lucifer99', name: 'Operation Lucifer 1999: Yokohama Hive', year: 1999, hive: true },
+  { id: 'dec5', name: 'The 12.5 Incident (2001)', year: 2001 },
+  { id: 'h21', name: 'H21 Sadogashima (2001)', year: 2001, hive: true },
+  { id: 'reconquest', name: 'The Reconquest', year: null },
+  { id: 'cheorwon04', name: 'Cheorwon 2004', year: 2004, hive: true },
+  { id: 'lyon09', name: 'Lyon 2009', year: 2009, hive: true },
+  { id: 'silence', name: 'The Silence', year: null },
+  { id: 'starving', name: 'The Starving War', year: null }
+];
+const historyEvents = () => { const o = get('settings', 'service_history'); return o && Array.isArray(o.events) && o.events.length ? o.events : HISTORY_DEFAULTS; };
+const histEvent = id => historyEvents().find(e => e.id === id) || null;
+const entryYear = x => x.eventId === 'other' ? Number(x.year) || null : (histEvent(x.eventId) || {}).year || null;
+const entryName = x => x.eventId === 'other' ? (x.title || 'Other service') : (histEvent(x.eventId) || { name: x.eventId }).name;
+/* Canon units: membership goes to Command Authority for approval. */
+const CANON_UNITS = /\bA-?0?1\b|valkyries?\b|sakura/i;
+const bracketIndex = id => chargenRules().brackets.findIndex(b => b.id === id);
+const hasHiveOp = d => (d.history || []).some(x => (histEvent(x.eventId) || {}).hive);
+/* Regulation qualifications: [code, title, prerequisite, met(draft or record)]. */
+const REG_QUALS = [
+  ['flight_lead', 'Flight Lead', 'Blooded or more experienced.', d => bracketIndex(d.bracket || d.experienceBracket) >= 2],
+  ['instructor', 'Instructor', 'Veteran or more experienced.', d => bracketIndex(d.bracket || d.experienceBracket) >= 3],
+  ['hive_assault', 'Hive Assault', 'A hive operation in their service record.', hasHiveOp],
+  ['evaluation', 'Evaluation Eishi', 'Earned through trials work in service; not available on enlistment.', () => false]
+];
+const DOSSIER_FIELDS = ['nativeName', 'alias', 'otherNationalities', 'bloodType', 'heightCm', 'marks', 'languages', 'discord', 'nextOfKin', 'familyLocation', 'fears', 'habits'];
+/* What each section needs to be read by another player; staff and the character's own player see everything.
+   A settings record 'dossier' can set { levels, header, coSignature }. */
+const dossierSettings = () => get('settings', 'dossier') || {};
+const dossierLevels = () => Object.assign({ record: 0, history: 1, quals: 0, aptitude: 2, assignment: 1, personal: 2 }, dossierSettings().levels || {});
+const coSignature = () => dossierSettings().coSignature || 'Lt Col Tsukishiro Ayako, Commanding Officer, Lantern Battalion';
+
+/* ---------------------------------------------------------------- dates and ages (the campaign's setting date) */
+function settingDate() { const d = new Date(campaignDate()); return isNaN(d) ? new Date(Date.UTC(2012, 0, 1)) : d; }
+const settingYear = () => settingDate().getUTCFullYear();
+function birthOf(dob) {
+  const s = String(dob || '').trim(); if (!s) return null;
+  const t = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(s) ? s + 'T00:00:00Z' : s);
+  if (!isNaN(t)) { const d = new Date(t); return { date: d, year: d.getUTCFullYear(), approx: false }; }
+  const m = s.match(/\b(1[89]\d\d|20\d\d)\b/);
+  return m ? { date: new Date(Date.UTC(+m[1], 6, 1)), year: +m[1], approx: true } : null;
+}
+function ageAt(b, when) {
+  if (!b) return null;
+  let a = when.getUTCFullYear() - b.date.getUTCFullYear();
+  if (!b.approx) { const m = when.getUTCMonth() - b.date.getUTCMonth(); if (m < 0 || (m === 0 && when.getUTCDate() < b.date.getUTCDate())) a--; }
+  return a;
+}
+/* Conscription: 18 from 2005; during the war, eishi could join at 16. */
+const minServiceAge = year => year >= 2005 ? 18 : 16;
+function ageProblems(d) {
+  const b = birthOf(d.dob), out = []; if (!b) return out;
+  const age = ageAt(b, settingDate());
+  if (age < minServiceAge(settingYear())) out.push(`Born ${b.year}, they would be ${age} in ${settingYear()}: too young to serve.`);
+  const yrs = Number(d.yearsService);
+  if (d.yearsService !== '' && d.yearsService != null && yrs > 0) {
+    const joined = settingYear() - yrs, at = joined - b.year;
+    if (at < minServiceAge(joined)) out.push(`${yrs} years of service means joining in ${joined} at about ${at}; the minimum age then was ${minServiceAge(joined)}.`);
+  }
+  return out;
+}
+/* Lore checks on the service history: { i, block, text }. Blocking ones stop the application. */
+function historyFlags(d) {
+  const b = birthOf(d.dob), out = [];
+  (d.history || []).forEach((x, i) => {
+    if (!x.eventId) { out.push({ i, block: true, text: `Service record entry ${i + 1}: choose an event.` }); return; }
+    const y = entryYear(x);
+    if (x.eventId === 'other' && (!(x.title || '').trim() || !y)) out.push({ i, block: true, text: `Service record entry ${i + 1}: give the event a name and a year.` });
+    if (b && y && y - b.year < minServiceAge(y)) out.push({ i, block: true, text: `${entryName(x)}: born ${b.year}, they would have been about ${y - b.year}. The minimum age then was ${minServiceAge(y)}.` });
+    if (y && y > settingYear()) out.push({ i, block: true, text: `${entryName(x)} is after ${settingYear()}.` });
+    if (CANON_UNITS.test(x.unit || '')) out.push({ i, block: false, text: `${entryName(x)}: ${x.unit} is a canon unit, so Command Authority decides whether they served with it.` });
+  });
+  return out;
+}
+
+/* ---------------------------------------------------------------- the application form */
+APP_STEPS_ALL.splice(APP_STEPS_ALL.findIndex(s => s[0] === 'service') + 1, 0, ['history', 'Service record']);
+APP_STEPS_ALL.splice(APP_STEPS_ALL.findIndex(s => s[0] === 'questions'), 0, ['j2', 'J2 background']);
+const _enlistStartDossier = enlistStart;
+enlistStart = function (fromPilot) {
+  _enlistStartDossier(fromPilot); const d = S.ui.enlist.d, p = fromPilot || {};
+  DOSSIER_FIELDS.forEach(k => { d[k] = p[k] == null ? (k === 'heightCm' ? null : '') : p[k]; });
+  d.history = clone(p.history) || []; d.regQuals = clone(p.regQuals) || [];
+  d.claimedQuals = d.claimedQuals.filter(x => !REG_QUALS.some(q => q[1] === x.title));
+  const s = p.id && (S.store.dossier_secrets || {})[p.id];
+  d.secrets = { connections: (s && s.connections) || '', secrets: (s && s.secrets) || '', hooks: (s && s.hooks) || '' };
+};
+const _stepProblemsDossier = stepProblems;
+stepProblems = function (step, d) {
+  d = d || S.ui.enlist.d; const out = _stepProblemsDossier(step, d);
+  if (step === 'identity') out.push(...ageProblems(d));
+  if (step === 'history') out.push(...historyFlags(d).filter(x => x.block).map(x => x.text));
+  if (step === 'qualifications') (d.regQuals || []).forEach(c => { const q = REG_QUALS.find(x => x[0] === c); if (q && !q[3](d)) out.push(`${q[1]}: ${q[2]}`); });
+  return out;
+};
+function dossierIdentityHtml(d) {
+  const P = 'ui/enlist/d', b = birthOf(d.dob);
+  return `<div class="form-grid" style="margin-top:12px">
+      <label class="field">Name in native script${txt('en-native', P + '/nativeName', d.nativeName, 'e.g. 藤堂 明里')}</label>
+      <label class="field">Birth name or alias${txt('en-alias', P + '/alias', d.alias, 'e.g. born Akari Fraser')}</label>
+      <label class="field">Other nationalities${txt('en-nat2', P + '/otherNationalities', d.otherNationalities, 'e.g. British')}</label>
+      <label class="field">Blood type${sel('en-blood', P + '/bloodType', d.bloodType || '', BLOOD_TYPES.map(x => [x, x]), 'Choose')}</label>
+      <label class="field">Height (cm)${num('en-height', P + '/heightCm', d.heightCm)}</label>
+      <label class="field">Languages${txt('en-lang', P + '/languages', d.languages, 'e.g. Japanese, English')}</label>
+      <label class="field wide">Distinguishing marks${txt('en-marks', P + '/marks', d.marks, 'e.g. Burn scar on the left forearm')}</label>
+      <label class="field">Discord username${txt('en-discord', P + '/discord', d.discord, 'e.g. akari.todo')}</label></div>
+    ${b ? `<p class="small muted">Age in ${settingYear()}: <b>${ageAt(b, settingDate())}</b>${b.approx ? ' (worked out from the year alone)' : ''}.</p>` : d.dob ? '<p class="small warn-text">Write the date of birth as, for example, 14 March 1990, so the age can be worked out.</p>' : ''}
+    ${ageProblems(d).map(x => `<p class="notice warn small">${esc(x)}</p>`).join('')}`;
+}
+function dossierPersonalHtml(d) {
+  const P = 'ui/enlist/d', area = (id, k, l, ph) => `<label class="field wide">${l}<textarea id="${id}" data-bind="${P}/${k}" placeholder="${esc(ph)}">${esc(d[k] || '')}</textarea></label>`;
+  return `<h3 style="margin-top:16px">Personal</h3><div class="form-grid">
+      <label class="field">Next of kin${txt('en-nok', P + '/nextOfKin', d.nextOfKin, 'e.g. Eleanor Fraser (mother)')}</label>
+      <label class="field">Family location${txt('en-fam', P + '/familyLocation', d.familyLocation, 'e.g. Niigata')}</label>
+      ${area('en-fears', 'fears', 'Fears', 'What they are afraid of, and whether it shows')}${area('en-habits', 'habits', 'Habits', 'Rituals, tics, comforts')}</div>
+    <p class="small muted">Where the family lives matters: the BETA are hitting the supply towns.</p>`;
+}
+function historyEditorHtml(rows, base, target, gm) {
+  const evs = historyEvents().map(e => [e.id, e.name]).concat([['other', 'Other (describe)']]);
+  return `${rows.length ? rows.map((x, i) => `<div class="plate hist-row"><div class="form-grid">
+      <label class="field">Event${sel(`h-${target}-${i}-ev`, `${base}/${i}/eventId`, x.eventId || '', evs, 'Choose')}</label>
+      ${x.eventId === 'other' ? `<label class="field">Name${txt(`h-${target}-${i}-t`, `${base}/${i}/title`, x.title, 'e.g. Defence of Niigata')}</label><label class="field">Year${num(`h-${target}-${i}-y`, `${base}/${i}/year`, x.year)}</label>` : ''}
+      <label class="field">Role${txt(`h-${target}-${i}-r`, `${base}/${i}/role`, x.role, 'e.g. Wingman, Storm Vanguard')}</label>
+      <label class="field">Unit${txt(`h-${target}-${i}-u`, `${base}/${i}/unit`, x.unit, 'e.g. 12th TSF Battalion, IJA')}</label>
+      <label class="field wide">Outcome${txt(`h-${target}-${i}-o`, `${base}/${i}/outcome`, x.outcome, 'e.g. Survived the withdrawal; the flight lost two of four')}</label>
+      ${gm ? `<label class="field">Classification${sel(`h-${target}-${i}-c`, `${base}/${i}/clearance`, String(x.clearance || 0), CLEARANCE.map(c => [String(c[0]), c[1]]))}</label>` : ''}</div>
+      <button class="btn ghost" data-act="hist-remove" data-target="${target}" data-i="${i}">Remove entry</button></div>`).join('') : '<p class="small muted">No entries yet.</p>'}
+    <button class="btn" data-act="hist-add" data-target="${target}">Add an entry</button>`;
+}
+const histOwner = target => target === 'edit' ? S.ui.edit.pilot : S.ui.enlist.d;
+ACTIONS['hist-add'] = d => { const o = histOwner(d.target); o.history = (o.history || []).concat([{ eventId: '', title: '', year: null, role: '', unit: '', outcome: '', clearance: 0 }]); if (d.target !== 'edit') scheduleSave(); render(); };
+ACTIONS['hist-remove'] = d => { const o = histOwner(d.target); o.history = (o.history || []).filter((_, i) => i !== Number(d.i)); if (d.target !== 'edit') scheduleSave(); render(); };
+function historyStepHtml(d) {
+  return `<p class="small muted" style="margin-top:0">Where your eishi served before ${settingYear()}. Pick the events they took part in, then say what they did, with which unit, and how it ended. Entries that don’t fit their age are flagged.</p>
+    ${historyEditorHtml(d.history || [], 'ui/enlist/d/history', 'enlist', false)}
+    ${historyFlags(d).map(x => `<p class="notice ${x.block ? 'warn' : ''} small">${esc(x.text)}</p>`).join('')}
+    ${birthOf(d.dob) ? '' : '<p class="small muted">Add a date of birth on the Identity step so ages can be checked.</p>'}`;
+}
+function regQualsHtml(d) {
+  const have = new Set(d.regQuals || []);
+  return `<h3 style="margin-top:16px">Regulation qualifications</h3><p class="small muted">Each has a prerequisite. Command Authority verifies them on approval.</p>
+    ${REG_QUALS.map(([c, l, need, ok]) => { const met = ok(d);
+      return `<label class="tick"><input type="checkbox" id="rq-${c}" data-act="app-regqual" data-code="${c}" ${have.has(c) ? 'checked' : ''} ${met || have.has(c) ? '' : 'disabled'}> <b>${esc(l)}</b> <span class="small ${met ? 'muted' : 'warn-text'}">${esc(need)}${met ? '' : ' Not met.'}</span></label>`; }).join('<br>')}`;
+}
+ACTIONS['app-regqual'] = (dd, el) => { const d = S.ui.enlist.d, s = new Set(d.regQuals || []); if (el.checked) s.add(dd.code); else s.delete(dd.code); d.regQuals = [...s]; scheduleSave(); render(); };
+function j2StepHtml(d) {
+  const P = 'ui/enlist/d/secrets', s = d.secrets || (d.secrets = { connections: '', secrets: '', hooks: '' });
+  return `<p class="small muted" style="margin-top:0">${HOSTED() ? 'Only Command Authority and you can read this section. Other players never see it.' : 'Command Authority reads this section.'} J2 uses it for your background check, and the GM uses it to build your story.</p>
+    <label class="field wide">Secret connections<textarea id="en-j2c" data-bind="${P}/connections" placeholder="A Regent House, a manufacturer, a foreign sponsor quietly paying for copies of reports…">${esc(s.connections)}</textarea></label>
+    <label class="field wide" style="margin-top:10px">Secrets<textarea id="en-j2s" data-bind="${P}/secrets" placeholder="What your eishi hides, and from whom">${esc(s.secrets)}</textarea></label>
+    <label class="field wide" style="margin-top:10px">Hooks for the GM<textarea id="en-j2h" data-bind="${P}/hooks" placeholder="Threads you’d like the GM to pull on">${esc(s.hooks)}</textarea></label>`;
+}
+/* The draft's dossier fields, as stored on the character record. */
+function dossierFromDraft(d) {
+  const out = {};
+  DOSSIER_FIELDS.forEach(k => { const v = d[k]; out[k] = typeof v === 'string' ? v.trim() : v == null ? null : v; });
+  out.heightCm = d.heightCm === '' || d.heightCm == null ? null : Number(d.heightCm);
+  out.history = (d.history || []).filter(x => x.eventId).map(x => ({ eventId: x.eventId, title: (x.title || '').trim(), year: x.eventId === 'other' ? Number(x.year) || null : null,
+    role: (x.role || '').trim(), unit: (x.unit || '').trim(), outcome: (x.outcome || '').trim(), clearance: Number(x.clearance) || 0 }));
+  out.regQuals = (d.regQuals || []).filter(c => { const q = REG_QUALS.find(x => x[0] === c); return q && q[3](d); });
+  out.claimedQuals = (d.claimedQuals || []).filter(x => (x.title || '').trim() && !REG_QUALS.some(q => q[1] === x.title.trim())).map(x => ({ title: x.title.trim(), detail: (x.detail || '').trim() }))
+    .concat(out.regQuals.map(c => { const q = REG_QUALS.find(x => x[0] === c); return { title: q[1], detail: 'Regulation qualification: ' + q[2].replace(/\.$/, '') }; }));
+  return out;
+}
+async function saveSecrets(pid, s) {
+  const prev = (S.store.dossier_secrets || {})[pid], next = { connections: (s.connections || '').trim(), secrets: (s.secrets || '').trim(), hooks: (s.hooks || '').trim() };
+  if (!prev && !next.connections && !next.secrets && !next.hooks) return;
+  if (prev && prev.connections === next.connections && prev.secrets === next.secrets && prev.hooks === next.hooks) return;
+  await Data.put('dossier_secrets', pid, next);
+}
+
+/* ---------------------------------------------------------------- review stages, the CO's remarks and the service number */
+const APP_STAGES = [['received', 'RECEIVED', 'Back to received'], ['records', 'RECORDS REVIEW', 'Move to records review'], ['j2', 'PENDING J2 REVIEW', 'Send to J2 review']];
+function stageLabel(a) {
+  if (!a) return 'RECEIVED';
+  return { approved: 'DOSSIER ISSUED', changes_requested: 'RETURNED WITH MEMO', rejected: 'DECLINED', on_hold: 'ON HOLD', withdrawn: 'SUPERSEDED', cancelled: 'CANCELLED' }[a.status]
+    || (APP_STAGES.find(s => s[0] === a.stage) || APP_STAGES[0])[1];
+}
+Object.assign(APP_EVENT, { stage_received: 'Returned to received', stage_records: 'Moved to records review', stage_j2: 'Moved to J2 review' });
+ACTIONS['app-stage'] = d => {
+  const a = clone(S.store.approvals[d.id]); if (!a) return;
+  a.stage = d.stage; a.events = (a.events || []).concat([{ event: 'stage_' + d.stage, actor: actorLabel(), note: null, at: nowIso() }]);
+  run(async () => { await Data.put('approvals', d.id, a); }, `Status: ${stageLabel(a)}.`);
+};
+/* Eishi start as Second Lieutenants; veterans and command post controllers as First Lieutenants. The Captain is set by hand. */
+function startingRankFor(p) {
+  const slot = (p.postingChoices || []).map(id => get('slots', id)).find(Boolean);
+  const id = bracketIndex(p.experienceBracket) >= 3 || (slot && slot.role === 'cp_officer') ? 'r-1lt' : 'r-2lt';
+  return rankById(id) ? id : (pilotRules().startingRankId || '');
+}
+function makeServiceNumber(p) {
+  const br = SERVICE_BRANCHES.find(x => x[0] === p.factionId), fac = get('factions', p.factionId);
+  const code = br ? br[1] : (String((fac && (fac.short || fac.name)) || 'UN').replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'UN');
+  const joined = settingYear() - (Number(p.yearsService) || 0), seq = list('pilots').filter(x => x.serviceNumber).length + 1;
+  return `${code}-${String(joined).slice(-2)}-${String(die(100000) - 1).padStart(5, '0')} / UNFEC-${String(settingYear()).slice(-2)}-${String(seq).padStart(3, '0')}`;
+}
+function dossierOnApproval(p, f, now) {
+  const out = { dossierIssuedAt: now, serviceNumber: p.serviceNumber || makeServiceNumber(p) };
+  if (f && f.coRemarks != null) { const r = String(f.coRemarks).trim(); out.coRemarks = r; out.coRemarksBy = r ? coSignature() : ''; }
+  return out;
+}
+const _appStatusDossier = applicationStatusView;
+applicationStatusView = function (p) {
+  const a = list('approvals').filter(x => x.pilotId === p.id && x.type === 'pilot_registration').sort((x, y) => y.submittedAt.localeCompare(x.submittedAt))[0];
+  return _appStatusDossier(p).replace(/(<h1>Application: [^<]*<\/h1>)/, `$1<p style="margin:6px 0"><span class="stamp-chip">STATUS: ${esc(stageLabel(a))}</span></p>`);
+};
+const _enlistReviewDossier = enlistReviewHtml;
+enlistReviewHtml = function (a) {
+  const html = _enlistReviewDossier(a), p = get('pilots', a.pilotId); if (!p) return html;
+  const pending = a.status === 'pending' || a.status === 'on_hold', f = S.ui.form.enl && S.ui.form.enl.id === a.id ? S.ui.form.enl : null, n = S.ui.form.appNotes || { sections: {} };
+  if (f && !f.dossierInit) { f.dossierInit = true; f.coRemarks = p.coRemarks || ''; if (!p.rankId) { f.rankId = startingRankFor(p); scheduleRender(); } }
+  const row = (l, v) => v ? `<dt>${esc(l)}</dt><dd style="white-space:pre-wrap">${esc(v)}</dd>` : '';
+  const noteBox = k => pending ? `<label class="field app-note"><span class="small">Note on ${esc((APP_STEPS_ALL.find(s => s[0] === k) || [0, k])[1])} (shown to them if you request changes or decline)</span>${txt('an-' + k, 'ui/form/appNotes/sections/' + k, (n.sections || {})[k] || '', 'What should they change?')}</label>` : '';
+  const g = guardOf(p.guardStanding), b = birthOf(p.dob), sec = (S.store.dossier_secrets || {})[p.id] || {}, stage = a.stage || 'received';
+  const extra = `<section><h3>In-world status</h3><p><span class="stamp-chip">${esc(stageLabel(a))}</span></p>
+      ${pending ? `<div class="btn-row">${APP_STAGES.filter(s => s[0] !== stage).map(s => `<button class="btn ghost" data-act="app-stage" data-id="${a.id}" data-stage="${s[0]}">${esc(s[2])}</button>`).join('')}</div>` : ''}</section>
+    <section><h3>Personnel record</h3><dl class="spec">${row('Native script', p.nativeName)}${row('Birth name or alias', p.alias)}${row('Age in ' + settingYear(), b ? String(ageAt(b, settingDate())) : '')}${row('Other nationalities', p.otherNationalities)}
+      ${row('Royal Guard standing', isGuard(p) && g ? `${g[1]} (${g[3]})` : '')}${row('Blood type', p.bloodType)}${row('Height', p.heightCm ? p.heightCm + ' cm' : '')}${row('Languages', p.languages)}${row('Distinguishing marks', p.marks)}${row('Discord', p.discord)}</dl>
+      ${ageProblems(p).map(x => `<p class="notice warn small">${esc(x)}</p>`).join('')}</section>
+    <section><h3>Service record</h3>${historyListHtml(p, { clr: 99 })}${historyFlags(p).map(x => `<p class="notice warn small">${esc(x.text)}</p>`).join('')}${noteBox('history')}</section>
+    <section><h3>Personal</h3><dl class="spec">${row('Next of kin', p.nextOfKin)}${row('Family location', p.familyLocation)}${row('Fears', p.fears)}${row('Habits', p.habits)}</dl></section>
+    <section><h3>J2 background <span class="chip">STAFF ONLY</span></h3>${sec.connections || sec.secrets || sec.hooks ? `<dl class="spec">${row('Secret connections', sec.connections)}${row('Secrets', sec.secrets)}${row('Hooks for the GM', sec.hooks)}</dl>` : '<p class="small muted">Nothing declared.</p>'}${noteBox('j2')}</section>
+    ${pending && f ? `<section><h3>Commanding officer’s remarks</h3><label class="field wide">Printed at the foot of the dossier when it is issued, signed ${esc(coSignature())}<textarea id="enl-co" data-bind="ui/form/enl/coRemarks">${esc(f.coRemarks || '')}</textarea></label>
+      <p class="small muted">Eishi start as Second Lieutenants; veterans and command post controllers as First Lieutenants. Set the Captain by hand. A service number is issued on approval.</p></section>` : ''}`;
+  return html.indexOf('<section><h3>History</h3>') !== -1 ? html.replace('<section><h3>History</h3>', extra + '<section><h3>History</h3>') : html + extra;
+};
+
+/* ---------------------------------------------------------------- Command Authority's editor */
+const _pilotEditDossier = DRAWERS['pilot-edit'];
+DRAWERS_REG('pilot-edit', d => {
+  const html = _pilotEditDossier(d), e = S.ui.edit, p = e && e.pilot; if (!p) return html;
+  if (e.secretsFor !== p.id) { const s = (S.store.dossier_secrets || {})[p.id] || {}; e.secrets = { connections: s.connections || '', secrets: s.secrets || '', hooks: s.hooks || '' }; e.secretsFor = p.id; }
+  const b = 'ui/edit/pilot', t = p.tally || {}, bt = birthOf(p.dob);
+  const area = (id, path, l, v) => `<label class="field wide">${l}<textarea id="${id}" data-bind="${path}">${esc(v || '')}</textarea></label>`;
+  const add = `<section><h3>Dossier particulars</h3><div class="form-grid">
+      <label class="field">Name in native script${txt('p-native', b + '/nativeName', p.nativeName, 'e.g. 藤堂 明里')}</label>
+      <label class="field">Birth name or alias${txt('p-alias', b + '/alias', p.alias)}</label>
+      <label class="field">Other nationalities${txt('p-nat2', b + '/otherNationalities', p.otherNationalities)}</label>
+      <label class="field">Blood type${sel('p-blood', b + '/bloodType', p.bloodType || '', BLOOD_TYPES.map(x => [x, x]), 'Not recorded')}</label>
+      <label class="field">Height (cm)${num('p-height', b + '/heightCm', p.heightCm)}</label>
+      <label class="field">Languages${txt('p-lang', b + '/languages', p.languages)}</label>
+      <label class="field wide">Distinguishing marks${txt('p-marks', b + '/marks', p.marks)}</label>
+      <label class="field">Discord username${txt('p-discord', b + '/discord', p.discord)}</label>
+      <label class="field">Service number${txt('p-svcno', b + '/serviceNumber', p.serviceNumber, 'Issued on approval')}</label>
+      ${isGuard(p) ? `<label class="field">Royal Guard standing${sel('p-guard', b + '/guardStanding', p.guardStanding || '', GUARD_STANDING.map(x => [x[0], `${x[1]} (${x[3]})`]), 'Not recorded')}</label>` : ''}</div>
+      ${bt ? `<p class="small muted">Age in ${settingYear()}: ${ageAt(bt, settingDate())}.</p>` : ''}${ageProblems(p).map(x => `<p class="notice warn small">${esc(x)}</p>`).join('')}</section>
+    <section><h3>Personal</h3><div class="form-grid"><label class="field">Next of kin${txt('p-nok', b + '/nextOfKin', p.nextOfKin)}</label><label class="field">Family location${txt('p-fam', b + '/familyLocation', p.familyLocation)}</label>
+      ${area('p-fears', b + '/fears', 'Fears', p.fears)}${area('p-habits', b + '/habits', 'Habits', p.habits)}</div></section>
+    <section><h3>Service history</h3>${historyEditorHtml(p.history || [], b + '/history', 'edit', true)}${historyFlags(p).map(x => `<p class="notice warn small">${esc(x.text)}</p>`).join('')}
+      <p class="small muted">Classification hides an entry from players below that clearance.</p></section>
+    <section><h3>Combat record adjustments</h3><p class="small muted">Added to what the Missions screen records. Update these after each session.</p>
+      <div class="row-edit"><label class="field">Sorties${num('p-t-s', b + '/tally/sorties', t.sorties)}</label><label class="field">Frames lost${num('p-t-f', b + '/tally/framesLost', t.framesLost)}</label><label class="field">Times bailed out${num('p-t-b', b + '/tally/bailouts', t.bailouts)}</label></div>
+      <div class="row-edit">${BETA_CLASSES.map(([k, l]) => `<label class="field">${esc(l)} kills${num('p-t-k-' + k, b + '/tally/kills/' + k, (t.kills || {})[k])}</label>`).join('')}</div></section>
+    <section><h3>J2 file <span class="chip">STAFF ONLY</span></h3><p class="small muted">Read only by Command Authority and the character’s own player.</p>
+      ${area('p-j2c', 'ui/edit/secrets/connections', 'Secret connections', e.secrets.connections)}${area('p-j2s', 'ui/edit/secrets/secrets', 'Secrets', e.secrets.secrets)}${area('p-j2h', 'ui/edit/secrets/hooks', 'Hooks for the GM', e.secrets.hooks)}</section>
+    <section><h3>Commanding officer’s remarks</h3>${area('p-co', b + '/coRemarks', 'Remarks', p.coRemarks)}
+      <label class="field">Signed${txt('p-cosig', b + '/coRemarksBy', p.coRemarksBy, coSignature())}</label></section>`;
+  return html.replace('<section><h3>Portrait and insignia</h3>', add + '<section><h3>Portrait and insignia</h3>');
+});
+const _pilotGmSaveDossier = ACTIONS['pilot-gm-save'];
+ACTIONS['pilot-gm-save'] = (d, el) => {
+  const e = S.ui.edit, p = e && e.pilot;
+  if (p) {
+    const g = guardOf(p.guardStanding); p.guardColour = isGuard(p) && g ? g[2] : null;
+    if (p.heightCm === '') p.heightCm = null;
+    if (p.history) p.history = p.history.filter(x => x.eventId).map(x => Object.assign({}, x, { clearance: Number(x.clearance) || 0, year: x.eventId === 'other' ? Number(x.year) || null : null }));
+    if (typeof p.coRemarks === 'string') { p.coRemarks = p.coRemarks.trim(); if (p.coRemarks && !(p.coRemarksBy || '').trim()) p.coRemarksBy = coSignature(); }
+    if (e.secrets && e.secretsFor === p.id) saveSecrets(p.id, e.secrets).catch(err => toast('Couldn’t save the J2 file: ' + ((err && err.message) || err), true));
+  }
+  return _pilotGmSaveDossier(d, el);
+};
+
+/* ---------------------------------------------------------------- the dossier */
+const redactBar = n => `<span class="redact" style="width:${n}em" role="img" aria-label="Redacted"></span>`;
+/* Staff and the character's own player read everything; everyone else reads up to their clearance. */
+function dossierAccess(p) {
+  if (S.isGm && !S.ui.previewAs) return { all: true, clr: 99 };
+  if (p.id === S.pilotId || (p.userId && p.userId === S.uid && !S.ui.previewAs)) return { all: true, clr: 99 };
+  const v = viewer(); return { all: false, clr: v ? v.clearance : 0 };
+}
+function historyListHtml(p, acc) {
+  const rows = (p.history || []).slice().sort((x, y) => (entryYear(x) || 9999) - (entryYear(y) || 9999));
+  if (!rows.length) return '<p class="small">No prior service recorded.</p>';
+  return `<ul class="dd-hist">${rows.map(x => { const y = entryYear(x);
+    return `<li><span>${y || '—'}</span><div>${acc.clr >= (Number(x.clearance) || 0) ? `<b>${esc(entryName(x))}</b>${x.role ? ` · ${esc(x.role)}` : ''}${x.unit ? `<br>${esc(x.unit)}` : ''}${x.outcome ? `<br><i>${esc(x.outcome)}</i>` : ''}`
+      : `${redactBar(16)}<br>${redactBar(9)}`}</div></li>`; }).join('')}</ul>`;
+}
+function dossierHtml(p) {
+  const acc = dossierAccess(p), lv = dossierLevels(), rank = rankById(p.rankId), bt = birthOf(p.dob), age = ageAt(bt, settingDate());
+  const ok = s => acc.clr >= (lv[s] || 0);
+  const f = (label, v, s) => v == null || v === '' ? '' : `<div><dt>${esc(label)}</dt><dd>${ok(s || 'record') ? v : redactBar(6 + String(v).length % 8)}</dd></div>`;
+  const sec = (n, title, body) => `<section class="dd-sec"><h3>${n}. ${title}</h3>${body}</section>`;
+  const g = guardOf(p.guardStanding), slot = list('slots').find(s => s.holderPilotId === p.id), rec = pilotRecordFull(p.id), t = p.tally || {}, kills = t.kills || {};
+  const extraKills = BETA_CLASSES.reduce((s, [k]) => s + (Number(kills[k]) || 0), 0), secrets = (S.store.dossier_secrets || {})[p.id];
+  const byClass = BETA_CLASSES.filter(([k]) => Number(kills[k])).map(([k, l]) => `${l} ${Number(kills[k])}`).join(', ');
+  const provisional = p.status === 'pending', file = p.serviceNumber || REF.pers(p);
+  return `<div class="btn-row dd-tools"><button class="btn ghost" data-act="dossier-export" data-id="${esc(p.id)}">${icon('download', 16)} Export as image</button></div>
+  <article class="dossier-doc" data-id="${esc(p.id)}" aria-label="Personnel dossier: ${esc(p.callsign || p.fullName)}">
+    <div class="dd-margin" aria-hidden="true">FILE ${esc(file)} · J1 PERSONNEL · ${esc(file)}</div>
+    <div class="dd-stamp">UNFEC RESTRICTED</div>${provisional ? '<div class="dd-stamp second">PROVISIONAL</div>' : ''}
+    <header class="dd-head"><p class="dd-kicker">${esc(dossierSettings().header || 'UNITED NATIONS FAR EAST COMMAND · YOKOHAMA BASE')}</p><h2>PERSONNEL DOSSIER</h2>
+      <p class="dd-kicker">${esc(rank ? rank.name.toUpperCase() : 'RANK NOT ASSIGNED')}${p.callsign ? ' · CALLSIGN ' + esc(p.callsign.toUpperCase()) : ''}</p></header>
+    <div class="dd-top"><figure class="dd-photo">${avatarHtml(p, 150)}<figcaption>${esc([p.fcIrl, p.fcAnime].filter(Boolean).join(' · ') || 'No face claim on file')}</figcaption></figure>
+      ${sec(1, 'PERSONNEL RECORD', `<dl class="dd-grid">${f('Name', esc(p.fullName))}${f('Native script', esc(p.nativeName))}${f('Born as / alias', esc(p.alias))}${f('Callsign', esc(p.callsign))}
+        ${f('Service number', esc(p.serviceNumber || 'Issued on approval'))}${f('Personnel reference', esc(REF.pers(p)))}${f('Date of birth', p.dob ? esc(p.dob) + (age != null ? ` (age ${age})` : '') : '')}${f('Place of birth', esc(p.birthplace))}
+        ${f('Nationality', esc([p.nationality, p.otherNationalities].filter(Boolean).join(', ')))}${f('Service branch', p.factionId ? esc(facName(p.factionId)) : '')}
+        ${isGuard(p) && g ? f('Royal Guard', `<span class="guard-swatch" style="background:${GUARD_SWATCH[g[2]]}"></span> ${esc(g[3])}, ${esc(g[1].charAt(0).toLowerCase() + g[1].slice(1))}`) : ''}
+        ${f('Blood type', esc(p.bloodType))}${f('Height', p.heightCm ? esc(p.heightCm + ' cm') : '')}${f('Languages', esc(p.languages))}${f('Distinguishing marks', esc(p.marks))}</dl>`)}</div>
+    ${sec(2, 'SERVICE HISTORY', ok('history') ? historyListHtml(p, acc) : `${redactBar(20)}<br>${redactBar(14)}`)}
+    ${sec(3, 'QUALIFICATIONS AND AWARDS', `<dl class="dd-grid">${f('Qualifications', esc((p.qualifications || []).map(q => q.title).join(', ') || 'None'), 'quals')}${f('Awards', esc((p.commendations || []).map(c => c.title).join(', ') || 'None'), 'quals')}
+      ${f('Sorties', String(rec.sorties + (Number(t.sorties) || 0)), 'quals')}${f('BETA kills', String(rec.kills + extraKills) + (byClass ? ` (${esc(byClass)})` : ''), 'quals')}
+      ${f('Frames lost', String(rec.lost + (Number(t.framesLost) || 0)), 'quals')}${f('Times bailed out', String(Number(t.bailouts) || 0), 'quals')}</dl>`)}
+    ${sec(4, 'APTITUDE ASSESSMENT', `<p class="dd-note">Comprehensive combat evaluation</p>${ok('aptitude') ? `<dl class="dd-grid">${statDefs('pilot').map(s => { const v = Number((p.attributes || {})[s.code]) || 0;
+      return `<div><dt>${esc(s.name)} · ${v}</dt><dd><div class="dd-bar"><i style="width:${Math.min(100, v)}%"></i></div></dd></div>`; }).join('')}</dl>` : redactBar(24)}`)}
+    ${sec(5, 'ASSIGNMENT', `<dl class="dd-grid">${f('Unit', esc(p.unitId ? unitChain(p.unitId).map(u => u.name).join(' › ') : 'Unassigned'), 'assignment')}${f('Role', p.unitId ? esc(roleLabel(p.unitRole)) : '', 'assignment')}
+      ${f('Roster slot', slot ? esc(slot.title) : '', 'assignment')}${f('Position', esc((slot && posName(slot.position)) || (specOf(p) || {}).name || ''), 'assignment')}
+      ${f('Preferred role', p.preferredRoleId ? esc(className(p.preferredRoleId)) + ' <i>(subject to GM approval)</i>' : '', 'assignment')}</dl>`)}
+    ${sec(6, 'PERSONAL', `<dl class="dd-grid">${f('Next of kin', esc(p.nextOfKin), 'personal')}${f('Family location', esc(p.familyLocation), 'personal')}</dl>
+      <dl class="dd-grid dd-long">${f('Why did you volunteer?', esc(p.motivation), 'personal')}${f('Personality', esc(p.personality), 'personal')}${f('Fears', esc(p.fears), 'personal')}${f('Habits', esc(p.habits), 'personal')}</dl>`)}
+    ${sec(7, 'J2 FILE', acc.all ? (secrets && (secrets.connections || secrets.secrets || secrets.hooks) ? `<p class="dd-note">Staff and subject only</p><dl class="dd-grid dd-long">${f('Secret connections', esc(secrets.connections))}${f('Secrets', esc(secrets.secrets))}${f('Hooks for the GM', esc(secrets.hooks))}</dl>` : '<p class="dd-note">Nothing on file.</p>')
+      : `<p class="dd-note">Section withheld by J2.</p>${redactBar(22)}`)}
+    ${sec(8, 'COMMANDING OFFICER’S REMARKS', p.coRemarks ? `<div class="dd-remarks"><p>${esc(p.coRemarks)}</p><p class="dd-sign">${esc(p.coRemarksBy || coSignature())}${p.dossierIssuedAt ? ', ' + esc(fmtDate(p.dossierIssuedAt)) : ''}</p></div>` : `<p class="dd-note">${provisional ? 'Written when the dossier is issued.' : 'None on file.'}</p>`)}
+    <footer class="dd-foot">UNFEC RESTRICTED · Handle in accordance with base security regulations · ${esc(file)}</footer>
+  </article>`;
+}
+/* Export: the dossier as the viewer sees it, redactions included, as a PNG. */
+function loadHtml2canvas() {
+  if (window.html2canvas) return Promise.resolve(window.html2canvas);
+  return new Promise((ok, no) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    s.onload = () => ok(window.html2canvas); s.onerror = () => no(new Error('the image tool could not load')); document.head.appendChild(s); });
+}
+ACTIONS['dossier-export'] = async d => {
+  const p = get('pilots', d.id); if (!p) return;
+  toast('Preparing the dossier image…');
+  /* A copy of its own, off screen: the page re-renders while the image is made. */
+  const holder = document.createElement('div'); holder.style.cssText = 'position:fixed;left:-12000px;top:0;width:920px';
+  holder.innerHTML = dossierHtml(p).replace(/^[\s\S]*?(<article)/, '$1'); document.body.appendChild(holder);
+  try {
+    const h2c = await loadHtml2canvas(), canvas = await h2c(holder.querySelector('.dossier-doc'), { scale: 2, useCORS: true, backgroundColor: null, scrollX: 0, scrollY: 0 });
+    const a = document.createElement('a'); a.download = `dossier-${String(p.callsign || p.fullName || 'eishi').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`;
+    a.href = canvas.toDataURL('image/png'); document.body.appendChild(a); a.click(); a.remove(); toast('Dossier image saved.');
+  } catch (e) { toast('Couldn’t make the image: ' + ((e && e.message) || e), true); }
+  finally { holder.remove(); }
+};
+/* Other players' eishi profiles open on the dossier. */
+if (ROUTES.eishi) { const _eishiDossier = ROUTES.eishi.view; ROUTES.eishi.view = function () { const html = _eishiDossier.call(this), p = get('pilots', S.ui.eishiId); return p ? html.replace('<div class="eishi-grid">', dossierHtml(p) + '<div class="eishi-grid">') : html; }; }
+
+
+/* The Administrator sets the campaign date directly, e.g. to start in 2012. Ages and service-record checks follow it. */
+if (ROUTES.situation) {
+  const _situationDate = ROUTES.situation.view;
+  ROUTES.situation.view = function () {
+    const html = _situationDate.call(this); if (!S.isOwner) return html;
+    const v = S.ui.form.campDate != null ? S.ui.form.campDate : (S.ui.form.campDate = campaignDate());
+    return html + `<section class="plate" style="margin-top:16px"><h2>Campaign date</h2><p class="small muted" style="margin-top:0">Jump straight to a date. Supply lines don’t deliver for the time skipped; use Advance for that. Eishi ages and service-record checks follow this date.</p>
+      <div class="row-edit"><label class="field">Date<input type="date" id="camp-date" data-bind="ui/form/campDate" value="${esc(v)}"></label><button class="btn" data-act="campaign-set-date">Set the date</button></div></section>`;
+  };
+}
+ACTIONS['campaign-set-date'] = () => {
+  const v = S.ui.form.campDate;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v || '')) { toast('Choose a date.', true); return; }
+  askConfirm(`Set the campaign date to ${fmtCampaign(v)}?`, 'Set the date', () => run(async () => {
+    const lg = Object.assign({}, get('settings', 'campaign') || {}); delete lg.id; lg.date = v;
+    await Data.put('settings', 'campaign', lg); await Data.audit('campaign.set', 'settings', 'campaign', `Campaign date set to ${v}`);
+  }, 'Campaign date set.'));
+};
+
 /* =====================================================================
    UNTSF-COMM — phones.
    A bottom navigation bar on narrow screens (players: Home, Eishi File,

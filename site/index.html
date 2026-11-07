@@ -16,7 +16,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%A1%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Special+Elite&display=swap">
 <style>
 :root {
   /* ================= UX-STD-001 design tokens (single source of truth) =================
@@ -884,6 +884,53 @@ ol.service-tl { list-style: none; margin: 0; padding: 0 0 0 6px; border-left: 2p
 .hosted-setup { max-width: 760px; } .setup-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin: 14px 0; }
 .setup-choices .plate { background: var(--panel-2); } .invite-box { background: var(--panel-2); margin: 0 0 12px; } .file-btn input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
 
+
+/* ---------- eishi dossier: a restricted personnel document ---------- */
+.dd-tools { justify-content: flex-end; margin-bottom: 8px; }
+.dossier-doc { position: relative; max-width: 920px; margin: 0 auto 18px; padding: 34px 40px 26px 66px; color: #1f1c17; background-color: #efe9dc;
+  background-image: repeating-linear-gradient(0deg, rgba(0,0,0,.02) 0 1px, transparent 1px 3px), radial-gradient(circle at 18% 8%, rgba(255,255,255,.55), transparent 55%);
+  border: 1px solid #c9bfa8; box-shadow: 0 3px 14px rgba(0,0,0,.35); font: 15px/1.55 'Special Elite', 'IBM Plex Mono', monospace; overflow: hidden; }
+.dossier-doc .dd-margin { position: absolute; left: 12px; top: 28px; bottom: 28px; writing-mode: vertical-rl; transform: rotate(180deg); font: 11px 'IBM Plex Mono', monospace;
+  letter-spacing: .22em; color: #6d6455; border-left: 1px dashed #b7ab90; padding-left: 8px; white-space: nowrap; overflow: hidden; }
+.dd-head { border-bottom: 2px solid #1f1c17; padding: 0 180px 10px 0; margin-bottom: 16px; }
+.dd-head h2 { margin: 2px 0; font: 700 22px/1.2 'IBM Plex Mono', monospace; letter-spacing: .1em; color: #1f1c17; }
+.dd-kicker { margin: 0; font: 12px 'IBM Plex Mono', monospace; letter-spacing: .12em; color: #5d5446; }
+.dd-stamp { position: absolute; top: 24px; right: 28px; transform: rotate(-7deg); border: 3px double #a3241c; color: #a3241c; padding: 4px 12px;
+  font: 700 17px 'IBM Plex Mono', monospace; letter-spacing: .16em; opacity: .85; }
+.dd-stamp.second { top: auto; bottom: 46px; right: 36px; transform: rotate(5deg); font-size: 14px; }
+.dd-top { display: grid; grid-template-columns: 172px minmax(0, 1fr); gap: 22px; align-items: start; }
+.dd-top .dd-sec { margin-top: 0; }
+.dd-photo { margin: 0; border: 1px solid #9c9178; background: #ddd5c3; padding: 8px; text-align: center; transform: rotate(-1deg); box-shadow: 1px 2px 4px rgba(0,0,0,.25); }
+.dd-photo figcaption { font: 11px/1.4 'IBM Plex Mono', monospace; margin-top: 6px; color: #4b4438; }
+.dd-sec { margin-top: 18px; }
+.dd-sec h3 { margin: 0 0 8px; padding-bottom: 3px; border-bottom: 1px solid #8f846c; font: 700 13px 'IBM Plex Mono', monospace; letter-spacing: .14em; color: #1f1c17; }
+.dd-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 24px; margin: 0; }
+.dd-grid.dd-long { grid-template-columns: minmax(0, 1fr); margin-top: 4px; }
+.dd-grid dt { font: 10.5px 'IBM Plex Mono', monospace; letter-spacing: .1em; text-transform: uppercase; color: #6d6455; }
+.dd-grid dd { margin: 0 0 7px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.dd-note { margin: 0 0 6px; font: 11px 'IBM Plex Mono', monospace; letter-spacing: .1em; text-transform: uppercase; color: #6d6455; }
+.dd-hist { list-style: none; margin: 0; padding: 0; }
+.dd-hist li { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 10px; padding: 6px 0; border-bottom: 1px dotted #b7ab90; }
+.dd-bar { height: 8px; margin-top: 3px; background: #d6cdb8; border: 1px solid #8f846c; }
+.dd-bar i { display: block; height: 100%; background: #3d382f; }
+.dd-remarks { border: 1px solid #8f846c; padding: 10px 14px; background: rgba(255,255,255,.35); }
+.dd-remarks p { margin: 0; white-space: pre-wrap; }
+.dd-remarks .dd-sign { margin-top: 10px; text-align: right; font-style: italic; }
+.dd-foot { margin-top: 20px; padding-top: 6px; border-top: 1px solid #8f846c; font: 10.5px 'IBM Plex Mono', monospace; letter-spacing: .12em; color: #6d6455; text-align: center; }
+.redact { display: inline-block; max-width: 100%; height: 1.05em; vertical-align: -2px; background: #111; }
+.guard-swatch { display: inline-block; width: 14px; height: 14px; border: 1px solid #333; border-radius: 2px; vertical-align: -2px; }
+.stamp-chip { display: inline-block; border: 2px solid var(--warn); color: var(--warn); padding: 2px 8px; font: 700 12px var(--font-mono); letter-spacing: .12em; }
+.hist-row { padding: 12px; margin-bottom: 8px; }
+/* Long tab rows (the Eishi File) wrap on wider screens; phones scroll them sideways. */
+@media (min-width: 768px) { .tabs { flex-wrap: wrap; } }
+@media (max-width: 767px) {
+  .dossier-doc { padding: 22px 14px 20px 36px; font-size: 14px; }
+  .dossier-doc .dd-margin { left: 6px; padding-left: 5px; }
+  .dd-head { padding-right: 0; }
+  .dd-stamp { position: static; display: inline-block; margin: 0 0 10px; }
+  .dd-top, .dd-grid { grid-template-columns: minmax(0, 1fr); }
+  .dd-photo { max-width: 190px; }
+}
 </style>
 </head>
 <body>
