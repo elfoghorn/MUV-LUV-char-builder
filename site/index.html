@@ -83,6 +83,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 
 /* ---------- shell ---------- */
+/* The shell fills the screen; the sidebar and main area each scroll on their own. */
+#app { height: 100%; }
 .shell { display: grid; grid-template-columns: var(--sidebar-width) 1fr; grid-template-rows: var(--header-height) 1fr; height: 100%; }
 .shell.collapsed { grid-template-columns: var(--sidebar-collapsed) 1fr; }
 .topbar { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; padding: 0 18px; height: var(--header-height);
@@ -105,7 +107,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .nav-item[aria-current="page"] { background: var(--accent-soft); color: var(--text); box-shadow: inset 3px 0 0 var(--nav-active); }
 .nav-item .count { font: 600 12px var(--font-cond); background: var(--warn); color: var(--panel); border-radius: 8px; padding: 0 7px; }
 
-.main, .sidebar { min-height: 0; }
+.main, .sidebar { min-height: 0; overscroll-behavior: contain; }
 .main { overflow-y: auto; padding: 20px var(--content-padding) 60px; min-width: 0; }
 .main > .page { max-width: var(--content-max); margin: 0 auto; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
@@ -841,7 +843,7 @@ ol.service-tl { list-style: none; margin: 0; padding: 0 0 0 6px; border-left: 2p
     color: var(--muted); font: 600 11px var(--font-cond); letter-spacing: .04em; border-radius: 8px; cursor: pointer; }
   .bn-item.on { color: var(--text); background: var(--accent-soft); } .bn-item .ico { width: 22px; height: 22px; }
   .bn-badge { position: absolute; top: 4px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--warn); color: #1a1a1a; font: 700 11px/18px var(--font-cond); }
-  .shell.has-bottomnav .main { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+  .shell.has-bottomnav .main, .shell.has-bottomnav .sidebar { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
   .shell.has-bottomnav .toast, .shell.has-bottomnav ~ .toast { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
   /* nothing wider than the screen */
   .main, .page { min-width: 0; max-width: 100vw; } .main { overflow-x: hidden; }
