@@ -2062,11 +2062,12 @@ const ACTIONS = {
   },
 
   /* pilot profile (player) */
-  'pilot-edit': () => { const p = currentPilot(); S.ui.form.pilot = { id: p.id, callsign: p.callsign || '', biography: p.biography || '', insignia: clone(p.insignia) || { shape: 'shield', color: 'steel', mark: 'chevron1' } }; render(); },
+  'pilot-edit': () => { const p = currentPilot(); S.ui.form.pilot = { id: p.id, callsign: p.callsign || '', fcIrl: p.fcIrl || '', fcAnime: p.fcAnime || '', biography: p.biography || '', insignia: clone(p.insignia) || { shape: 'shield', color: 'steel', mark: 'chevron1' } }; render(); },
   'pilot-cancel': () => { S.ui.form.pilot = null; render(); },
   'pilot-save': () => {
     const f = S.ui.form.pilot, p = clone(S.store.pilots[f.id]);
     p.callsign = f.callsign.trim(); p.biography = f.biography; p.insignia = f.insignia;
+    if (S.isGm) FC_KINDS.forEach(([k]) => { p[k] = (f[k] || '').trim(); });
     run(async () => { await Data.put('pilots', f.id, p); await Data.audit('pilot.update', 'pilot', f.id, `${p.personnelId} updated their profile`); S.ui.form.pilot = null; }, 'Profile saved.');
   },
 
@@ -3509,6 +3510,7 @@ route('pilot', 'Personnel File', function () {
       <section class="dossier-sec"><h2>Career history</h2>${career.length ? `<ul class="timeline">${career.map(c => `<li><time>${c.at ? fmtDate(c.at) : '–'}</time><div>${esc(c.text)}</div></li>`).join('')}</ul>` : '<p class="small muted">No service history yet.</p>'}</section>
       <section class="dossier-sec"><h2>Background</h2>
       ${e ? `${insigniaEditor('ui/form/pilot/insignia', e.insignia, e.callsign)}<label class="field" style="margin-top:12px">Callsign<input type="text" id="pf-callsign" data-bind="ui/form/pilot/callsign" value="${esc(e.callsign || '')}"></label>
+        ${S.isGm ? FC_KINDS.map(([k, l, ph], i) => `<label class="field" style="margin-top:10px">${l}${txt('pf-fc' + i, 'ui/form/pilot/' + k, e[k] || '', ph)}</label>`).join('') : ''}
         <label class="field" style="margin-top:10px">Biography<textarea id="pf-bio" data-bind="ui/form/pilot/biography">${esc(e.biography || '')}</textarea></label>
         <div class="btn-row" style="margin-top:10px"><button class="btn primary" data-act="pilot-save">Save personnel file</button><button class="btn" data-act="pilot-cancel">Cancel</button></div>`
       : `<p style="white-space:pre-wrap;margin:0 0 10px">${esc(p.biography || 'No background recorded.')}</p>
@@ -3607,11 +3609,12 @@ route('pilot', 'Eishi File', function () {
   let body = '';
   if (tab === 'identity') {
     body = `<dl class="dossier-grid">${field('Personnel number', `<span class="ref">${esc(p.personnelId)}</span>`)}${field('Status', chip(p.status === 'active' ? 'operational' : p.status === 'pending' ? 'pending' : 'retired', p.status))}
-      ${field('Rank', esc(rank ? rank.name : ''))}${field('Callsign', esc(p.callsign))}${field('Nationality', esc(p.nationality))}${field('Organisation', esc(facName(p.factionId)))}
+      ${field('Rank', esc(rank ? rank.name : ''))}${field('Callsign', esc(p.callsign))}${field('Nationality', esc(p.nationality))}${faceClaimRows(p, (l, v) => field(l, esc(v)))}${field('Organisation', esc(facName(p.factionId)))}
       ${field('Unit', esc(unitPathText(p)))}${field('Squadron', esc(squadronOf(p)))}${field('Unit role', p.unitId ? esc(roleName(p.unitRole)) : '')}${field('Preferred role', esc(p.preferredRoleId ? className(p.preferredRoleId) : ''))}
       ${field('Assigned TSF', tsfs.filter(t => t.isPrimary).map(t => `${ref('tsf', t)} ${esc(tsfLabel(t))}`).join('') || '–')}</dl>
       <section class="dossier-sec"><h2>${e ? 'Edit personal details' : 'Personal details'}</h2>
       ${e ? `${insigniaEditor('ui/form/pilot/insignia', e.insignia, e.callsign)}<label class="field" style="margin-top:12px">Callsign<input type="text" id="pf-callsign" data-bind="ui/form/pilot/callsign" value="${esc(e.callsign || '')}"></label>
+        ${S.isGm ? FC_KINDS.map(([k, l, ph], i) => `<label class="field" style="margin-top:10px">${l}${txt('pf-fc' + i, 'ui/form/pilot/' + k, e[k] || '', ph)}</label>`).join('') : ''}
         <label class="field" style="margin-top:10px">Biography<textarea id="pf-bio" data-bind="ui/form/pilot/biography">${esc(e.biography || '')}</textarea></label>
         <div class="btn-row" style="margin-top:10px"><button class="btn primary" data-act="pilot-save">Save personnel file</button><button class="btn" data-act="pilot-cancel">Cancel</button></div>`
       : `<button class="btn" data-act="pilot-edit" ${S.readOnly ? 'disabled' : ''}>Edit approved personal details</button>`}
@@ -7642,10 +7645,21 @@ render = function () { const r = _renderV3d.apply(this, arguments); if (S.ui.dra
 const APP_DEFAULTS = {
   allowClaim: false, minBiography: 80,
   intro: 'Complete your personnel file to apply for service. Your application saves as you go, so you can leave and come back to it at any time.',
-  required: { callsign: true, dob: false, nationality: false, birthplace: false, motivation: true, biography: true, personality: false, strengths: false },
+  required: { callsign: true, dob: false, nationality: false, birthplace: false, faceClaims: true, motivation: true, biography: true, personality: false, strengths: false },
   questions: []
 };
-const APP_REQUIRABLE = [['callsign', 'Callsign'], ['dob', 'Date of birth'], ['birthplace', 'Place of birth'], ['nationality', 'Nationality'], ['motivation', 'Why they want to serve'], ['biography', 'Background'], ['personality', 'Personality and conduct'], ['strengths', 'Strengths and weaknesses']];
+const APP_REQUIRABLE = [['callsign', 'Callsign'], ['dob', 'Date of birth'], ['birthplace', 'Place of birth'], ['nationality', 'Nationality'], ['faceClaims', 'Face claims (IRL and anime)'], ['motivation', 'Why they want to serve'], ['biography', 'Background'], ['personality', 'Personality and conduct'], ['strengths', 'Strengths and weaknesses']];
+/* Face claims: one real-life and one anime face claim per character. AU versions of existing characters are fine.
+   A claim another current character already uses is flagged, not blocked: Command Authority decides. */
+const FC_KINDS = [['fcIrl', 'IRL face claim', 'e.g. Rinko Kikuchi'], ['fcAnime', 'Anime face claim', 'e.g. Mitsuki Hayase (Muv-Luv)']];
+function faceClaimClashes(c, selfId) {
+  const out = [], norm = v => String(v || '').trim().toLowerCase();
+  FC_KINDS.forEach(([k, l]) => { const v = norm(c[k]); if (!v) return;
+    list('pilots').filter(p => p.id !== selfId && p.status !== 'archived' && norm(p[k]) === v).forEach(p => out.push(`${l} “${String(c[k]).trim()}” is already used by ${p.callsign || p.fullName}.`));
+    list('slots').filter(x => !x.holderPilotId && x.holderName && norm(x[k]) === v).forEach(x => out.push(`${l} “${String(c[k]).trim()}” is already used by ${x.holderName} (${x.title}).`)); });
+  return out;
+}
+const faceClaimRows = (c, row) => FC_KINDS.map(([k, l]) => row(l, c[k])).join('');
 function applicationRules() { const o = get('settings', 'application') || {}, r = clone(APP_DEFAULTS); Object.keys(o).forEach(k => { if (k === 'id') return; if (k === 'required') r.required = Object.assign({}, r.required, o.required); else r[k] = o[k]; }); return r; }
 const APP_STEPS_ALL = [['identity', 'Identity'], ['service', 'Service'], ['posting', 'Posting'], ['background', 'Background'], ['attributes', 'Attributes'], ['qualifications', 'Qualifications'], ['insignia', 'Insignia & portrait'], ['questions', 'Questions'], ['review', 'Review']];
 const appSteps = () => APP_STEPS_ALL.filter(([k]) => (k !== 'questions' || applicationRules().questions.length)
@@ -7655,7 +7669,7 @@ const appSteps = () => APP_STEPS_ALL.filter(([k]) => (k !== 'questions' || appli
 enlistStart = function (fromPilot) {
   const pr = pilotRules(), each = Math.max(pr.attrMin, Math.min(pr.attrMax, Math.floor(pr.pointBudget * 0.9 / statDefs('pilot').length))), p = fromPilot || {};
   S.ui.enlist = { step: 'identity', pilotId: p.id || null, d: {
-    fullName: p.fullName || '', callsign: p.callsign || '', dob: p.dob || '', birthplace: p.birthplace || '', nationality: p.nationality || '',
+    fullName: p.fullName || '', callsign: p.callsign || '', dob: p.dob || '', birthplace: p.birthplace || '', nationality: p.nationality || '', fcIrl: p.fcIrl || '', fcAnime: p.fcAnime || '',
     factionId: p.factionId || '', roleId: p.preferredRoleId || '', priorService: p.priorService || '', yearsService: p.yearsService || '', motivation: p.motivation || '',
     biography: p.biography || '', personality: p.personality || '', strengths: p.strengths || '', weaknesses: p.weaknesses || '',
     attributes: clone(p.attributes) || Object.fromEntries(statDefs('pilot').map(s => [s.code, each])), claimedQuals: clone(p.claimedQuals) || [],
@@ -7665,7 +7679,8 @@ enlistStart = function (fromPilot) {
 function stepProblems(step, d) {
   d = d || S.ui.enlist.d; const r = applicationRules(), q = r.required, out = [];
   if (step === 'identity') { if (!d.fullName.trim()) out.push('Enter your pilot’s full name.'); if (q.callsign && !d.callsign.trim()) out.push('Choose a callsign.');
-    if (q.dob && !String(d.dob).trim()) out.push('Give a date of birth.'); if (q.birthplace && !d.birthplace.trim()) out.push('Give a place of birth.'); if (q.nationality && !d.nationality.trim()) out.push('Give a nationality.'); }
+    if (q.dob && !String(d.dob).trim()) out.push('Give a date of birth.'); if (q.birthplace && !d.birthplace.trim()) out.push('Give a place of birth.'); if (q.nationality && !d.nationality.trim()) out.push('Give a nationality.');
+    if (q.faceClaims && (!(d.fcIrl || '').trim() || !(d.fcAnime || '').trim())) out.push('Give an IRL face claim and an anime face claim.'); }
   if (step === 'service') { if (!d.factionId) out.push('Choose the organisation your pilot serves with.'); if (q.motivation && !d.motivation.trim()) out.push('Say why your pilot wants to serve.'); }
   if (step === 'background') { if (q.biography && d.biography.trim().length < r.minBiography) out.push(`Write at least ${r.minBiography} characters of background (${d.biography.trim().length} so far).`);
     if (q.personality && !d.personality.trim()) out.push('Describe their personality and conduct.'); if (q.strengths && (!d.strengths.trim() || !d.weaknesses.trim())) out.push('List strengths and weaknesses.'); }
@@ -7723,7 +7738,10 @@ enlistView = function () {
       <label class="field">${req('callsign', 'Callsign')}${txt('en-cs', P + '/callsign', d.callsign, 'e.g. Kestrel')}</label>
       <label class="field">${req('dob', 'Date of birth')}${txt('en-dob', P + '/dob', d.dob, 'e.g. 14 March 1983')}</label>
       <label class="field">${req('birthplace', 'Place of birth')}${txt('en-pob', P + '/birthplace', d.birthplace, 'e.g. Sendai')}</label>
-      ${nationField(d)}</div>`;
+      ${nationField(d)}
+      ${FC_KINDS.map(([k, l, ph], i) => `<label class="field">${req('faceClaims', l)}${txt('en-fc' + i, P + '/' + k, d[k] || '', ph)}</label>`).join('')}</div>
+      <p class="small muted">One real-life and one anime face claim. AU versions of existing characters are fine.</p>
+      ${faceClaimClashes(d, e.pilotId).map(x => `<p class="notice warn small" role="status">${esc(x)} Command Authority will decide whether both can keep it.</p>`).join('')}`;
   else if (e.step === 'service') { const facs = list('factions').filter(f => f.type === 'military_branch' || f.type === 'international');
     body = `<div class="form-grid"><label class="field">Serving with <span class="req" aria-hidden="true">*</span>${sel('en-fac', P + '/factionId', d.factionId, (facs.length ? facs : list('factions')).map(f => [f.id, f.name]), 'Choose')}</label>
       <label class="field">Preferred role${sel('en-role', P + '/roleId', d.roleId, vocab('classifications').map(c => [c.id, c.name]), 'No preference')}</label>
@@ -7756,7 +7774,7 @@ enlistView = function () {
   else {
     const todo = allProblems(d);
     body = `<div class="grid g2"><div class="review-id">${avatarHtml({ insignia: d.insignia, callsign: d.callsign, portraitAssetId: d.portraitAssetId }, 96)}<div><div class="desig" style="font-size:22px">${esc(d.callsign || d.fullName)}</div>
-        <div class="muted">${esc(d.fullName)}${d.nationality ? ' · ' + esc(d.nationality) : ''}${d.dob ? ' · born ' + esc(d.dob) : ''}</div><div class="small">${esc(facName(d.factionId))}${d.roleId ? ' · prefers ' + esc(className(d.roleId)) : ''}</div>${nationById(d.nationId) && chargenBracket(d.bracket) ? `<div class="small">First TSF: <b>${esc(tsfLabelFromVariant(startingTsfFor(d.nationId, d.bracket)))}</b></div>` : ''}${postingReviewLine(d)}</div></div>
+        <div class="muted">${esc(d.fullName)}${d.nationality ? ' · ' + esc(d.nationality) : ''}${d.dob ? ' · born ' + esc(d.dob) : ''}</div>${d.fcIrl || d.fcAnime ? `<div class="small">Face claims: ${esc([d.fcIrl, d.fcAnime].filter(Boolean).join(' · '))}</div>` : ''}<div class="small">${esc(facName(d.factionId))}${d.roleId ? ' · prefers ' + esc(className(d.roleId)) : ''}</div>${nationById(d.nationId) && chargenBracket(d.bracket) ? `<div class="small">First TSF: <b>${esc(tsfLabelFromVariant(startingTsfFor(d.nationId, d.bracket)))}</b></div>` : ''}${postingReviewLine(d)}</div></div>
       <div>${chargenRules().method === 'roll' && chargenBracket(d.bracket) ? `<p class="small muted" style="margin:0 0 6px">${esc(chargenBracket(d.bracket).label)} · rolled ${d.roll ? fmtDT(d.roll.at) : '–'}</p>` : ''}${statDefs('pilot').map(s => `<div class="stat"><span class="name">${esc(s.name)}</span><span class="track"><span class="base" style="width:${d.attributes[s.code]}%"></span></span><span class="val">${d.attributes[s.code]}</span></div>`).join('')}</div></div>
       <h2 class="section-h" style="margin-top:12px">Sections</h2><ul class="plain app-check">${steps.filter(([k]) => k !== 'review').map(([k, l]) => { const p2 = stepProblems(k); return `<li class="${p2.length ? 'warn-text' : 'ok-text'}"><span>${p2.length ? '○' : '✓'} ${esc(l)}${p2.length ? ` <span class="small">· ${esc(p2[0])}</span>` : ''}</span><button class="btn ghost" data-act="enlist-step" data-to="${k}" aria-label="Edit ${esc(l)}">Edit</button></li>`; }).join('')}</ul>
       <label class="field" style="margin-top:12px"><span><input type="checkbox" id="en-decl" data-bind="${P}/declaration" ${d.declaration ? 'checked' : ''}> I confirm this application is complete and accurate, and I am ready for Command Authority to review it.</span></label>
@@ -7800,7 +7818,7 @@ ACTIONS['enlist-submit'] = () => {
   const now = nowIso(), pid = e.pilotId || newId('plt'), existing = e.pilotId ? clone(S.store.pilots[e.pilotId]) : null;
   const max = list('pilots').reduce((m, x) => Math.max(m, parseInt(x.personnelId, 10) || 0), 0);
   const pilot = Object.assign(existing || { personnelId: String(max + 1).padStart(5, '0'), rankId: null, unit: '', squadron: '', access: {} },
-    { userId: S.uid, fullName: d.fullName.trim(), callsign: d.callsign.trim(), dob: String(d.dob || '').trim() || null, birthplace: d.birthplace.trim(), nationality: d.nationality.trim(),
+    { userId: S.uid, fullName: d.fullName.trim(), callsign: d.callsign.trim(), dob: String(d.dob || '').trim() || null, birthplace: d.birthplace.trim(), nationality: d.nationality.trim(), fcIrl: (d.fcIrl || '').trim(), fcAnime: (d.fcAnime || '').trim(),
       factionId: d.factionId, preferredRoleId: d.roleId || null, priorService: d.priorService.trim(), yearsService: d.yearsService === '' ? null : Number(d.yearsService), motivation: d.motivation.trim(),
       biography: d.biography, personality: d.personality.trim(), strengths: d.strengths.trim(), weaknesses: d.weaknesses.trim(),
       claimedQuals: d.claimedQuals.filter(x => (x.title || '').trim()).map(x => ({ title: x.title.trim(), detail: (x.detail || '').trim() })), answers: Object.assign({}, d.answers),
@@ -7863,7 +7881,7 @@ enlistReviewHtml = function (a) {
   const qs = applicationRules().questions, row = (l, v) => v ? `<dt>${esc(l)}</dt><dd style="white-space:pre-wrap">${esc(v)}</dd>` : '';
   const noteBox = k => pending ? `<label class="field app-note"><span class="small">Note on ${esc((APP_STEPS_ALL.find(s => s[0] === k) || [0, k])[1])} (shown to them if you request changes or decline)</span>${txt('an-' + k, 'ui/form/appNotes/sections/' + k, n.sections[k] || '', 'What should they change?')}</label>` : '';
   const base = _enlistReviewApp(a);
-  const extra = `<section><h3>Identity</h3><dl class="spec">${row('Date of birth', p.dob)}${row('Place of birth', p.birthplace)}${row('Nationality', p.nationality)}</dl>${noteBox('identity')}</section>
+  const extra = `<section><h3>Identity</h3><dl class="spec">${row('Date of birth', p.dob)}${row('Place of birth', p.birthplace)}${row('Nationality', p.nationality)}${faceClaimRows(p, row)}</dl>${faceClaimClashes(p, p.id).map(x => `<p class="notice warn small">${esc(x)}</p>`).join('')}${noteBox('identity')}</section>
     <section><h3>Service</h3><dl class="spec">${row('Years of service', p.yearsService != null ? String(p.yearsService) : '')}${row('Training and previous units', p.priorService)}${row('Why they want to serve', p.motivation)}</dl>${noteBox('service')}</section>
     <section><h3>Background</h3><dl class="spec">${row('Personality and conduct', p.personality)}${row('Strengths', p.strengths)}${row('Weaknesses', p.weaknesses)}</dl>${noteBox('background')}${noteBox('attributes')}</section>
     <section><h3>Qualifications claimed</h3>${(p.claimedQuals || []).length ? (p.claimedQuals.map((x, i) => `<label class="tick"><input type="checkbox" id="aq-${i}" data-act="app-accept-qual" data-i="${i}" ${!f || f.acceptQuals.indexOf(i) !== -1 ? 'checked' : ''} ${pending ? '' : 'disabled'}> <b>${esc(x.title)}</b>${x.detail ? ` · ${esc(x.detail)}` : ''}</label>`).join('<br>') + (pending ? '<p class="small muted">Ticked qualifications are added to the personnel file on approval.</p>' : '')) : '<p class="small muted">None claimed.</p>'}${noteBox('qualifications')}</section>
@@ -7894,7 +7912,7 @@ ACTIONS.decide = (d, el) => {
 /* ---------------------------------------------------------------- Background tab on the personnel file */
 function applicationRecordHtml(p) {
   const qs = applicationRules().questions, row = (l, v) => v != null && v !== '' ? `<dt>${esc(l)}</dt><dd style="white-space:pre-wrap">${esc(String(v))}</dd>` : '';
-  const body = `<dl class="spec">${row('Date of birth', p.dob)}${row('Place of birth', p.birthplace)}${row('Nationality', p.nationality)}${row('Years of service', p.yearsService)}${row('Training and previous units', p.priorService)}${row('Why they serve', p.motivation)}
+  const body = `<dl class="spec">${row('Date of birth', p.dob)}${row('Place of birth', p.birthplace)}${row('Nationality', p.nationality)}${faceClaimRows(p, row)}${row('Years of service', p.yearsService)}${row('Training and previous units', p.priorService)}${row('Why they serve', p.motivation)}
     ${row('Personality and conduct', p.personality)}${row('Strengths', p.strengths)}${row('Weaknesses', p.weaknesses)}${qs.map(x => row(x.text, (p.answers || {})[x.id])).join('')}</dl>`;
   return `<div class="plate"><h2>Background</h2>${p.biography ? `<p style="white-space:pre-wrap">${esc(p.biography)}</p>` : ''}${body}${(p.claimedQuals || []).length ? `<h3>Qualifications claimed on application</h3><ul class="plain small">${p.claimedQuals.map(x => `<li>${esc(x.title)}${x.detail ? ` · ${esc(x.detail)}` : ''}</li>`).join('')}</ul>` : ''}</div>`;
 }
@@ -8204,7 +8222,7 @@ function structureUnitHtml(u, depth) {
     ${slots.length ? `<div class="scroll-x"><table class="data st-slots"><thead><tr><th>Slot</th><th>Role</th><th>Position</th><th>Held by</th><th>Applications</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
       ${slots.map(s => { const h = slotHolder(s), ch = slotChoosers(s.id);
         return `<tr class="${slotVacant(s) ? 'vacant' : ''}"><td><b>${esc(s.title)}</b>${s.notes ? `<br><span class="small muted">${esc(s.notes)}</span>` : ''}</td><td>${esc(roleLabel(s.role))}</td><td>${esc(posName(s.position) || '–')}</td>
-          <td>${h ? `${avatarHtml(h, 24)} ${esc(pilotLabel(h))}` : s.holderName ? `<span class="npc-avatar sm">${esc(s.holderName.slice(0, 2).toUpperCase())}</span> ${esc(s.holderName)} <span class="small muted">(NPC)</span>` : `<span class="chip ${s.open ? 'ok' : ''}">${s.open ? 'OPEN' : 'VACANT'}</span>${s.minBracket && chargenBracket(s.minBracket) ? ` <span class="small muted">${esc(chargenBracket(s.minBracket).label)} or above</span>` : ''}`}</td>
+          <td>${h ? `${avatarHtml(h, 24)} ${esc(pilotLabel(h))}${h.fcIrl || h.fcAnime ? `<br><span class="small muted">FC: ${esc([h.fcIrl, h.fcAnime].filter(Boolean).join(' · '))}</span>` : ''}` : s.holderName ? `<span class="npc-avatar sm">${esc(s.holderName.slice(0, 2).toUpperCase())}</span> ${esc(s.holderName)} <span class="small muted">(NPC)</span>${s.fcIrl || s.fcAnime ? `<br><span class="small muted">FC: ${esc([s.fcIrl, s.fcAnime].filter(Boolean).join(' · '))}</span>` : ''}` : `<span class="chip ${s.open ? 'ok' : ''}">${s.open ? 'OPEN' : 'VACANT'}</span>${s.minBracket && chargenBracket(s.minBracket) ? ` <span class="small muted">${esc(chargenBracket(s.minBracket).label)} or above</span>` : ''}`}</td>
           <td>${ch.length ? ch.map(p => `<span class="chip acc">${esc(p.callsign || p.fullName)}${(p.postingChoices || [])[0] === s.id ? ' · 1st' : ' · 2nd'}</span>`).join(' ') : '<span class="small muted">–</span>'}</td>
           <td class="btn-row nowrap"><button class="btn ghost" data-act="slot-fill" data-id="${s.id}">${slotVacant(s) ? 'Fill' : 'Change'}</button>${!slotVacant(s) ? `<button class="btn ghost" data-act="slot-vacate" data-id="${s.id}">Vacate</button>` : ''}
             <button class="btn ghost" data-act="slot-edit" data-id="${s.id}">Edit</button><button class="btn ghost" data-act="slot-delete" data-id="${s.id}" aria-label="Delete slot ${esc(s.title)}">${icon('x', 14)}</button></td></tr>`; }).join('')}</tbody></table></div>`
@@ -8261,15 +8279,15 @@ ACTIONS['slot-save'] = () => {
 CHANGES['st-template'] = (v, d) => { const t = SLOT_TEMPLATES.find(x => x[0] === v); if (!t) return; const n0 = slotsOf(d.unit).length;
   run(async () => { for (let i = 0; i < t[2].length; i++) { const [title, role, position] = t[2][i]; await Data.put('slots', newId('slot'), { unitId: d.unit, title, role, position, open: true, minBracket: '', notes: '', holderPilotId: null, holderName: '', order: n0 + i, createdAt: nowIso() }); } }, `${t[1]} added.`); };
 ACTIONS['slot-delete'] = d => { const s = get('slots', d.id); askConfirm(`Delete the slot “${s.title}”?${slotVacant(s) ? '' : ' Its holder stays in the unit.'}`, 'Delete', () => run(async () => { await Data.remove('slots', d.id); }, 'Slot deleted.'), true); };
-ACTIONS['slot-vacate'] = d => { const s = clone(S.store.slots[d.id]); s.holderPilotId = null; s.holderName = ''; run(async () => { await Data.put('slots', d.id, s); }, 'Slot vacated.'); };
-ACTIONS['slot-fill'] = d => { const s = get('slots', d.id); S.ui.form.sfill = { id: d.id, pilotId: s.holderPilotId || '', name: s.holderName || '', kind: s.holderName ? 'npc' : 'eishi' }; openDrawer('slot-fill'); };
+ACTIONS['slot-vacate'] = d => { const s = clone(S.store.slots[d.id]); s.holderPilotId = null; s.holderName = ''; s.fcIrl = ''; s.fcAnime = ''; run(async () => { await Data.put('slots', d.id, s); }, 'Slot vacated.'); };
+ACTIONS['slot-fill'] = d => { const s = get('slots', d.id); S.ui.form.sfill = { id: d.id, pilotId: s.holderPilotId || '', name: s.holderName || '', fcIrl: s.fcIrl || '', fcAnime: s.fcAnime || '', kind: s.holderName ? 'npc' : 'eishi' }; openDrawer('slot-fill'); };
 DRAWERS_REG('slot-fill', function () {
   const f = S.ui.form.sfill, s = get('slots', f.id), P = 'ui/form/sfill', ch = slotChoosers(s.id);
   const pilots = list('pilots').filter(p => p.status === 'active' || p.status === 'pending').sort((a, b) => pilotLabel(a).localeCompare(pilotLabel(b)));
   return `<header><div><p class="kicker">FILL SLOT · ${esc(slotLabel(s).toUpperCase())}</p><h2>${esc(s.title)}</h2></div><button class="btn ghost" data-act="close-drawer" aria-label="Close">${icon('x')}</button></header>
     <div class="body">${ch.length ? `<p class="small">Applicants asking for this slot: ${ch.map(p => esc(p.callsign || p.fullName)).join(', ')}. Approving their application fills it.</p>` : ''}
       <div class="form-grid"><label class="field">Filled by${sel('sf-k', P + '/kind', f.kind, [['eishi', 'An eishi in the app'], ['npc', 'A character of your own (NPC)']])}</label>
-      ${f.kind === 'npc' ? `<label class="field">Name${txt('sf-n', P + '/name', f.name, 'e.g. Major Ilse Brandt')}</label>` : `<label class="field">Eishi${sel('sf-p', P + '/pilotId', f.pilotId, pilots.map(p => [p.id, pilotLabel(p) + (p.status === 'pending' ? ' (applicant)' : '')]), 'Choose')}</label>`}</div>
+      ${f.kind === 'npc' ? `<label class="field">Name${txt('sf-n', P + '/name', f.name, 'e.g. Major Ilse Brandt')}</label>${FC_KINDS.map(([k, l, ph], i) => `<label class="field">${l}${txt('sf-fc' + i, P + '/' + k, f[k] || '', ph)}</label>`).join('')}` : `<label class="field">Eishi${sel('sf-p', P + '/pilotId', f.pilotId, pilots.map(p => [p.id, pilotLabel(p) + (p.status === 'pending' ? ' (applicant)' : '')]), 'Choose')}</label>`}</div>
       ${f.kind === 'eishi' ? '<p class="small muted">The eishi joins this unit in the slot’s role, and leaves any other slot they held.</p>' : ''}</div>
     <footer><button class="btn primary" data-act="slot-fill-save">Fill slot</button></footer>`;
 });
@@ -8277,13 +8295,13 @@ DRAWERS_REG('slot-fill', function () {
 async function fillSlot(slotId, pilotId, reason) {
   const s = clone(S.store.slots[slotId]); if (!s) return;
   for (const o of list('slots').filter(x => x.holderPilotId === pilotId && x.id !== slotId)) { const c = clone(S.store.slots[o.id]); c.holderPilotId = null; await Data.put('slots', o.id, c); }
-  s.holderPilotId = pilotId; s.holderName = ''; await Data.put('slots', slotId, s);
+  s.holderPilotId = pilotId; s.holderName = ''; s.fcIrl = ''; s.fcAnime = ''; await Data.put('slots', slotId, s);
   const p = S.store.pilots[pilotId];
   if (p && p.status === 'active' && (p.unitId !== s.unitId || p.unitRole !== s.role)) await movePilot(pilotId, s.unitId, s.role, reason || `Assigned as ${s.title}`);
 }
 ACTIONS['slot-fill-save'] = () => {
   const f = S.ui.form.sfill;
-  if (f.kind === 'npc') { if (!f.name.trim()) { toast('Give a name.', true); return; } const s = clone(S.store.slots[f.id]); s.holderPilotId = null; s.holderName = f.name.trim(); run(async () => { await Data.put('slots', f.id, s); S.ui.drawer = null; }, 'Slot filled.'); return; }
+  if (f.kind === 'npc') { if (!f.name.trim()) { toast('Give a name.', true); return; } const s = clone(S.store.slots[f.id]); s.holderPilotId = null; s.holderName = f.name.trim(); FC_KINDS.forEach(([k]) => { s[k] = (f[k] || '').trim(); }); run(async () => { await Data.put('slots', f.id, s); S.ui.drawer = null; }, 'Slot filled.'); return; }
   if (!f.pilotId) { toast('Choose an eishi.', true); return; }
   run(async () => { await fillSlot(f.id, f.pilotId); S.ui.drawer = null; }, 'Slot filled.');
 };
@@ -8868,7 +8886,7 @@ function eishiFrontPage(p) {
       ${p.strengths || p.weaknesses ? `<div class="grid g2">${p.strengths ? `<div><h3>Strengths</h3><p class="small" style="white-space:pre-wrap">${esc(p.strengths)}</p></div>` : ''}${p.weaknesses ? `<div><h3>Weaknesses</h3><p class="small" style="white-space:pre-wrap">${esc(p.weaknesses)}</p></div>` : ''}</div>` : ''}
       ${own ? `<label class="field" style="margin-top:12px"><span><input type="checkbox" id="share-bg" data-act="share-background" ${p.shareBackground !== false ? 'checked' : ''}> Show my background on my eishi profile</span></label>` : ''}</section>
     <section class="plate"><h2>Particulars</h2><dl class="spec"><dt>Full name</dt><dd>${esc(p.fullName)}</dd><dt>Callsign</dt><dd>${esc(p.callsign || '–')}</dd><dt>Personnel number</dt><dd>${esc(REF.pers(p))}</dd>
-      ${p.dob ? `<dt>Born</dt><dd>${esc(p.dob)}${p.birthplace ? ', ' + esc(p.birthplace) : ''}</dd>` : ''}${p.nationality ? `<dt>Nationality</dt><dd>${esc(p.nationality)}</dd>` : ''}
+      ${p.dob ? `<dt>Born</dt><dd>${esc(p.dob)}${p.birthplace ? ', ' + esc(p.birthplace) : ''}</dd>` : ''}${p.nationality ? `<dt>Nationality</dt><dd>${esc(p.nationality)}</dd>` : ''}${faceClaimRows(p, (l, v) => v ? `<dt>${esc(l)}</dt><dd>${esc(v)}</dd>` : '')}
       <dt>Serving with</dt><dd>${esc(facName(p.factionId))}</dd><dt>Position</dt><dd>${esc(roleLabel(p.unitRole))}${p.unitId ? ', ' + esc(unitChain(p.unitId).map(u => u.name).join(' › ')) : ''}</dd>
       ${p.experienceBracket && chargenBracket(p.experienceBracket) ? `<dt>Experience on enlistment</dt><dd>${esc(chargenBracket(p.experienceBracket).label)}</dd>` : ''}
       ${specOf(p) ? `<dt>Formation position</dt><dd>${esc(specOf(p).name)}</dd>` : ''}<dt>Condition</dt><dd>${esc(eishiCondition(p).text)}</dd></dl></section></div>`;
@@ -9003,7 +9021,7 @@ function recordBody(p, opt, img) {
       <w:tr><w:tc><w:tcPr><w:tcW w:w="7238" w:type="dxa"/><w:vAlign w:val="bottom"/></w:tcPr>${titleBlock}</w:tc><w:tc><w:tcPr><w:tcW w:w="2400" w:type="dxa"/></w:tcPr>${pic}</w:tc></w:tr></w:tbl>${para('', { after: 120 })}`
     : titleBlock + para('', { after: 120 });
   b += heading('Identity') + kvTable([['Full name', p.fullName], ['Callsign', p.callsign || '–'], ['Personnel number', REF.pers(p)], ['Rank', rk ? rk.name : '–'],
-    ['Nation', nat ? nat.name : (p.nationality || '–')], ['Born', p.dob ? `${p.dob}${p.birthplace ? ', ' + p.birthplace : ''}` : null], ['Serving with', facName(p.factionId)],
+    ['Nation', nat ? nat.name : (p.nationality || '–')], ['Born', p.dob ? `${p.dob}${p.birthplace ? ', ' + p.birthplace : ''}` : null], ...FC_KINDS.map(([k, l]) => [l, p[k] || null]), ['Serving with', facName(p.factionId)],
     ['Status', ({ active: 'Serving', pending: 'Application pending', inactive: 'Not serving', kia: 'Killed in action', mia: 'Missing in action', archived: 'Archived' })[p.status] || String(p.status || '–')], ['Experience on enlistment', p.experienceBracket && typeof chargenBracket === 'function' && chargenBracket(p.experienceBracket) ? chargenBracket(p.experienceBracket).label : null],
     ['Enlisted', (() => { const a = list('approvals').find(x => x.pilotId === p.id && x.type === 'pilot_registration' && x.status === 'approved'); return a && a.decidedAt ? fmtDate(a.decidedAt) : null; })()]]);
   b += heading('Current assignment') + kvTable([['Unit', chain], ['Position', slot ? `${slot.title} (${roleLabel(slot.role)})` : roleLabel(p.unitRole)], ['Formation position', sp ? sp.name : null],
