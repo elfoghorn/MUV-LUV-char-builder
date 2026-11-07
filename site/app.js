@@ -10186,7 +10186,7 @@ const CA_GROUPS = [
   ['log', 'Logistics', 'boxes', [['maintenance', 'tool', 'Maintenance Control'], ['procurement', 'truck', 'Procurement'], ['production', 'factory', 'Production']]],
   ['world', 'World and rules', 'globe', [['rules', 'scale', 'Rules & Balancing'], ['tuning', 'sliders', 'Stat Tuning'], ['media', 'image', 'Artwork and BETA Fronts']]]
 ];
-const navOpenState = () => { if (!S.navOpen) { try { S.navOpen = JSON.parse(lsGet('untsf.navgroups') || '{}') || {}; } catch (e) { S.navOpen = {}; } } return S.navOpen; };
+const navOpenState = () => { if (!S.navGroups) { try { S.navGroups = JSON.parse(lsGet('untsf.navgroups') || '{}') || {}; } catch (e) { S.navGroups = {}; } } return S.navGroups; };
 ACTIONS['nav-group'] = d => { const o = navOpenState(); o[d.g] = !navGroupOpen(d.g); lsSet('untsf.navgroups', JSON.stringify(o)); render(); };
 function navGroupOpen(code) {
   const o = navOpenState(), g = CA_GROUPS.find(x => x[0] === code) || (code === 'mine' ? [0, 0, 0, MY_SCREENS] : null);
