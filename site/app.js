@@ -476,7 +476,7 @@
   function evaluate(store, cfg, baseline, rules) {
     var tsf = store.tsfs[cfg.tsfId];
     var v = effectiveVariant(store, tsf.variantId);
-    var eqById = equipmentById(store);
+    var eqById = equipmentById(store), owner = tsf.ownerPilotId ? (store.pilots || {})[tsf.ownerPilotId] : null;
     var r = {
       version: rules.version, stacking: rules.stacking, maxUpgrades: rules.maxUpgrades,
       ratingEnabled: rules.ratingEnabled, limits: rules.limits, policies: rules.policies
@@ -486,7 +486,7 @@
     });
     var calc = Engine.calculate({
       rules: r, statDefs: statDefs, baseStats: v.stats || {},
-      equipment: Engine.effectiveItems(v, cfg.items).map(function (it) { return eqById[it.eq]; }).filter(Boolean)
+      equipment: Engine.effectiveItems(v, cfg.items).map(function (it) { return levelled(eqById[it.eq], owner); }).filter(Boolean)
     });
     var validation = Engine.validate({
       rules: r, variant: v, items: cfg.items, paint: cfg.paint, markings: cfg.markings, callsign: cfg.callsign,
@@ -497,7 +497,29 @@
     return { calc: calc, validation: validation };
   }
 
-  var api = { vocab: vocab, activeRules: activeRules, rulesFor: rulesFor, effectiveVariant: effectiveVariant,
+  /* Upgrade levels. Level 1 is the item as catalogued (Mk I); each entry in eq.levels adds to the one before,
+     so Mk III carries Mk II's gains as well. A pilot's level comes from pilot.upgrades[eqId].level. */
+  function itemLevel(eq, pilot) {
+    var u = eq && pilot && pilot.upgrades ? pilot.upgrades[eq.id] : null, max = 1 + ((eq && eq.levels) || []).length;
+    return u ? Math.max(1, Math.min(max, Number(u.level) || 1)) : 1;
+  }
+  function levelled(eq, pilot, level) {
+    if (!eq) return eq;
+    var n = level != null ? level : itemLevel(eq, pilot), lv = (eq.levels || []).slice(0, Math.max(0, n - 1));
+    if (!lv.length) return eq;
+    var out = JSON.parse(JSON.stringify(eq)), mods = {};
+    var all = (eq.modifiers || []).slice();
+    lv.forEach(function (l) { all = all.concat(l.modifiers || []); });
+    all.forEach(function (m) { mods[m.stat] = (mods[m.stat] || 0) + (Number(m.value) || 0); });
+    out.modifiers = Object.keys(mods).filter(function (k) { return mods[k]; }).map(function (k) { return { stat: k, value: mods[k] }; });
+    if (out.weapon) lv.forEach(function (l) {
+      Object.keys(l.weapon || {}).forEach(function (k) { if (typeof out.weapon[k] === 'number' || out.weapon[k] == null) out.weapon[k] = (Number(out.weapon[k]) || 0) + (Number(l.weapon[k]) || 0); });
+    });
+    out.level = n;
+    return out;
+  }
+
+  var api = { vocab: vocab, activeRules: activeRules, rulesFor: rulesFor, effectiveVariant: effectiveVariant, itemLevel: itemLevel, levelled: levelled,
               generationsMap: generationsMap, pilotContext: pilotContext, describeUnlockFn: describeUnlockFn,
               equipmentById: equipmentById, weaponCategories: weaponCategories, evaluate: evaluate };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
@@ -903,7 +925,7 @@ function navHtml() {
   if (S.isGm) {
     h += `<div class="nav-group authority"><h4 title="Command Authority">${icon('shield', 14)}<span class="nav-label">Command Authority</span></h4>`
       + item('gm', 'shield', 'GM Command Centre') + item('campaign', 'map', 'Campaign Map') + item('analytics', 'chart', 'Analytics') + item('personnel', 'users', 'Personnel Administration') + item('units', 'grid', 'Unit Management') + item('structure', 'grid', 'Command Structure') + item('tsf-db', 'database', 'TSF Database')
-      + item('orgs', 'factory', 'Manufacturer Registry') + item('equipment-admin', 'crosshair', 'Equipment Management') + item('approvals', 'check', 'Approval Centre', pending)
+      + item('orgs', 'factory', 'Manufacturer Registry') + item('equipment-admin', 'crosshair', 'Equipment Management') + item('upgrades', 'chart', 'Upgrade Release') + item('approvals', 'check', 'Approval Centre', pending)
       + item('rules', 'scale', 'Rules & Balancing') + item('maintenance', 'tool', 'Maintenance Control') + item('procurement', 'boxes', 'Procurement') + item('production', 'factory', 'Production') + item('research', 'flask', 'Research and Development') + item('audit', 'list', 'Audit Records')
       + (moduleOn('operations') ? item('operations', 'radio', 'Operations Record') + item('combat', 'crosshair', 'Combat') + item('evaluation', 'clipboard', 'Evaluation and Training') + item('situation', 'globe', 'Global Situation') : '') + item('tuning', 'sliders', 'Stat Tuning') + item('media', 'map', 'Artwork and BETA Fronts') + item('design', 'check', 'Design Approval') + `</div>`;
   }
@@ -4280,6 +4302,7 @@ function tabbedEquipment(html, e, editing) {
     const t = (part.match(/^<section><h3>([^<]+)<\/h3>/) || [])[1];
     groups[t ? (EQ_SECTION_TAB[t] || 'overview') : 'overview'] += part;
   });
+  groups.specs += upgradeLevelsHtml(e, editing);
   const cm = modelsCompatible(e);
   groups.compat += `<section><h3>Compatible TSF models</h3><div class="compat-grid">${cm.map(x => `<span class="${x.ok ? 'fit-yes' : 'fit-no'}">${x.ok ? '✓' : '–'} ${esc(x.m.designation)} ${esc(x.m.name)}</span>`).join('')}</div>
     <p class="small muted">From the current compatibility rules; a dash means no variant of that model can mount it.</p></section>`;
@@ -5870,7 +5893,7 @@ function combatUnit(tsfId) {
   return { key: tsfId, tsfId, name: (p.callsign || p.fullName || t.serial) + ' (' + t.serial + ')', status: 'active', action: 'attack', target: null, weapon: null, kills: 0, hits: [], evading: false,
     stats: { mobility: fin['tsf.mobility'] || 50, firepower: fin['tsf.firepower'] || 50, defence: fin['tsf.defence'] || 50, accuracy: fin['tsf.accuracy'] || 50, handling: fin['tsf.handling'] || 50, durability: fin['tsf.durability'] || 50 },
     pilot: { marksmanship: pa('marksmanship'), close_combat: pa('close_combat'), mobility: pa('mobility'), tsf_handling: pa('tsf_handling'), tactical_awareness: pa('tactical_awareness') },
-    weapons: items.map(i => ({ i, e: get('equipment', i.eq) })).filter(x => x.e && x.e.weapon).map(({ i, e }) => ({ id: e.id + '@' + (i.hp || 'up'), name: e.name, damage: e.weapon.damage, accuracy: e.weapon.accuracy || 0,
+    weapons: items.map(i => ({ i, e: TSFModel.levelled(get('equipment', i.eq), p) })).filter(x => x.e && x.e.weapon).map(({ i, e }) => ({ id: e.id + '@' + (i.hp || 'up'), name: e.name, damage: e.weapon.damage, accuracy: e.weapon.accuracy || 0,
       range: e.weapon.range, fireRate: e.weapon.fireRate, ammo: e.weapon.range === 'melee' ? null : (e.weapon.magazine || 4), hp: i.hp || null, special: e.weapon.special || '' })),
     components: Object.assign({}, t.components), labels: Object.fromEntries(componentsOf(t).map(c => [c.code, c.label])),
     jumpMounts: v.hardpoints.filter(h => h.slots.indexOf('jump_unit') !== -1).map(h => h.code), armourMount: (v.hardpoints.find(h => h.slots.indexOf('armour') !== -1) || {}).code || null };
@@ -9819,6 +9842,205 @@ DRAWERS_REG('pilot-edit', d => {
     + (!HOSTED() || S.isOwner ? '<button class="btn danger" data-act="pilot-delete">Delete permanently</button>' : '');
   return html.replace('<button class="btn primary" data-act="pilot-gm-save">Save pilot</button></footer>', `<button class="btn primary" data-act="pilot-gm-save">Save pilot</button>${btns}</footer>`);
 });
+
+/* ---------------------------------------------------------------- your characters, on the dashboard and the Eishi File */
+/* A strip of the signed-in account's own characters, so switching doesn't depend on the account menu.
+   Players and staff in play mode switch with one click (a character with an access code asks for it);
+   staff in Command Authority open a character's file or step into play as them. */
+const STATUS_LABEL = { pending: 'Awaiting approval', active: 'Active', inactive: 'Inactive', kia: 'KIA', mia: 'MIA', retired: 'Retired' };
+function switchToCharacter(id) {
+  const p = myCharacters().find(x => x.id === id); if (!p) return;
+  S.ws = { tsfId: null, versionId: null, draft: null, dirty: false, tab: 'loadout' }; S.ui.menu = null; S.ui.drawer = null; S.ui.enlisting = false;
+  if (p.accessCode) { sessClear(); S.pilotId = null; S.ui.form.signin = { id, code: '', stay: true }; S.route = 'dashboard'; render(); toast(`Enter the access code for ${p.callsign || p.fullName}.`); return; }
+  let stay = true; try { stay = !!localStorage.getItem('untsf.session') || !sessGet(); } catch (e) { /* storage unavailable */ }
+  sessSet(id, stay); S.pilotId = id; if (S.route !== 'pilot') S.route = 'dashboard'; render(); toast(`Now playing ${p.callsign || p.fullName}.`);
+}
+ACTIONS['char-switch'] = d => { if (d.id !== S.pilotId) switchToCharacter(d.id); };
+ACTIONS['char-play'] = d => { playFlag(true); enterPlay(); switchToCharacter(d.id); };
+ACTIONS['char-view'] = d => { S.pilotId = d.id; lsSet('tsf.pilot', d.id); S.ws = { tsfId: null, versionId: null, draft: null, dirty: false, tab: 'loadout' }; go('pilot'); };
+ACTIONS['char-enlist'] = () => { if (S.isGm) { playFlag(true); enterPlay(); } ACTIONS['enlist-begin'](); };
+function myCharactersHtml() {
+  if (!S.uid || S.ui.previewAs || S.ui.enlisting) return '';
+  const mine = myCharacters().sort((a, b) => (a.status === 'active' ? 0 : 1) - (b.status === 'active' ? 0 : 1) || (a.callsign || a.fullName || '').localeCompare(b.callsign || b.fullName || ''));
+  const staff = S.isGm, canEnlist = !S.readOnly;
+  if (!mine.length && !staff) return '';
+  const cards = mine.map(p => {
+    const rk = rankById(p.rankId), on = !staff && p.id === S.pilotId, unit = p.unitId ? get('units', p.unitId) : null;
+    const act = staff ? `data-act="char-view" data-id="${p.id}"` : `data-act="char-switch" data-id="${p.id}"`;
+    return `<div class="mychar ${on ? 'on' : ''}">
+      <button class="mychar-main" ${act} aria-pressed="${on}" title="${staff ? 'Open their Eishi File' : on ? 'Playing now' : 'Switch to this character'}">${avatarHtml(p, 44)}
+        <span class="mychar-text"><b>${esc(rk ? rk.abbr + ' ' : '')}${esc(p.callsign || p.fullName)}</b><span class="small muted">${esc(p.fullName || '')}${unit ? ' · ' + esc(unit.name) : ''}</span>
+        <span class="small"><span class="chip ${p.status === 'active' ? 'ok' : p.status === 'pending' ? 'warn' : ''}">${esc((STATUS_LABEL[p.status] || p.status || '').toUpperCase())}</span> <span class="muted">${esc(REF.pers(p))}</span>${p.accessCode ? ` ${icon('lock', 12)}` : ''}</span></span></button>
+      ${on ? '<span class="mychar-now">PLAYING</span>' : staff ? `<button class="btn ghost" data-act="char-play" data-id="${p.id}">${icon('user', 14)} Play</button>` : ''}</div>`;
+  }).join('');
+  const enlist = canEnlist ? `<button class="mychar mychar-new" data-act="char-enlist">${icon('plus', 18)}<span>${mine.length ? 'Enlist another character' : 'Enlist a character'}</span></button>` : '';
+  return `<section class="plate mychars"><div class="mychars-head"><h2>Your characters</h2><span class="small muted">${staff ? 'Open a file, or play as one of them.' : mine.length > 1 ? 'Choose who you are playing.' : ''}</span></div>
+    <div class="mychars-list">${cards}${enlist}</div></section>`;
+}
+const _dashMine = ROUTES.dashboard.view;
+ROUTES.dashboard.view = function () { return myCharactersHtml() + _dashMine.call(this); };
+const _pilotMine = ROUTES.pilot.view;
+ROUTES.pilot.view = function () { return (S.isGm ? '' : myCharactersHtml()) + _pilotMine.call(this); };
+/* Staff land on the Command Centre, so their characters show there too. */
+const _gmMine = ROUTES.gm.view;
+ROUTES.gm.view = function () { return myCharactersHtml() + _gmMine.call(this); };
+
+/* ---------------------------------------------------------------- upgrade levels, released by Command Authority */
+/* Each item can carry Mk II, Mk III and further levels; each stacks on the last. Command Authority releases a level to
+   chosen pilots, and the frames they own recalculate. Releasing a restricted item's level also authorises the item. */
+MOD_TOOLS.find(t => t[0] === 'catalogue')[2].push('upgrades');
+EQ_SECTION_TAB['Upgrade levels'] = 'specs';
+const MK = ['Mk I', 'Mk II', 'Mk III', 'Mk IV', 'Mk V', 'Mk VI'];
+const maxLevel = e => 1 + ((e && e.levels) || []).length;
+const levelName = (e, n) => n <= 1 ? 'Mk I' : (((e.levels || [])[n - 2] || {}).name || MK[n - 1] || 'Mk ' + n);
+const WEAPON_FX = [['damage', 'Weapon damage'], ['accuracy', 'Weapon accuracy'], ['fireRate', 'Fire rate'], ['magazine', 'Magazine']];
+const fxName = s => s.toLowerCase().replace(/[^a-z]/g, '');
+function effectsText(lv) {
+  return (lv.modifiers || []).map(m => `${(m.stat.indexOf('pilot.') === 0 ? 'Pilot ' : '') + statName(m.stat)} ${signed(m.value)}`)
+    .concat(WEAPON_FX.filter(([k]) => (lv.weapon || {})[k]).map(([k, l]) => `${l} ${signed(lv.weapon[k])}`)).join(', ');
+}
+/* "Firepower +2, Weapon damage +4, Pilot Marksmanship +1" → modifiers and weapon deltas. */
+function parseEffects(text) {
+  const out = { modifiers: [], weapon: {}, bad: [] }, stats = vocab('stats');
+  String(text || '').split(/[,;\n]+/).map(x => x.trim()).filter(Boolean).forEach(part => {
+    const m = part.match(/^(.+?)\s*([+-−]\s*\d+)$/); if (!m) { out.bad.push(part); return; }
+    const name = fxName(m[1]), val = Number(m[2].replace(/[\s−]/g, x => x === '−' ? '-' : ''));
+    const w = WEAPON_FX.find(([k, l]) => fxName(l) === name || fxName(k) === name);
+    if (w) { out.weapon[w[0]] = (out.weapon[w[0]] || 0) + val; return; }
+    const pilot = /^pilot/.test(name), bare = name.replace(/^pilot/, '');
+    const st = stats.find(x => (x.scope === 'pilot') === pilot && fxName(x.name) === bare);
+    if (!st) { out.bad.push(part); return; }
+    out.modifiers.push({ stat: st.code, value: val });
+  });
+  return out;
+}
+function upgradeLevelsHtml(e, editing) {
+  const lv = e.levels || [];
+  if (editing) {
+    const rows = lv.map((l, i) => { if (l.effects == null) l.effects = effectsText(l);
+      return `<div class="plate lv-edit"><div class="row-edit"><label class="field">Level ${i + 2}${txt(`lv-${i}-n`, `ui/edit/eq/levels/${i}/name`, l.name, MK[i + 1])}</label>
+        <button class="btn ghost" data-act="eqlv-remove" data-i="${i}">Remove</button></div>
+        <label class="field wide">What it adds<textarea id="lv-${i}-fx" rows="2" data-bind="ui/edit/eq/levels/${i}/effects" placeholder="Firepower +2, Weapon damage +4">${esc(l.effects)}</textarea></label>
+        <label class="field wide">Note${txt(`lv-${i}-note`, `ui/edit/eq/levels/${i}/note`, l.note, 'e.g. Kai refit: hardened barrel and improved FCS link')}</label></div>`; }).join('');
+    return `<section><h3>Upgrade levels</h3><p class="small muted">Mk I is the item as above. Each level adds to the one before; Command Authority releases levels to pilots from Upgrade Release.
+      Write effects as stat and value, separated by commas: ${esc(vocab('stats').filter(x => x.scope === 'tsf').map(x => x.name).join(', '))}; Pilot Marksmanship and the other pilot attributes; ${WEAPON_FX.map(x => x[1]).join(', ')}.</p>
+      ${rows}<button class="btn" data-act="eqlv-add">Add level ${MK[lv.length + 1] || ''}</button></section>`;
+  }
+  if (!lv.length) return '';
+  const p = !S.isGm ? currentPilot() : null, mine = p ? TSFModel.itemLevel(e, p) : 0;
+  return `<section><h3>Upgrade levels</h3><ol class="lv-list">
+    <li class="${mine === 1 ? 'on' : ''}"><b>Mk I</b> <span class="small muted">Standard issue, as catalogued.</span>${mine === 1 ? ' <span class="chip acc">YOURS</span>' : ''}</li>
+    ${lv.map((l, i) => `<li class="${mine === i + 2 ? 'on' : mine > i + 2 ? 'had' : ''}"><b>${esc(levelName(e, i + 2))}</b> <span class="small">${esc(effectsText(l) || 'No stat change')}</span>${l.note ? `<br><span class="small muted">${esc(l.note)}</span>` : ''}${mine === i + 2 ? ' <span class="chip acc">YOURS</span>' : ''}</li>`).join('')}</ol>
+    <p class="small muted">${p ? (mine > 1 ? `Command Authority has released ${esc(levelName(e, mine))} to you. It applies to every frame you own that carries this item.` : 'Higher levels are released by Command Authority.') : 'Levels stack: each includes the ones before it. Release them from Upgrade Release.'}</p></section>`;
+}
+ACTIONS['eqlv-add'] = () => { const e = S.ui.edit.eq; e.levels = (e.levels || []).concat([{ name: MK[(e.levels || []).length + 1] || '', note: '', effects: '', modifiers: [], weapon: {} }]); render(); };
+ACTIONS['eqlv-remove'] = d => { S.ui.edit.eq.levels.splice(Number(d.i), 1); render(); };
+const _eqSaveLv = ACTIONS['eq-save'];
+ACTIONS['eq-save'] = () => {
+  const e = S.ui.edit && S.ui.edit.eq; if (!e) return;
+  const lv = e.levels || [], parsed = lv.map(l => l.effects == null ? null : parseEffects(l.effects));
+  const bad = parsed.map((x, i) => x && x.bad.length ? `Level ${i + 2}: ${x.bad.join(', ')}` : '').filter(Boolean);
+  if (bad.length) { toast(`Couldn't read these effects. ${bad.join('; ')}`, true); return; }
+  e.levels = lv.map((l, i) => { const x = parsed[i]; return { name: (l.name || '').trim() || MK[i + 1], note: (l.note || '').trim(), modifiers: x ? x.modifiers : (l.modifiers || []), weapon: x ? x.weapon : (l.weapon || {}) }; });
+  if (!e.levels.length) delete e.levels;
+  return _eqSaveLv();
+};
+
+/* Recalculate a pilot's frames after their levels change. */
+async function refreshPilotFrames(pid) {
+  for (const t of list('tsfs').filter(x => x.ownerPilotId === pid)) {
+    const c = activeConfig(t); if (!c) continue;
+    const res = TSFModel.evaluate(S.store, Object.assign({}, c, { tsfId: t.id }), null, TSFModel.rulesFor(S.store, c.ruleSetVersion) || activeRules());
+    if (JSON.stringify(res.calc) !== JSON.stringify(c.calc)) { const x = clone(S.store.configs[c.id]); x.calc = res.calc; await Data.put('configs', c.id, x); }
+  }
+}
+/* What a level adds over Mk I, all levels up to it combined. */
+function levelGain(e, n) {
+  const t = TSFModel.levelled(Object.assign({}, e, { modifiers: [], weapon: e.weapon ? { damage: 0, accuracy: 0, fireRate: 0, magazine: 0 } : null }), null, n);
+  return { modifiers: t.modifiers || [], weapon: t.weapon || {} };
+}
+const releasable = () => list('equipment').filter(e => (e.levels || []).length && e.publishStatus === 'published').sort((a, b) => catName(a.category).localeCompare(catName(b.category)) || a.name.localeCompare(b.name));
+ROUTE_DEPT.upgrades = 'ARM';
+route('upgrades', 'Upgrade Release', function () {
+  const items = releasable(), f = S.ui.form.upg || (S.ui.form.upg = { eq: '', level: 2, picked: {}, reason: '', unit: '', q: '', show: '' });
+  const e = get('equipment', f.eq), max = e ? maxLevel(e) : 1;
+  if (e && (f.level > max || f.level < 1)) f.level = Math.min(max, 2);
+  const pilots = list('pilots').filter(p => p.status === 'active' && (!f.unit || p.unitId === f.unit) && (!f.q || ((p.callsign || '') + ' ' + (p.fullName || '') + ' ' + (p.personnelId || '')).toLowerCase().indexOf(f.q.toLowerCase()) !== -1))
+    .sort((a, b) => (a.callsign || a.fullName || '').localeCompare(b.callsign || b.fullName || ''));
+  const picked = Object.keys(f.picked).filter(k => f.picked[k] && get('pilots', k));
+  const groups = {}; items.forEach(x => { (groups[catName(x.category)] = groups[catName(x.category)] || []).push(x); });
+  const itemSel = `<select id="upg-eq" data-bind="ui/form/upg/eq" data-rerender="1"><option value="">Choose an item…</option>${Object.keys(groups).map(g => `<optgroup label="${esc(g)}">${groups[g].map(x => `<option value="${x.id}" ${x.id === f.eq ? 'selected' : ''}>${esc(x.name)} (to ${esc(levelName(x, maxLevel(x)))})</option>`).join('')}</optgroup>`).join('')}</select>`;
+  const lvSel = e ? `<select id="upg-lv" data-bind="ui/form/upg/level" data-rerender="1">${Array.from({ length: max }, (_, i) => i + 1).map(n => `<option value="${n}" ${Number(f.level) === n ? 'selected' : ''}>${esc(levelName(e, n))}${n === 1 ? ' (withdraw upgrades)' : ''}</option>`).join('')}</select>` : '<select disabled><option>–</option></select>';
+  const preview = e ? `<div class="lv-preview"><b>${esc(e.name)} ${esc(levelName(e, Number(f.level)))}</b>: ${Number(f.level) > 1 ? esc(effectsText(levelGain(e, Number(f.level))) || 'no stat change') + ' over Mk I' : 'standard issue'}${e.availability !== 'standard' || (e.unlock || []).length ? '. Releasing it also authorises this restricted item' : ''}.</div>` : '';
+  const rows = pilots.map(p => { const cur = e ? TSFModel.itemLevel(e, p) : 0, rk = rankById(p.rankId), u = p.unitId ? get('units', p.unitId) : null;
+    return `<label class="upg-pilot ${f.picked[p.id] ? 'on' : ''}"><input type="checkbox" id="upg-p-${p.id}" data-bind="ui/form/upg/picked/${p.id}" data-rerender="1" ${f.picked[p.id] ? 'checked' : ''}>
+      ${avatarHtml(p, 32)}<span class="upg-text"><b>${esc(rk ? rk.abbr + ' ' : '')}${esc(p.callsign || p.fullName)}</b><span class="small muted">${esc(p.fullName || '')}${u ? ' · ' + esc(u.name) : ''}</span></span>
+      ${e ? `<span class="chip ${cur > 1 ? 'acc' : ''}">${esc(levelName(e, cur))}</span>` : ''}</label>`; }).join('');
+  const grants = [];
+  list('pilots').forEach(p => Object.keys(p.upgrades || {}).forEach(id => { const x = get('equipment', id), g = p.upgrades[id]; if (x && (!f.show || id === f.show)) grants.push({ p, x, g }); }));
+  grants.sort((a, b) => String(b.g.at || '').localeCompare(String(a.g.at || '')));
+  const units = list('units').sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  return `<div class="page-head"><div><p class="kicker">ARMAMENT DIVISION · COMMAND AUTHORITY</p><h1>Upgrade Release</h1>
+      <p>Release upgrade levels to chosen pilots. Levels stack: Mk III includes Mk II. A pilot's frames recalculate when you release.</p></div></div>
+    <div class="upg-grid"><section class="plate"><h2>Release</h2>
+      ${items.length ? '' : '<div class="notice">No item in the catalogue has upgrade levels yet. Add them on an item\'s Specifications tab, or import the catalogue file.</div>'}
+      <div class="form-grid"><label class="field">Item${itemSel}</label><label class="field">Level${lvSel}</label></div>${preview}
+      <label class="field wide">Reason (players see this)${txt('upg-reason', 'ui/form/upg/reason', f.reason, 'e.g. Field trial results approved; Kai refit issued to Kagaribi')}</label>
+      <div class="filters"><label class="field">Unit<select id="upg-unit" data-bind="ui/form/upg/unit" data-rerender="1"><option value="">All units</option>${units.map(u => `<option value="${u.id}" ${u.id === f.unit ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select></label>
+        <label class="field">Search${`<input type="text" id="upg-q" data-bind="ui/form/upg/q" data-rerender="1" value="${esc(f.q)}" placeholder="Callsign or name">`}</label>
+        <div class="btn-row" style="align-self:end"><button class="btn ghost" data-act="upg-all">Tick all shown</button><button class="btn ghost" data-act="upg-none">Clear</button></div></div>
+      <div class="upg-pilots">${rows || '<p class="small muted">No active pilots match.</p>'}</div>
+      <div class="btn-row"><button class="btn primary" data-act="upg-release" ${e && picked.length && !S.readOnly ? '' : 'disabled'}>${Number(f.level) === 1 ? 'Withdraw upgrades from' : 'Release to'} ${plural(picked.length, 'pilot')}</button></div></section>
+    <section class="plate"><h2>Released upgrades</h2>
+      <label class="field">Item<select id="upg-show" data-bind="ui/form/upg/show" data-rerender="1"><option value="">All items</option>${items.map(x => `<option value="${x.id}" ${x.id === f.show ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>
+      ${grants.length ? `<table class="data"><thead><tr><th>Pilot</th><th>Item</th><th>Level</th><th>Released</th><th></th></tr></thead><tbody>${grants.map(({ p, x, g }) => `<tr><td>${esc(p.callsign || p.fullName)}</td><td>${esc(x.name)}</td>
+        <td><span class="chip acc">${esc(levelName(x, TSFModel.itemLevel(x, p)))}</span></td><td class="small">${g.at ? esc(fmtDate(g.at)) : ''}${g.reason ? `<br><span class="muted">${esc(g.reason)}</span>` : ''}</td>
+        <td><button class="btn ghost" data-act="upg-revoke" data-pid="${p.id}" data-eq="${x.id}">Withdraw</button></td></tr>`).join('')}</tbody></table>` : '<p class="small muted">Nothing released yet.</p>'}</section></div>`;
+}, { gm: true });
+ACTIONS['upg-all'] = () => { const f = S.ui.form.upg; list('pilots').filter(p => p.status === 'active' && (!f.unit || p.unitId === f.unit) && (!f.q || ((p.callsign || '') + ' ' + (p.fullName || '') + ' ' + (p.personnelId || '')).toLowerCase().indexOf(f.q.toLowerCase()) !== -1)).forEach(p => { f.picked[p.id] = true; }); render(); };
+ACTIONS['upg-none'] = () => { S.ui.form.upg.picked = {}; render(); };
+async function setPilotLevel(pid, e, level, reason) {
+  const x = clone(S.store.pilots[pid]); x.upgrades = Object.assign({}, x.upgrades);
+  if (level <= 1) delete x.upgrades[e.id];
+  else {
+    x.upgrades[e.id] = { level, at: nowIso(), reason: reason || '', by: actorLabel() };
+    if (e.availability !== 'standard' || (e.unlock || []).length) { x.access = Object.assign({}, x.access); x.access[e.id] = { access: 'granted', reason: `Released with ${levelName(e, level)}` }; }
+  }
+  await Data.put('pilots', pid, x); await refreshPilotFrames(pid);
+}
+ACTIONS['upg-release'] = () => {
+  const f = S.ui.form.upg, e = get('equipment', f.eq), level = Number(f.level) || 1, ids = Object.keys(f.picked).filter(k => f.picked[k] && get('pilots', k));
+  if (!e || !ids.length) return;
+  const what = level > 1 ? `Release ${e.name} ${levelName(e, level)} to ${plural(ids.length, 'pilot')}?` : `Withdraw ${e.name} upgrades from ${plural(ids.length, 'pilot')}? They go back to Mk I.`;
+  askConfirm(what, level > 1 ? 'Release' : 'Withdraw', () => run(async () => {
+    for (const id of ids) await setPilotLevel(id, e, level, (f.reason || '').trim());
+    await Data.audit('upgrade.release', 'equipment', e.id, `${e.name} ${levelName(e, level)} ${level > 1 ? 'released to' : 'withdrawn from'} ${ids.map(pilotLabelOf).join(', ')}${f.reason ? ' · ' + f.reason : ''}`);
+    f.picked = {};
+  }, level > 1 ? `${levelName(e, level)} released.` : 'Upgrades withdrawn.'));
+};
+ACTIONS['upg-revoke'] = d => {
+  const e = get('equipment', d.eq), name = pilotLabelOf(d.pid); if (!e) return;
+  askConfirm(`Withdraw ${e.name} upgrades from ${name}? They go back to Mk I. Any authorisation for the item stays.`, 'Withdraw', () => run(async () => {
+    await setPilotLevel(d.pid, e, 1); await Data.audit('upgrade.withdraw', 'equipment', e.id, `${e.name} upgrades withdrawn from ${name}`);
+  }, 'Withdrawn.'));
+};
+/* Players hear about releases, and see their levels in their Eishi File. */
+const _noticeFeedLv = noticeFeed;
+noticeFeed = function (pilotId) {
+  const out = _noticeFeedLv(pilotId), p = pilotId ? get('pilots', pilotId) : null;
+  if (!p || !p.upgrades) return out;
+  Object.keys(p.upgrades).forEach(id => { const e = get('equipment', id), g = p.upgrades[id]; if (e && g.at) out.push({ at: g.at, kind: 'authorisation', cls: 'AUTHORISATION', from: 'ARM · Armament Division', title: `Upgrade released: ${e.name} ${levelName(e, TSFModel.itemLevel(e, p))}`, body: g.reason || effectsText(levelGain(e, TSFModel.itemLevel(e, p))), tone: 'ok' }); });
+  return out.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+};
+function myUpgradesHtml(p) {
+  const rows = Object.keys(p.upgrades || {}).map(id => ({ e: get('equipment', id), g: p.upgrades[id] })).filter(x => x.e);
+  if (!rows.length) return '';
+  return `<section class="plate"><h2>Released upgrades</h2><ul class="plain lv-mine">${rows.map(({ e, g }) => { const n = TSFModel.itemLevel(e, p), tot = levelGain(e, n);
+    return `<li><button class="btn ghost" data-act="open-drawer" data-type="equipment" data-id="${e.id}">${esc(e.name)}</button> <span class="chip acc">${esc(levelName(e, n))}</span> <span class="small">${esc(effectsText(tot))}</span>${g.reason ? `<br><span class="small muted">${esc(g.reason)}</span>` : ''}</li>`; }).join('')}</ul>
+    <p class="small muted">These apply to every frame you own that carries the item.</p></section>`;
+}
+const _pilotViewLv = ROUTES.pilot.view;
+ROUTES.pilot.view = function () { const html = _pilotViewLv.call(this), p = currentPilot(); return p ? html + myUpgradesHtml(p) : html; };
 
 /* =====================================================================
    UNTSF-COMM — phones.

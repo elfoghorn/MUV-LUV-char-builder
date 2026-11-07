@@ -710,6 +710,26 @@ td .an-bar { grid-template-columns: 0 1fr 48px; margin: 0; }
 .signin-list { display: grid; gap: 8px; margin-bottom: 12px; }
 .signin-card { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: center; text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--panel-2); color: var(--text); font: inherit; cursor: pointer; }
 .signin-card > span:nth-child(2) { display: flex; flex-direction: column; gap: 2px; } .signin-card.on { border-color: var(--nav-active); background: var(--accent-soft); }
+/* upgrade levels and release */
+.lv-list { margin: 0; padding-left: 20px; display: grid; gap: 6px; } .lv-list li.on { color: var(--accent); } .lv-list li.had { opacity: .75; }
+.lv-edit { padding: 10px 12px; margin-bottom: 8px; } .lv-preview { margin: 6px 0 10px; padding: 8px 10px; border-left: 3px solid var(--accent); background: var(--panel-2); font-size: 14px; }
+.upg-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; align-items: start; } @media (max-width: 1000px) { .upg-grid { grid-template-columns: 1fr; } }
+.upg-pilots { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px; max-height: 420px; overflow: auto; margin: 8px 0 12px; }
+.upg-pilot { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--panel-2); cursor: pointer; min-width: 0; }
+.upg-pilot.on { border-color: var(--nav-active); background: var(--accent-soft); } .upg-text { display: flex; flex-direction: column; flex: 1; min-width: 0; } .upg-text > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lv-mine li { margin-bottom: 8px; }
+/* your characters strip */
+.mychars { margin-bottom: 16px; } .mychars-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; } .mychars-head h2 { margin: 0; }
+.mychars-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; }
+.mychar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--panel-2); min-width: 0; }
+.mychar.on { border-color: var(--nav-active); background: var(--accent-soft); }
+.mychar-main { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; padding: 0; border: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.mychar.on .mychar-main { cursor: default; }
+.mychar:not(.on):hover { border-color: var(--accent); }
+.mychar-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; } .mychar-text > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mychar-now { font: 600 11px var(--font-cond); letter-spacing: .06em; color: var(--accent); }
+.mychar-new { justify-content: center; border-style: dashed; color: var(--muted); font: inherit; cursor: pointer; min-height: 62px; }
+.mychar-new:hover { color: var(--text); border-color: var(--accent); }
 .signin-card img, .signin-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; } .signin-avatar { display: grid; place-items: center; background: var(--steel-600); color: #fff; font: 600 15px var(--font-cond); }
 .signin-code { max-width: 280px; margin-bottom: 8px; }
 .preview-banner { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 8px 12px; margin-bottom: 14px; border-radius: var(--radius-card); border: 1px solid var(--authority); background: var(--warn-soft); }
