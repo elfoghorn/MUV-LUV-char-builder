@@ -551,6 +551,7 @@ const clone = o => o == null ? o : JSON.parse(JSON.stringify(o));
 /* Need-to-know hook: the access module sets VIEW_FILTER so each character only sees what their clearance allows. */
 /* Where uploaded images are served from: the artifact's asset store here, a Supabase Storage bucket when self-hosted. */
 const HOSTED = () => typeof window !== 'undefined' && !!window.UNTSF_ACCOUNT;
+const isMod = () => HOSTED() && window.UNTSF_ACCOUNT.role === 'mod';
 const ASSET_BASE = (typeof window !== 'undefined' && window.UNTSF_ASSET_BASE) || '/_blob/';
 let VIEW_FILTER = null, routeAllowed = () => true, sessionExtras = () => '';
 const list = col => { const out = Object.keys(S.store[col] || {}).map(id => Object.assign({}, S.store[col][id], { id })); return VIEW_FILTER ? out.filter(d => VIEW_FILTER(col, d)) : out; };
@@ -892,7 +893,7 @@ function navHtml() {
       ${icon(ic)}<span class="nav-label">${esc(label)}</span>${count ? `<span class="count">${count}</span>` : ''}</button>`;
   const group = (code, items) => !String(items).trim() ? '' : `<div class="nav-group"><h4 title="${esc(DEPTS[code])}">${icon(DEPT_ICON[code], 14)}<span class="nav-label">${esc(DEPTS[code])}</span></h4>${items}</div>`;
   const briefed = S.pilotId ? list('missions').filter(m => m.status === 'briefed' && (m.assignments || []).some(a => a.pilotId === S.pilotId)).length : 0;
-  let h = `<div class="nav-access"><span class="nav-label">PERSONNEL ACCESS</span><span class="chip">${S.isGm ? 'GM' : 'PLAYER'}</span></div>`;
+  let h = `<div class="nav-access"><span class="nav-label">PERSONNEL ACCESS</span><span class="chip">${S.isGm ? (isMod() ? 'MOD' : 'GM') : 'PLAYER'}</span></div>`;
   h += group('CMD', item('dashboard', 'grid', 'Command Dashboard') + item('notices', 'bell', 'Notifications', unreadCount()) + item('campaign', 'map', 'Campaign Map') + item('analytics', 'chart', 'Analytics'))
     + group('PERS', item('pilot', 'user', 'Eishi File') + item('unit', 'users', 'Unit and Squadron'))
     + group('ENG', item('hangar', 'hangar', 'TSF Hangar') + item('workshop', 'sliders', 'Configuration Workshop') + item('research', 'flask', 'Research and Development'))
@@ -923,7 +924,7 @@ function topbarHtml() {
       ${p ? `<button class="btn ghost" data-act="nav" data-route="pilot">${icon('user', 16)} Eishi File</button>` : ''}
       ${sessionExtras()}
       <button class="btn ghost" data-act="toggle-collapse">${icon('menu', 16)} ${S.navCollapsed ? 'Expand' : 'Collapse'} navigation</button>
-      <p class="small muted" style="margin:8px 0 0">Access: ${S.isOwner ? (HOSTED() ? 'Administrator and Command Authority' : 'Administrator and Command Authority (artifact owner)') : S.isGm ? (HOSTED() ? 'Command Authority' : 'Command Authority (Editor)') : S.readOnly ? 'Read-only' : 'Personnel (Contributor)'}. ${HOSTED() ? 'Signed in as ' + esc(window.UNTSF_ACCOUNT.username || '') + '.' : 'Signed in through claude.ai.'}</p></div>` : '';
+      <p class="small muted" style="margin:8px 0 0">Access: ${S.isOwner ? (HOSTED() ? 'Administrator and Command Authority' : 'Administrator and Command Authority (artifact owner)') : S.isGm ? (HOSTED() ? (isMod() ? 'Moderator' : 'Command Authority') : 'Command Authority (Editor)') : S.readOnly ? 'Read-only' : 'Personnel (Contributor)'}. ${HOSTED() ? 'Signed in as ' + esc(window.UNTSF_ACCOUNT.username || '') + '.' : 'Signed in through claude.ai.'}</p></div>` : '';
   return `<button class="btn ghost menu-btn" data-act="toggle-nav" aria-label="Menu">${icon('menu')}</button>
     <div class="brand">${S.navCollapsed ? logoHtml('compact') : logoHtml('primary')}</div>
     <div class="crumb"><span class="dept">${esc(r.dept || 'CMD')}</span><span>${esc(DEPTS[r.dept] || '')}</span></div>
@@ -9147,7 +9148,28 @@ const _sessionExtrasHosted = sessionExtras;
 sessionExtras = () => _sessionExtrasHosted() + (window.UNTSF_ACCOUNT ? `<button class="btn ghost" data-act="account-logout">${icon('logout', 16)} Log out of account</button>` : '');
 
 /* ---------------------------------------------------------------- accounts (self-hosted): usernames, roles, passwords */
-const ROLE_LABEL = { owner: 'Administrator', gm: 'Command Authority', player: 'Player' };
+const ROLE_LABEL = { owner: 'Administrator', mod: 'Moderator', player: 'Player' };
+
+/* Moderators: Command Authority limited to the tool groups the Administrator ticks for them.
+   The database enforces the same groups (supabase/migrations/…_moderators.sql). */
+const MOD_TOOLS = [
+  ['sessions', 'Running sessions', ['gm', 'approvals', 'operations', 'combat', 'engagement']],
+  ['personnel', 'Personnel and units', ['personnel', 'units', 'structure', 'access']],
+  ['catalogue', 'Catalogue and economy', ['tsf-db', 'orgs', 'equipment-admin', 'procurement', 'production', 'maintenance', 'design']]
+];
+/* World and rules stay with the Administrator. */
+const OWNER_ONLY_ROUTES = ['rules', 'tuning', 'media', 'audit'];
+const modAllows = r => {
+  if (!isMod() || S.ui.previewAs) return true;
+  if (OWNER_ONLY_ROUTES.indexOf(r) !== -1) return false;
+  const t = MOD_TOOLS.find(x => x[2].indexOf(r) !== -1);
+  return !t || window.UNTSF_ACCOUNT.modTools.indexOf(t[0]) !== -1;
+};
+const _routeAllowedMod = routeAllowed;
+routeAllowed = r => modAllows(r) && _routeAllowedMod(r);
+/* A Moderator without session tools lands on the dashboard instead of the GM Command Centre. */
+const _afterReadyMod = afterReady;
+afterReady = function () { _afterReadyMod(); if (!routeAllowed(S.route)) S.route = 'dashboard'; };
 function tempPassword() {
   const abc = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789', a = new Uint32Array(12);
   crypto.getRandomValues(a); return Array.from(a, n => abc[n % abc.length]).join('').replace(/(.{4})(?=.)/g, '$1-');
@@ -9160,18 +9182,26 @@ function accountsPanelHtml() {
   if (S.mem.members === undefined && !S.mem.membersLoading) loadMembers();
   const ms = S.mem.members || [], me = window.UNTSF_ACCOUNT, done = S.ui.acctMsg;
   return `<section class="plate" style="margin-top:16px" aria-labelledby="acct-h"><div class="record-head"><h2 id="acct-h">Accounts</h2><button class="btn ghost" data-act="acct-refresh">Refresh</button></div>
-    <p class="small muted" style="margin-top:0">Accounts are usernames only: no email addresses are collected or stored. Reset forgotten passwords here, and make trusted players Command Authority.</p>
+    <p class="small muted" style="margin-top:0">Accounts are usernames only: no email addresses are collected or stored. Reset forgotten passwords here, and make trusted players Moderators: they get only the GM tools you tick. Rules, Stat Tuning, Artwork and BETA Fronts, Audit Records and the world map stay with you.</p>
     ${done ? `<div class="notice ${done.bad ? 'warn' : ''}" role="status">${done.html}</div>` : ''}
     ${inviteHtml()}
-    ${S.mem.membersLoading && !ms.length ? '<p class="small muted">Loading accounts…</p>' : `<div class="scroll-x"><table class="data"><thead><tr><th>Username</th><th>Role</th><th>Joined</th><th>Characters</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
-      ${ms.map(m => { const chars = list('pilots').filter(p => p.userId === m.user_id), self = m.user_id === me.id;
+    ${S.mem.membersLoading && !ms.length ? '<p class="small muted">Loading accounts…</p>' : `<div class="scroll-x"><table class="data"><thead><tr><th>Username</th><th>Role</th><th>GM tools</th><th>Joined</th><th>Characters</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
+      ${ms.map(m => { const chars = list('pilots').filter(p => p.userId === m.user_id), self = m.user_id === me.id, role = m.role === 'gm' ? 'mod' : m.role;
         return `<tr><td><b>${esc(m.username)}</b>${self ? ' <span class="chip">YOU</span>' : ''}</td>
-          <td>${m.role === 'owner' ? 'Administrator' : `<label><span class="sr-only">Role for ${esc(m.username)}</span><select id="acct-role-${esc(m.user_id)}" data-change="acct-role" data-id="${esc(m.user_id)}">${['player', 'gm'].map(r => `<option value="${r}" ${m.role === r ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select></label>`}</td>
+          <td>${role === 'owner' ? 'Administrator' : `<label><span class="sr-only">Role for ${esc(m.username)}</span><select id="acct-role-${esc(m.user_id)}" data-change="acct-role" data-id="${esc(m.user_id)}">${['player', 'mod'].map(r => `<option value="${r}" ${role === r ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select></label>`}</td>
+          <td>${role === 'owner' ? '<span class="small muted">Every tool</span>' : role !== 'mod' ? '<span class="small muted">None</span>'
+            : `<div class="checks" style="flex-direction:column">${MOD_TOOLS.map(([k, l]) => `<label><input type="checkbox" id="acct-tool-${esc(m.user_id)}-${k}" data-act="acct-tool" data-id="${esc(m.user_id)}" data-tool="${k}" ${(m.mod_tools || []).indexOf(k) !== -1 || m.role === 'gm' ? 'checked' : ''}> ${esc(l)}</label>`).join('')}</div>`}</td>
           <td>${fmtDate(m.created_at)}</td><td>${chars.length ? chars.map(p => esc(p.callsign || p.fullName)).join(', ') : '<span class="small muted">None yet</span>'}</td>
           <td class="btn-row nowrap">${self ? '<span class="small muted">Use Change password in your menu</span>' : `<button class="btn ghost" data-act="acct-reset" data-id="${esc(m.user_id)}" data-name="${esc(m.username)}">Reset password</button><button class="btn ghost" data-act="acct-delete" data-id="${esc(m.user_id)}" data-name="${esc(m.username)}">Delete account</button>`}</td></tr>`; }).join('')}</tbody></table></div>`}</section>`;
 }
 ACTIONS['acct-refresh'] = () => { S.ui.acctMsg = null; loadMembers(); render(); };
-CHANGES['acct-role'] = (v, d) => window.UNTSF_ACCOUNT.setRole(d.id, v).then(() => { S.ui.acctMsg = { html: `Role updated. The change applies at their next sign-in.` }; loadMembers(); }, e => { S.ui.acctMsg = { bad: true, html: esc(e.message || 'Not permitted') }; render(); });
+CHANGES['acct-role'] = (v, d) => window.UNTSF_ACCOUNT.setRole(d.id, v, v === 'mod' ? MOD_TOOLS.map(t => t[0]) : []).then(() => { S.ui.acctMsg = { html: `Role updated. The change applies at their next sign-in.` }; loadMembers(); }, e => { S.ui.acctMsg = { bad: true, html: esc(e.message || 'Not permitted') }; render(); });
+ACTIONS['acct-tool'] = (d, el) => {
+  const m = (S.mem.members || []).find(x => x.user_id === d.id); if (!m) return;
+  const on = new Set(m.mod_tools || []); if (el.checked) on.add(d.tool); else on.delete(d.tool);
+  window.UNTSF_ACCOUNT.setModTools(d.id, MOD_TOOLS.map(t => t[0]).filter(k => on.has(k))).then(() => { S.ui.acctMsg = { html: `GM tools updated for <b>${esc(m.username)}</b>. The change applies at their next sign-in.` }; loadMembers(); },
+    e => { S.ui.acctMsg = { bad: true, html: esc(e.message || 'Not permitted') }; loadMembers(); });
+};
 ACTIONS['acct-reset'] = d => askConfirm(`Give ${d.name} a new temporary password? They’ll be signed out everywhere.`, 'Reset password', () => {
   const pw = tempPassword();
   window.UNTSF_ACCOUNT.resetPassword(d.id, pw).then(() => { S.ui.acctMsg = { html: `New temporary password for <b>${esc(d.name)}</b>: <code class="temp-pass">${esc(pw)}</code><br><span class="small">Send it to them privately. It isn’t shown again; they can change it from their menu.</span>` }; render(); },
@@ -9226,7 +9256,7 @@ function bottomNavItems() {
   if (v && v.applicant) return [];
   if (S.isGm && !S.ui.previewAs) {
     const pending = list('approvals').filter(a => a.status === 'pending').length;
-    return [['gm', 'shield', 'Command'], ['approvals', 'check', 'Approvals', pending], ['campaign', 'map', 'Map'], ['personnel', 'users', 'Personnel']];
+    return [['gm', 'shield', 'Command'], ['approvals', 'check', 'Approvals', pending], ['campaign', 'map', 'Map'], ['personnel', 'users', 'Personnel']].filter(([r]) => routeAllowed(r));
   }
   if (!S.pilotId) return [];
   const briefed = myMissions ? myMissions().filter(m => m.status === 'briefed' || m.status === 'active').length : 0;

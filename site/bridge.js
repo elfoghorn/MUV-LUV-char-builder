@@ -180,7 +180,7 @@
   /* ------------------------------------------------------------ start the app once signed in */
   async function memberRow(uid) {
     for (var i = 0; i < 6; i++) {
-      var r = await sb.from('members').select('role,username').eq('user_id', uid).maybeSingle();
+      var r = await sb.from('members').select('*').eq('user_id', uid).maybeSingle();
       if (r.data) return r.data;
       await new Promise(function (ok) { setTimeout(ok, 500); });
     }
@@ -193,8 +193,11 @@
     var user = session.user, member = await memberRow(user.id);
     if (!member) { started = false; note = { bad: true, text: 'Your account isn’t set up in the database yet. Ask Command Authority to check the database set-up has run.' }; mode = 'signin'; await sb.auth.signOut(); return showGate(); }
     var uname = member.username;
+    /* Before the Moderators migration runs, Command Authority accounts are still 'gm': treat them as Moderators with every tool. */
+    var role = member.role === 'gm' ? 'mod' : member.role;
+    var modTools = member.role === 'gm' ? ['sessions', 'personnel', 'catalogue'] : (member.mod_tools || []);
     window.UNTSF_ACCOUNT = {
-      username: uname, email: uname, role: member.role, name: uname, id: user.id,
+      username: uname, email: uname, role: role, modTools: modTools, name: uname, id: user.id,
       signOut: async function () { try { sessionStorage.clear(); } catch (e) { /* ignore */ } await sb.auth.signOut(); location.reload(); },
       changePassword: async function (pass) { var r = await sb.auth.updateUser({ password: pass }); if (r.error) throw mapError(r.error); },
       /* Command Authority set-up: write many records at once. */
@@ -207,14 +210,15 @@
         }
       },
       /* Administrator: accounts. */
-      listMembers: async function () { var r = await sb.from('members').select('user_id,username,role,created_at').order('created_at'); if (r.error) throw mapError(r.error); return r.data; },
-      setRole: async function (uid, role) { var r = await sb.from('members').update({ role: role }).eq('user_id', uid); if (r.error) throw mapError(r.error); },
+      listMembers: async function () { var r = await sb.from('members').select('*').order('created_at'); if (r.error) throw mapError(r.error); return r.data; },
+      setRole: async function (uid, role, tools) { var r = await sb.from('members').update({ role: role, mod_tools: tools || [] }).eq('user_id', uid); if (r.error) throw mapError(r.error); },
+      setModTools: async function (uid, tools) { var r = await sb.from('members').update({ mod_tools: tools }).eq('user_id', uid); if (r.error) throw mapError(r.error); },
       resetPassword: async function (uid, pass) { var r = await sb.rpc('admin_reset_password', { p_user: uid, p_password: pass }); if (r.error) throw mapError(r.error); },
       inviteRequired: async function () { var r = await sb.rpc('invite_required'); if (r.error) throw mapError(r.error); return r.data === true; },
       setInviteCode: async function (code) { var r = await sb.rpc('admin_set_invite_code', { p_code: code || null }); if (r.error) throw mapError(r.error); },
       deleteAccount: async function (uid) { var r = await sb.rpc('admin_delete_account', { p_user: uid }); if (r.error) throw mapError(r.error); }
     };
-    var gm = member.role === 'owner' || member.role === 'gm';
+    var gm = role === 'owner' || role === 'mod';
     window.claude = { use: async function (name) {
       if (name === 'db') return db;
       if (name === 'user') return { id: async function () { return user.id; }, canEdit: async function () { return gm; }, isOwner: async function () { return member.role === 'owner'; }, can: async function () { return true; } };
