@@ -1898,7 +1898,7 @@ DRAWERS_REG('pilot-edit', function () {
       <div class="field wide"><span>Unit and role</span><p style="margin:2px 0">${esc(unitPathText(p) || 'Unassigned')}${p.unitId ? ' · ' + esc(roleName(p.unitRole)) : ''}</p>
         ${S.ui.edit.isNew ? '<span class="small muted">Assign a unit after saving the record.</span>' : `<button class="btn ghost" data-act="open-drawer" data-type="unit-assign" data-id="${esc(p.id)}">Transfer or change role</button>`}</div>
       <label class="field">Nationality${txt('p-nat', b + '/nationality', p.nationality)}</label>
-      <label class="field">Status${sel('p-st', b + '/status', p.status, [['pending', 'Pending'], ['active', 'Active'], ['inactive', 'Inactive'], ['kia', 'KIA'], ['mia', 'MIA'], ['retired', 'Retired']])}</label>
+      <label class="field">Status${sel('p-st', b + '/status', p.status, [['pending', 'Pending'], ['active', 'Active'], ['inactive', 'Inactive'], ['kia', 'KIA'], ['mia', 'MIA'], ['retired', 'Retired'], ['archived', 'Archived']])}</label>
       <label class="field wide">Biography<textarea id="p-bio" data-bind="${b}/biography">${esc(p.biography || '')}</textarea></label></div>
       ${p.userId ? `<p class="small">Linked to a player account. <button class="btn ghost" data-act="pilot-unlink">Release the link</button></p>` : '<p class="small muted">Not yet claimed by a player.</p>'}</section>
     <section><h3>Portrait and insignia</h3><div class="grid g2"><div class="portrait-slot">${avatarHtml(p, 120)}
@@ -4109,7 +4109,7 @@ route('personnel', 'Personnel Administration', function () {
   const q = f.q.toLowerCase(), uniq = k => Array.from(new Set(all.map(p => p[k]).filter(Boolean))).sort().map(x => [x, x]);
   const rows = all.filter(p => (!q || (p.fullName + ' ' + (p.callsign || '') + ' ' + p.personnelId).toLowerCase().indexOf(q) !== -1)
     && (!f.rank || p.rankId === f.rank) && (!f.unit || (p.unitId && unitDescendants(f.unit).indexOf(p.unitId) !== -1)) && (!f.squadron || (p.unitId && p.unitRole === f.squadron)) && (!f.fac || p.factionId === f.fac)
-    && (!f.tsf || (f.tsf === 'yes') === tsfs.some(t => t.ownerPilotId === p.id)) && (!f.account || (f.account === 'linked') === !!p.userId) && (!f.status || p.status === f.status));
+    && (!f.tsf || (f.tsf === 'yes') === tsfs.some(t => t.ownerPilotId === p.id)) && (!f.account || (f.account === 'linked') === !!p.userId) && (f.status ? p.status === f.status : p.status !== 'archived'));
   const pg = paged(rows, 'pers', 25);
   return `<div class="page-head"><div><p class="kicker">PERSONNEL DIVISION · COMMAND AUTHORITY</p><h1>Personnel Administration</h1><p>Military personnel directory. Select a record to open it with editing controls.</p></div>
     <button class="btn primary" data-act="pilot-new">New personnel record</button></div>
@@ -4117,7 +4117,7 @@ route('personnel', 'Personnel Administration', function () {
       ${filterSel('pf-rank', 'ui/pf/rank', f.rank, 'Rank', vocab('ranks').map(r => [r.id, r.name]))}${filterSel('pf-unit', 'ui/pf/unit', f.unit, 'Unit (incl. sub-units)', activeUnits().map(u => [u.id, unitChain(u.id).map(x => x.name).join(' › ')]))}
       ${filterSel('pf-sq', 'ui/pf/squadron', f.squadron, 'Unit role', UNIT_ROLES)}${filterSel('pf-fac', 'ui/pf/fac', f.fac, 'Organisation', list('factions').map(x => [x.id, x.name]))}
       ${filterSel('pf-tsf', 'ui/pf/tsf', f.tsf, 'Assigned TSF', [['yes', 'Has a TSF'], ['no', 'No TSF']])}${filterSel('pf-acc', 'ui/pf/account', f.account, 'Player account', [['linked', 'Linked'], ['unlinked', 'Not linked']])}
-      ${filterSel('pf-st', 'ui/pf/status', f.status, 'Status', ['pending', 'active', 'inactive', 'kia', 'mia', 'retired'].map(x => [x, x.toUpperCase()]))}</div>
+      ${filterSel('pf-st', 'ui/pf/status', f.status, 'Status', ['pending', 'active', 'inactive', 'kia', 'mia', 'retired', 'archived'].map(x => [x, x.toUpperCase()]))}</div>
     <div class="scroll-x"><table class="data"><thead><tr><th>Reference</th><th>Personnel</th><th>Rank</th><th>Organisation</th><th>Unit / squadron</th><th>Assigned TSF</th><th>Account</th><th>Status</th></tr></thead><tbody>
     ${pg.rows.map(p => `<tr class="click" data-act="pilot-open" data-id="${p.id}"><td>${ref('pers', p)}</td><td><span class="who">${avatarHtml(p, 28)}<span><b>${esc(p.callsign || '')}</b> ${esc(p.fullName)}</span></span></td>
       <td>${esc((rankById(p.rankId) || {}).name || '–')}</td><td>${esc(facName(p.factionId))}</td><td class="small">${esc(unitPathText(p) || '–')}${p.unitId ? `<br><span class="muted">${esc(roleName(p.unitRole))}</span>` : ''}</td>
@@ -9395,10 +9395,10 @@ function settingDate() { const d = new Date(campaignDate()); return isNaN(d) ? n
 const settingYear = () => settingDate().getUTCFullYear();
 function birthOf(dob) {
   const s = String(dob || '').trim(); if (!s) return null;
+  const m = s.match(/\b(1[89]\d\d|20\d\d)\b/); if (!m) return null;
   const t = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(s) ? s + 'T00:00:00Z' : s);
-  if (!isNaN(t)) { const d = new Date(t); return { date: d, year: d.getUTCFullYear(), approx: false }; }
-  const m = s.match(/\b(1[89]\d\d|20\d\d)\b/);
-  return m ? { date: new Date(Date.UTC(+m[1], 6, 1)), year: +m[1], approx: true } : null;
+  if (!isNaN(t) && new Date(t).getUTCFullYear() === +m[1]) { const d = new Date(t); return { date: d, year: d.getUTCFullYear(), approx: false }; }
+  return { date: new Date(Date.UTC(+m[1], 6, 1)), year: +m[1], approx: true };
 }
 function ageAt(b, when) {
   if (!b) return null;
@@ -9465,7 +9465,7 @@ function dossierIdentityHtml(d) {
       <label class="field">Languages${txt('en-lang', P + '/languages', d.languages, 'e.g. Japanese, English')}</label>
       <label class="field wide">Distinguishing marks${txt('en-marks', P + '/marks', d.marks, 'e.g. Burn scar on the left forearm')}</label>
       <label class="field">Discord username${txt('en-discord', P + '/discord', d.discord, 'e.g. akari.todo')}</label></div>
-    ${b ? `<p class="small muted">Age in ${settingYear()}: <b>${ageAt(b, settingDate())}</b>${b.approx ? ' (worked out from the year alone)' : ''}.</p>` : d.dob ? '<p class="small warn-text">Write the date of birth as, for example, 14 March 1990, so the age can be worked out.</p>' : ''}
+    ${b ? `<p class="small muted">Age in ${settingYear()}: <b>${ageAt(b, settingDate())}</b>${b.approx ? ' (worked out from the year alone)' : ''}.</p>` : String(d.dob || '').trim().length >= 8 ? '<p class="small warn-text">Write the date of birth as, for example, 14 March 1990, so the age can be worked out.</p>' : ''}
     ${ageProblems(d).map(x => `<p class="notice warn small">${esc(x)}</p>`).join('')}`;
 }
 function dossierPersonalHtml(d) {
@@ -9771,6 +9771,54 @@ function newPersonnelId(startYear) {
   return id;
 }
 ACTIONS['pid-regen'] = () => { const p = S.ui.edit && S.ui.edit.pilot; if (!p) return; p.personnelId = newPersonnelId(settingYear() - (Number(p.yearsService) || 0)); render(); toast('New personnel ID. Save to keep it.'); };
+
+/* ---------------------------------------------------------------- archiving and deleting characters */
+/* Archive keeps everything and can be undone; delete removes the record, dossier and J2 file for good (Administrator only). */
+async function vacateSlotsOf(pid) {
+  for (const s of list('slots').filter(x => x.holderPilotId === pid)) { const c = clone(S.store.slots[s.id]); c.holderPilotId = null; await Data.put('slots', s.id, c); }
+}
+const pilotLabelOf = id => { const r = get('pilots', id) || {}; return r.callsign || r.fullName || 'this character'; };
+ACTIONS['pilot-archive'] = () => {
+  const id = S.ui.edit && S.ui.edit.pilot && S.ui.edit.pilot.id, name = pilotLabelOf(id); if (!id || S.ui.edit.isNew) return;
+  askConfirm(`Archive ${name}? They leave the roster and their player’s character list, and any slot they hold opens. Nothing is deleted, and you can restore them.`, 'Archive', () => run(async () => {
+    const x = clone(S.store.pilots[id]); x.archivedFrom = x.status; x.status = 'archived'; x.archivedAt = nowIso();
+    await Data.put('pilots', id, x); await vacateSlotsOf(id);
+    await Data.audit('pilot.archive', 'pilot', id, `Archived ${name}`);
+    if (S.pilotId === id) S.pilotId = null; S.ui.drawer = null; S.ui.edit = null;
+  }, `${name} archived.`));
+};
+ACTIONS['pilot-restore'] = () => {
+  const id = S.ui.edit && S.ui.edit.pilot && S.ui.edit.pilot.id, name = pilotLabelOf(id); if (!id) return;
+  run(async () => {
+    const x = clone(S.store.pilots[id]); x.status = x.archivedFrom && x.archivedFrom !== 'archived' ? x.archivedFrom : 'inactive'; delete x.archivedFrom; delete x.archivedAt;
+    await Data.put('pilots', id, x); await Data.audit('pilot.restore', 'pilot', id, `Restored ${name} from the archive`);
+    S.ui.edit.pilot = clone(x); S.ui.edit.pilot.id = id;
+  }, `${name} restored.`);
+};
+ACTIONS['pilot-delete'] = () => {
+  const id = S.ui.edit && S.ui.edit.pilot && S.ui.edit.pilot.id, rec = get('pilots', id), name = pilotLabelOf(id); if (!rec || S.ui.edit.isNew) return;
+  if (HOSTED() && !S.isOwner) { toast('Only the Administrator deletes characters. Archive them instead.', true); return; }
+  askConfirm(`Delete ${name} permanently? Their personnel record, dossier and J2 file are removed, their machines go to depot stock and any slot they hold opens. This can’t be undone. Archive them instead to keep their history.`, 'Delete permanently', () => run(async () => {
+    await vacateSlotsOf(id);
+    for (const t of list('tsfs').filter(x => x.ownerPilotId === id)) { const c = clone(S.store.tsfs[t.id]); c.ownerPilotId = null; c.isPrimary = false; await Data.put('tsfs', t.id, c); }
+    for (const u of list('units').filter(x => x.commanderPilotId === id)) { const c = clone(S.store.units[u.id]); c.commanderPilotId = null; await Data.put('units', u.id, c); }
+    for (const a of list('approvals').filter(x => x.pilotId === id && (x.status === 'pending' || x.status === 'on_hold'))) {
+      const c = clone(S.store.approvals[a.id]); c.status = 'cancelled'; c.events = (c.events || []).concat([{ event: 'cancelled', actor: actorLabel(), note: 'Character deleted', at: nowIso() }]); await Data.put('approvals', a.id, c);
+    }
+    if ((S.store.dossier_secrets || {})[id]) await Data.remove('dossier_secrets', id);
+    await Data.remove('pilots', id);
+    await Data.audit('pilot.delete', 'pilot', id, `Deleted ${name} (${REF.pers(rec)})`);
+    if (S.pilotId === id) S.pilotId = null; S.ui.drawer = null; S.ui.edit = null;
+  }, `${name} deleted.`), true);
+};
+const _pilotEditArchive = DRAWERS['pilot-edit'];
+DRAWERS_REG('pilot-edit', d => {
+  const html = _pilotEditArchive(d), e = S.ui.edit, p = e && e.pilot; if (!p || e.isNew) return html;
+  const rec = get('pilots', p.id) || {};
+  const btns = (rec.status === 'archived' ? '<button class="btn" data-act="pilot-restore">Restore from archive</button>' : '<button class="btn ghost" data-act="pilot-archive">Archive</button>')
+    + (!HOSTED() || S.isOwner ? '<button class="btn danger" data-act="pilot-delete">Delete permanently</button>' : '');
+  return html.replace('<button class="btn primary" data-act="pilot-gm-save">Save pilot</button></footer>', `<button class="btn primary" data-act="pilot-gm-save">Save pilot</button>${btns}</footer>`);
+});
 
 /* =====================================================================
    UNTSF-COMM — phones.
