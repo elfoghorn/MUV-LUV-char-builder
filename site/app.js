@@ -646,7 +646,7 @@ function chip(status, text) {
    Generated, never typed: PERS-, TSF-, MOD-TSF-, EQP-, CFG-, MNT-, APR-, OPS-. */
 function refHash(id) { let h = 2166136261; for (const c of String(id)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; } return String(h % 1000000).padStart(6, '0'); }
 const REF = {
-  pers: p => p ? 'PERS-' + String(p.personnelId || '').padStart(6, '0') : '',
+  pers: p => p ? 'PERS-' + (String(p.personnelId || '').indexOf('-') !== -1 ? p.personnelId : String(p.personnelId || '').padStart(6, '0')) : '',
   tsf: t => t ? 'TSF-' + refHash(t.id) : '',
   model: m => m ? 'MOD-TSF-' + String(m.designation || '').toUpperCase().replace(/^TYPE-/, '').replace(/[^A-Z0-9]/g, '') : '',
   eqp: e => e ? 'EQP-' + (String(e.code || '').replace(/\D/g, '') || refHash(e.id)).padStart(6, '0') : '',
@@ -2368,7 +2368,7 @@ const ACTIONS = {
   'pilot-new': () => {
     const max = list('pilots').reduce((m, p) => Math.max(m, parseInt(p.personnelId, 10) || 0), 0);
     S.ui.form.pe = null;
-    S.ui.edit = { kind: 'pilot', isNew: true, pilot: { id: newId('plt'), personnelId: String(max + 1).padStart(5, '0'), fullName: '', callsign: '', rankId: 'r-2lt', factionId: '',
+    S.ui.edit = { kind: 'pilot', isNew: true, pilot: { id: newId('plt'), personnelId: newPersonnelId(settingYear()), fullName: '', callsign: '', rankId: 'r-2lt', factionId: '',
       unit: '', squadron: '', nationality: '', status: 'active', biography: '', dob: null, userId: null, access: {}, attributes: Object.fromEntries(statDefs('pilot').map(s => [s.code, 50])) } };
     openDrawer('pilot-edit');
   },
@@ -2785,7 +2785,7 @@ ACTIONS['enlist-submit'] = () => {
   const now = nowIso(), pid = e.pilotId || newId('plt');
   const existing = e.pilotId ? clone(S.store.pilots[e.pilotId]) : null;
   const max = list('pilots').reduce((m, x) => Math.max(m, parseInt(x.personnelId, 10) || 0), 0);
-  const pilot = Object.assign(existing || { personnelId: String(max + 1).padStart(5, '0'), rankId: null, unit: '', squadron: '', access: {}, dob: null },
+  const pilot = Object.assign(existing || { personnelId: newPersonnelId(settingYear() - (Number(d.yearsService) || 0)), rankId: null, unit: '', squadron: '', access: {}, dob: null },
     { userId: S.uid, fullName: d.fullName.trim(), callsign: d.callsign.trim(), nationality: d.nationality.trim(), factionId: d.factionId,
       preferredRoleId: d.roleId || null, biography: d.biography, portraitAssetId: d.portraitAssetId || null, insignia: d.insignia,
       attributes: d.attributes, status: 'pending', appliedAt: now });
@@ -7822,7 +7822,7 @@ ACTIONS['enlist-submit'] = () => {
   if (!S.uid) { toast('Your account can’t be linked to a pilot here. Ask Command Authority to create your pilot record.', true); return; }
   const now = nowIso(), pid = e.pilotId || newId('plt'), existing = e.pilotId ? clone(S.store.pilots[e.pilotId]) : null;
   const max = list('pilots').reduce((m, x) => Math.max(m, parseInt(x.personnelId, 10) || 0), 0);
-  const pilot = Object.assign(existing || { personnelId: String(max + 1).padStart(5, '0'), rankId: null, unit: '', squadron: '', access: {} },
+  const pilot = Object.assign(existing || { personnelId: newPersonnelId(settingYear() - (Number(d.yearsService) || 0)), rankId: null, unit: '', squadron: '', access: {} },
     { userId: S.uid, fullName: d.fullName.trim(), callsign: d.callsign.trim(), dob: String(d.dob || '').trim() || null, birthplace: d.birthplace.trim(), nationality: d.nationality.trim(), fcIrl: (d.fcIrl || '').trim(), fcAnime: (d.fcAnime || '').trim(),
       factionId: d.factionId, preferredRoleId: d.roleId || null, priorService: d.priorService.trim(), yearsService: d.yearsService === '' ? null : Number(d.yearsService), motivation: d.motivation.trim(),
       biography: d.biography, personality: d.personality.trim(), strengths: d.strengths.trim(), weaknesses: d.weaknesses.trim(),
@@ -9428,7 +9428,8 @@ function historyFlags(d) {
     if (x.eventId === 'other' && (!(x.title || '').trim() || !y)) out.push({ i, block: true, text: `Service record entry ${i + 1}: give the event a name and a year.` });
     if (b && y && y - b.year < minServiceAge(y)) out.push({ i, block: true, text: `${entryName(x)}: born ${b.year}, they would have been about ${y - b.year}. The minimum age then was ${minServiceAge(y)}.` });
     if (y && y > settingYear()) out.push({ i, block: true, text: `${entryName(x)} is after ${settingYear()}.` });
-    if (CANON_UNITS.test(x.unit || '')) out.push({ i, block: false, text: `${entryName(x)}: ${x.unit} is a canon unit, so Command Authority decides whether they served with it.` });
+    const canon = (historyDetails(x).match(CANON_UNITS) || [])[0];
+    if (canon) out.push({ i, block: false, text: `${entryName(x)}: ${canon} is a canon unit, so Command Authority decides whether they served with it.` });
   });
   return out;
 }
@@ -9480,15 +9481,19 @@ function historyEditorHtml(rows, base, target, gm) {
   return `${rows.length ? rows.map((x, i) => `<div class="plate hist-row"><div class="form-grid">
       <label class="field">Event${sel(`h-${target}-${i}-ev`, `${base}/${i}/eventId`, x.eventId || '', evs, 'Choose')}</label>
       ${x.eventId === 'other' ? `<label class="field">Name${txt(`h-${target}-${i}-t`, `${base}/${i}/title`, x.title, 'e.g. Defence of Niigata')}</label><label class="field">Year${num(`h-${target}-${i}-y`, `${base}/${i}/year`, x.year)}</label>` : ''}
-      <label class="field">Role${txt(`h-${target}-${i}-r`, `${base}/${i}/role`, x.role, 'e.g. Wingman, Storm Vanguard')}</label>
-      <label class="field">Unit${txt(`h-${target}-${i}-u`, `${base}/${i}/unit`, x.unit, 'e.g. 12th TSF Battalion, IJA')}</label>
-      <label class="field wide">Outcome${txt(`h-${target}-${i}-o`, `${base}/${i}/outcome`, x.outcome, 'e.g. Survived the withdrawal; the flight lost two of four')}</label>
+      <label class="field wide">What they did<textarea id="h-${target}-${i}-d" rows="4" data-bind="${base}/${i}/details" placeholder="${esc(HISTORY_EXAMPLE)}">${esc(historyDetails(x))}</textarea>
+        <span class="small muted">Keep to the format: role, unit, then how it ended.</span></label>
       ${gm ? `<label class="field">Classification${sel(`h-${target}-${i}-c`, `${base}/${i}/clearance`, String(x.clearance || 0), CLEARANCE.map(c => [String(c[0]), c[1]]))}</label>` : ''}</div>
       <button class="btn ghost" data-act="hist-remove" data-target="${target}" data-i="${i}">Remove entry</button></div>`).join('') : '<p class="small muted">No entries yet.</p>'}
     <button class="btn" data-act="hist-add" data-target="${target}">Add an entry</button>`;
 }
+const HISTORY_FORMAT = 'Role: \nUnit: \nOutcome: ';
+const HISTORY_EXAMPLE = 'Role: Wingman, Storm Vanguard (Kestrel 3)\nUnit: 12th TSF Battalion, Imperial Japanese Army\nOutcome: Survived the withdrawal; the flight lost two of four';
+/* Entries written before the single box kept role, unit and outcome apart. */
+const historyDetails = x => x.details != null ? x.details : [x.role && 'Role: ' + x.role, x.unit && 'Unit: ' + x.unit, x.outcome && 'Outcome: ' + x.outcome].filter(Boolean).join('\n');
+const historyFilled = x => historyDetails(x).replace(/^(Role|Unit|Outcome):\s*$/gim, '').trim();
 const histOwner = target => target === 'edit' ? S.ui.edit.pilot : S.ui.enlist.d;
-ACTIONS['hist-add'] = d => { const o = histOwner(d.target); o.history = (o.history || []).concat([{ eventId: '', title: '', year: null, role: '', unit: '', outcome: '', clearance: 0 }]); if (d.target !== 'edit') scheduleSave(); render(); };
+ACTIONS['hist-add'] = d => { const o = histOwner(d.target); o.history = (o.history || []).concat([{ eventId: '', title: '', year: null, details: HISTORY_FORMAT, clearance: 0 }]); if (d.target !== 'edit') scheduleSave(); render(); };
 ACTIONS['hist-remove'] = d => { const o = histOwner(d.target); o.history = (o.history || []).filter((_, i) => i !== Number(d.i)); if (d.target !== 'edit') scheduleSave(); render(); };
 function historyStepHtml(d) {
   return `<p class="small muted" style="margin-top:0">Where your eishi served before ${settingYear()}. Pick the events they took part in, then say what they did, with which unit, and how it ended. Entries that don’t fit their age are flagged.</p>
@@ -9516,7 +9521,7 @@ function dossierFromDraft(d) {
   DOSSIER_FIELDS.forEach(k => { const v = d[k]; out[k] = typeof v === 'string' ? v.trim() : v == null ? null : v; });
   out.heightCm = d.heightCm === '' || d.heightCm == null ? null : Number(d.heightCm);
   out.history = (d.history || []).filter(x => x.eventId).map(x => ({ eventId: x.eventId, title: (x.title || '').trim(), year: x.eventId === 'other' ? Number(x.year) || null : null,
-    role: (x.role || '').trim(), unit: (x.unit || '').trim(), outcome: (x.outcome || '').trim(), clearance: Number(x.clearance) || 0 }));
+    details: historyFilled(x) ? historyDetails(x).trim() : '', clearance: Number(x.clearance) || 0 }));
   out.regQuals = (d.regQuals || []).filter(c => { const q = REG_QUALS.find(x => x[0] === c); return q && q[3](d); });
   out.claimedQuals = (d.claimedQuals || []).filter(x => (x.title || '').trim() && !REG_QUALS.some(q => q[1] === x.title.trim())).map(x => ({ title: x.title.trim(), detail: (x.detail || '').trim() }))
     .concat(out.regQuals.map(c => { const q = REG_QUALS.find(x => x[0] === c); return { title: q[1], detail: 'Regulation qualification: ' + q[2].replace(/\.$/, '') }; }));
@@ -9602,6 +9607,7 @@ DRAWERS_REG('pilot-edit', d => {
       <label class="field wide">Distinguishing marks${txt('p-marks', b + '/marks', p.marks)}</label>
       <label class="field">Discord username${txt('p-discord', b + '/discord', p.discord)}</label>
       <label class="field">Service number${txt('p-svcno', b + '/serviceNumber', p.serviceNumber, 'Issued on approval')}</label>
+      <div class="field"><span>Personnel ID</span><p style="margin:4px 0"><span class="ref">${esc(REF.pers(p))}</span></p><button class="btn ghost" data-act="pid-regen">Regenerate from service start (${settingYear() - (Number(p.yearsService) || 0)})</button></div>
       ${isGuard(p) ? `<label class="field">Royal Guard standing${sel('p-guard', b + '/guardStanding', p.guardStanding || '', GUARD_STANDING.map(x => [x[0], `${x[1]} (${x[3]})`]), 'Not recorded')}</label>` : ''}</div>
       ${bt ? `<p class="small muted">Age in ${settingYear()}: ${ageAt(bt, settingDate())}.</p>` : ''}${ageProblems(p).map(x => `<p class="notice warn small">${esc(x)}</p>`).join('')}</section>
     <section><h3>Personal</h3><div class="form-grid"><label class="field">Next of kin${txt('p-nok', b + '/nextOfKin', p.nextOfKin)}</label><label class="field">Family location${txt('p-fam', b + '/familyLocation', p.familyLocation)}</label>
@@ -9642,7 +9648,7 @@ function historyListHtml(p, acc) {
   const rows = (p.history || []).slice().sort((x, y) => (entryYear(x) || 9999) - (entryYear(y) || 9999));
   if (!rows.length) return '<p class="small">No prior service recorded.</p>';
   return `<ul class="dd-hist">${rows.map(x => { const y = entryYear(x);
-    return `<li><span>${y || '—'}</span><div>${acc.clr >= (Number(x.clearance) || 0) ? `<b>${esc(entryName(x))}</b>${x.role ? ` · ${esc(x.role)}` : ''}${x.unit ? `<br>${esc(x.unit)}` : ''}${x.outcome ? `<br><i>${esc(x.outcome)}</i>` : ''}`
+    return `<li><span>${y || '—'}</span><div>${acc.clr >= (Number(x.clearance) || 0) ? `<b>${esc(entryName(x))}</b>${historyFilled(x) ? `<div class="dd-hist-text">${esc(historyDetails(x).trim())}</div>` : ''}`
       : `${redactBar(16)}<br>${redactBar(9)}`}</div></li>`; }).join('')}</ul>`;
 }
 function dossierHtml(p) {
@@ -9724,6 +9730,47 @@ ACTIONS['campaign-set-date'] = () => {
     await Data.put('settings', 'campaign', lg); await Data.audit('campaign.set', 'settings', 'campaign', `Campaign date set to ${v}`);
   }, 'Campaign date set.'));
 };
+
+/* ---------------------------------------------------------------- playing characters: staff too, several each */
+/* Players see only their own characters: other eishi profiles and dossiers are for Command Authority. */
+const _routeAllowedOwn = routeAllowed;
+routeAllowed = r => (r !== 'eishi' || S.isGm) && _routeAllowedOwn(r);
+const _eishiOpenOwn = ACTIONS['eishi-open'];
+ACTIONS['eishi-open'] = d => { if (!S.isGm && d.id !== S.pilotId) return; return _eishiOpenOwn(d); };
+
+/* Administrators and Moderators can step out of Command Authority to play their own characters, exactly as a player
+   does, and step back. The database still grants their staff permissions; only the screens change. */
+const PLAY_KEY = 'untsf.play';
+const playFlag = v => { try { if (v === undefined) return sessionStorage.getItem(PLAY_KEY) === '1'; if (v) sessionStorage.setItem(PLAY_KEY, '1'); else sessionStorage.removeItem(PLAY_KEY); } catch (e) { /* this tab only */ } return !!v; };
+function enterPlay() {
+  S.staff = { isGm: true, isOwner: !!S.isOwner }; S.isGm = false; S.isOwner = false; S.ui.previewAs = null;
+  S.pilotId = null; resolvePilot(); S.route = 'dashboard'; S.ui.menu = null; S.ui.drawer = null;
+}
+function leavePlay() {
+  const st = S.staff; if (!st) return;
+  S.isGm = st.isGm; S.isOwner = st.isOwner; S.staff = null; S.ui.enlisting = false; S.ui.menu = null; S.ui.drawer = null;
+  S.pilotId = null; resolvePilot(); S.route = routeAllowed('gm') ? 'gm' : 'dashboard';
+}
+const _afterReadyPlay = afterReady;
+afterReady = function () { _afterReadyPlay(); if (S.isGm && playFlag()) enterPlay(); };
+ACTIONS['play-enter'] = () => { playFlag(true); enterPlay(); render(); toast('Playing your characters. Use the account menu to return to Command Authority.'); };
+ACTIONS['play-leave'] = () => { playFlag(false); leavePlay(); render(); toast('Back in Command Authority.'); };
+/* The account menu: staff switch modes; everyone can enlist another character. */
+const _sessionExtrasPlay = sessionExtras;
+sessionExtras = () => {
+  const mine = myCharacters().length;
+  if (S.isGm) return `<button class="btn ghost" data-act="play-enter">${icon('user', 16)} ${mine ? `Play your characters (${mine})` : 'Play or enlist a character'}</button>` + _sessionExtrasPlay();
+  return (S.pilotId && !S.ui.enlisting && !S.readOnly ? `<button class="btn ghost" data-act="enlist-begin">${icon('plus', 16)} Enlist another character</button>` : '')
+    + _sessionExtrasPlay() + (S.staff ? `<button class="btn ghost" data-act="play-leave">${icon('shield', 16)} Back to Command Authority</button>` : '');
+};
+
+/* Personnel IDs: the two-digit year service began, then five random digits (e.g. 08-47213). Never reused. */
+function newPersonnelId(startYear) {
+  const yy = String(startYear || new Date().getUTCFullYear()).slice(-2), taken = new Set(list('pilots').map(x => String(x.personnelId)));
+  let id; do { id = `${yy}-${String(die(100000) - 1).padStart(5, '0')}`; } while (taken.has(id));
+  return id;
+}
+ACTIONS['pid-regen'] = () => { const p = S.ui.edit && S.ui.edit.pilot; if (!p) return; p.personnelId = newPersonnelId(settingYear() - (Number(p.yearsService) || 0)); render(); toast('New personnel ID. Save to keep it.'); };
 
 /* =====================================================================
    UNTSF-COMM — phones.
