@@ -10648,20 +10648,23 @@ const obChildren = id => { const st = structureRoots().length; return activeUnit
   .sort((a, b) => (unitType(a.type).support ? 1 : 0) - (unitType(b.type).support ? 1 : 0) || unitType(b.type).echelon - unitType(a.type).echelon || a.name.localeCompare(b.name)); };
 const OB_TYPE_ICON = { regiment: 'shield', battalion: 'layers', squadron: 'users', flight: 'crosshair', hq_staff: 'compass', maint_company: 'tool', maint_team: 'tool', cp_section: 'radio',
   medical_section: 'plus', logistics_section: 'boxes', intel_section: 'eye', security_detachment: 'lock' };
+const obNpcInitials = name => name.replace(/^(\S+\s+){0,2}/, '').slice(0, 2).toUpperCase() || name.slice(0, 2).toUpperCase();
+const obAttached = (u, slots) => { const holders = new Set(slots.map(x => x.holderPilotId).filter(Boolean)); return list('pilots').filter(p => p.status === 'active' && p.unitId === u.id && !holders.has(p.id)); };
+function obCommanderName(u, slots) {
+  const cmd = (u.commanderPilotId && get('pilots', u.commanderPilotId)) || (slots.find(x => x.role === 'commander' && !slotVacant(x)) || null);
+  return cmd ? (cmd.fullName ? pilotLabel(cmd) : (slotHolder(cmd) ? pilotLabel(slotHolder(cmd)) : cmd.holderName)) : '';
+}
 function obPerson(sl, p, title) {
   if (p) { const rk = rankById(p.rankId), mine = p.userId && p.userId === S.uid;
     return `<button class="ob-person ${mine ? 'mine' : ''} ${isSupport(p) ? 'sup' : ''}" data-act="eishi-open" data-id="${p.id}" title="Open ${esc(p.callsign || p.fullName)}'s profile">${avatarHtml(p, 52)}
       <b>${esc(p.callsign || p.fullName)}</b><span class="small">${esc(rk ? rk.abbr + ' ' : '')}${esc(p.callsign ? p.fullName : '')}</span><span class="small muted">${esc(title || (isSupport(p) ? tradeName(p.trade) : roleLabel(p.unitRole)))}</span></button>`; }
-  if (sl && (sl.holderName || '').trim()) return `<div class="ob-person npc"><span class="ob-npc">${esc(sl.holderName.replace(/^(\S+\s+){0,2}/, '').slice(0, 2).toUpperCase() || sl.holderName.slice(0, 2).toUpperCase())}</span>
+  if (sl && (sl.holderName || '').trim()) return `<div class="ob-person npc"><span class="ob-npc">${esc(obNpcInitials(sl.holderName))}</span>
       <b>${esc(sl.holderName)}</b><span class="small muted">${esc(sl.title)}</span><span class="chip">NPC</span></div>`;
   return `<div class="ob-person open"><span class="ob-open">${icon('plus', 18)}</span><b>${esc(sl.title)}</b><span class="small muted">${esc(roleLabel(sl.role))}</span>${sl.open ? '<span class="chip ok">OPEN</span>' : '<span class="chip">VACANT</span>'}</div>`;
 }
 function obUnit(u, depth) {
   const t = unitType(u.type), slots = slotsOf(u.id), kids = obChildren(u.id);
-  const holders = new Set(slots.map(x => x.holderPilotId).filter(Boolean));
-  const attached = list('pilots').filter(p => p.status === 'active' && p.unitId === u.id && !holders.has(p.id));
-  const cmd = (u.commanderPilotId && get('pilots', u.commanderPilotId)) || (slots.find(x => x.role === 'commander' && !slotVacant(x)) || null);
-  const cmdName = cmd ? (cmd.fullName ? pilotLabel(cmd) : (slotHolder(cmd) ? pilotLabel(slotHolder(cmd)) : cmd.holderName)) : '';
+  const attached = obAttached(u, slots), cmdName = obCommanderName(u, slots);
   const filled = slots.filter(x => !slotVacant(x)).length;
   const emblem = u.insignia ? insigniaSvg(u.insignia, u.callsignPrefix || u.designation, 44) : icon(OB_TYPE_ICON[u.type] || 'shield', 26);
   const people = slots.map(sl => obPerson(sl, slotHolder(sl), sl.title)).concat(attached.map(p => obPerson(null, p))).join('');
@@ -10673,6 +10676,48 @@ function obUnit(u, depth) {
     ${people ? `<div class="ob-people">${people}</div>` : ''}
     ${kids.length ? `<div class="ob-children ${kids.every(k => unitType(k.type).echelon <= 10) ? 'grid' : ''}">${kids.map(k => obUnit(k, depth + 1)).join('')}</div>` : ''}</section>`;
 }
+/* The family tree at the top of the page. Large formations branch sideways; flights, and
+   support sections with nothing under them, stack in a column so the tree stays a readable width. */
+const OBT_FACES = 8;
+function obtFace(p, title) {
+  const who = p.callsign || p.fullName;
+  return `<button class="obt-face ${p.userId && p.userId === S.uid ? 'mine' : ''}" data-act="eishi-open" data-id="${p.id}" title="${esc(who + (title ? ', ' + title : ''))}" aria-label="Open ${esc(who)}'s profile">${avatarHtml(p, 24)}</button>`;
+}
+function obtCrew(u, slots) {
+  const filledFirst = slots.filter(s => !slotVacant(s)).concat(slots.filter(slotVacant));
+  const marks = filledFirst.map(sl => { const p = slotHolder(sl);
+    if (p) return obtFace(p, sl.title);
+    if (!slotVacant(sl)) return `<span class="obt-dot" title="${esc(sl.holderName + ', ' + sl.title)}">${esc(obNpcInitials(sl.holderName))}</span>`;
+    return `<span class="obt-dot open" title="${esc(sl.title + (sl.open ? ', open' : ', vacant'))}"></span>`; })
+    .concat(obAttached(u, slots).map(p => obtFace(p)));
+  if (!marks.length) return '';
+  const filled = slots.filter(s => !slotVacant(s)).length, extra = marks.length - OBT_FACES;
+  return `<div class="obt-crew">${marks.slice(0, OBT_FACES).join('')}${extra > 0 ? `<span class="obt-dot more">+${extra}</span>` : ''}${slots.length ? `<span class="obt-n" title="Posts filled">${filled}/${slots.length}</span>` : ''}</div>`;
+}
+function obtNode(u, focus) {
+  const t = unitType(u.type), slots = slotsOf(u.id), cmd = obCommanderName(u, slots);
+  const emblem = u.insignia ? insigniaSvg(u.insignia, u.callsignPrefix || u.designation, 32) : icon(OB_TYPE_ICON[u.type] || 'shield', 20);
+  return `<div class="obt-node ob-${esc(u.type)} ${t.support ? 'support' : ''} ${focus === u.id ? 'on' : ''}">
+    <button class="obt-go" data-act="ob-tree-go" data-id="${u.id}" aria-pressed="${focus === u.id}" title="Show ${esc(u.name)} below"><span class="obt-emblem">${emblem}</span>
+      <span class="obt-text"><span class="obt-type">${esc(t.name)}</span><b>${esc(u.name)}</b>${cmd ? `<span class="obt-cmd">${esc(cmd)}</span>` : ''}</span></button>${obtCrew(u, slots)}</div>`;
+}
+const obtHang = (units, focus) => `<ul class="obt-hang">${units.map(k => `<li>${obtNode(k, focus)}</li>`).join('')}</ul>`;
+function obtKids(kids, focus) {
+  if (!kids.length) return '';
+  const leaf = k => !obChildren(k.id).length;
+  if (kids.every(k => leaf(k) && unitType(k.type).echelon <= 10)) return obtHang(kids, focus);
+  const loose = kids.filter(k => leaf(k) && unitType(k.type).support), stack = loose.length > 1 ? loose : [];
+  return `<ul class="obt-branch">${kids.filter(k => stack.indexOf(k) === -1).map(k => obtItem(k, focus)).join('')}
+    ${stack.length ? `<li><div class="obt-node obt-group"><span class="obt-text"><span class="obt-type">Support</span><b>Support elements</b></span></div>${obtHang(stack, focus)}</li>` : ''}</ul>`;
+}
+const obtItem = (u, focus) => `<li>${obtNode(u, focus)}${obtKids(obChildren(u.id), focus)}</li>`;
+const obtHtml = (roots, focus) => `<section class="plate obt" aria-label="Chain of command"><h2>Chain of command <span class="sub">Choose a unit to see it below, or a face to open a profile</span></h2>
+  <div class="obt-scroll"><ul class="obt-root">${roots.map(u => obtItem(u, focus)).join('')}</ul></div></section>`;
+/* Choosing the unit already shown goes back to everything. */
+ACTIONS['ob-tree-go'] = d => {
+  S.ui.obFocus = S.ui.obFocus === d.id ? '' : d.id; render();
+  requestAnimationFrame(() => { const el = document.querySelector('.orbat'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+};
 ROUTE_DEPT.orbat = 'PERS';
 route('orbat', 'Units and Squadrons', function () {
   const roots = obRoots(), ps = list('pilots').filter(p => p.status === 'active'), sl = list('slots');
@@ -10683,6 +10728,7 @@ route('orbat', 'Units and Squadrons', function () {
   return `<div class="page-head"><div><p class="kicker">PERSONNEL DIVISION · ORDER OF BATTLE</p><h1>Units and Squadrons</h1><p>Who serves where. Choose anyone to open their profile.</p></div></div>
     <div class="apr-stats"><div class="cc-tile slim static"><b>${ps.filter(p => !isSupport(p)).length}</b><span>Eishi</span></div><div class="cc-tile slim static"><b>${ps.filter(isSupport).length}</b><span>Support staff</span></div>
       <div class="cc-tile slim static"><b>${sl.filter(x => (x.holderName || '').trim() && !x.holderPilotId).length}</b><span>NPCs</span></div><div class="cc-tile slim static"><b>${sl.filter(x => x.open && slotVacant(x)).length}</b><span>Open posts</span></div></div>
+    ${roots.length ? obtHtml(roots, focus) : ''}
     ${pick.length > 1 ? `<div class="ob-focus" role="tablist" aria-label="Show unit"><button class="${focus ? '' : 'on'}" data-act="set-path" data-path="ui/obFocus" data-value="" aria-selected="${!focus}">Everything</button>${pick.map(u => `<button class="${focus === u.id ? 'on' : ''}" data-act="set-path" data-path="ui/obFocus" data-value="${u.id}" aria-selected="${focus === u.id}">${esc(u.name)}</button>`).join('')}</div>` : ''}
     ${shown.length ? `<div class="orbat">${shown.map(u => obUnit(u, 0)).join('')}</div>` : '<div class="empty">No units yet. Command Authority builds them under Command Structure.</div>'}`;
 }, { shared: true });
