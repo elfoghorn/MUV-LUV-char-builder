@@ -1067,6 +1067,11 @@ ol.service-tl { list-style: none; margin: 0; padding: 0 0 0 6px; border-left: 2p
 .auth-form input { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: var(--radius-control); border: 1px solid var(--line-strong);
   background: var(--panel-2); color: var(--text); font: inherit; } .auth-form input:focus { outline: 2px solid var(--nav-active); outline-offset: 1px; }
 .auth-form .btn { justify-content: center; padding: 10px; }
+.auth-form { width: 100%; }
+.au-rules { list-style: none; margin: -6px 0 0; padding: 0; display: grid; gap: 4px; font-size: 14px; text-align: left; color: var(--muted); }
+.au-rules li { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: baseline; } .au-mark { font-weight: 700; }
+.au-rules li.ok { color: var(--ok); } .au-rules li.bad { color: var(--bad); }
+.au-eg { margin: -4px 0 0; text-align: left; line-height: 1.5; }
 .auth-links { display: flex; flex-direction: column; gap: 2px; margin-top: 14px; } .auth-links .link-row { text-align: left; }
 .hosted-setup { max-width: 760px; } .setup-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin: 14px 0; }
 .setup-choices .plate { background: var(--panel-2); } .invite-box { background: var(--panel-2); margin: 0 0 12px; } .file-btn input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }

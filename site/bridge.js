@@ -34,6 +34,30 @@
      one always does, belongs to no one else, and never changes. With "Confirm email" off, nothing is ever sent. */
   var ACCOUNT_DOMAIN = url.replace(/^https:\/\//, '');
   var USERNAME = /^[a-z0-9][a-z0-9_-]{2,23}$/;
+  /* Together these say exactly what USERNAME says. */
+  var USERNAME_RULES = [
+    ['3 to 24 characters long', function (u) { return u.length >= 3 && u.length <= 24; }],
+    ['Starts with a letter or a number', function (u) { return /^[a-z0-9]/.test(u); }],
+    ['Only letters a to z, numbers, hyphens (-) and underscores (_)', function (u) { return /^[a-z0-9_-]+$/.test(u); }]
+  ];
+  function usernameProblem(u) {
+    if (USERNAME.test(u)) return null;
+    if (!u) return 'Enter a username.';
+    var odd = u.match(/[^a-z0-9_-]/g);
+    if (odd && odd.some(function (c) { return /\s/.test(c); })) return 'Usernames can’t contain spaces. Use a hyphen or an underscore instead, like red-fox.';
+    if (odd) return 'Usernames can’t contain ' + odd.filter(function (c, i) { return odd.indexOf(c) === i; }).slice(0, 6).map(function (c) { return '“' + c + '”'; }).join(' ') + '. Use only letters a to z, numbers, hyphens and underscores.';
+    if (!/^[a-z0-9]/.test(u)) return 'Usernames must start with a letter or a number, not “' + u.charAt(0) + '”.';
+    return u.length < 3 ? 'That username is too short. It needs at least 3 characters.' : 'That username is too long: it has ' + u.length + ' characters and the limit is 24.';
+  }
+  function usernameRulesHtml() {
+    return '<ul class="au-rules" id="au-rules">' + USERNAME_RULES.map(function (r) { return '<li><span class="au-mark" aria-hidden="true">•</span><span>' + r[0] + '</span></li>'; }).join('') + '</ul>'
+      + '<p class="small muted au-eg"><b>Fine:</b> red-fox, kestrel_01, Akari88<br><b>Not allowed:</b> Red Fox (space), Tōdō (accents), k.fox (full stop), _fox (starts with a symbol)<br>Capitals are saved as lowercase. You can’t change your username later.</p>';
+  }
+  function paintUsernameRules() {
+    var box = document.getElementById('au-rules'); if (!box) return;
+    var u = val('au-user').trim().toLowerCase();
+    Array.prototype.forEach.call(box.children, function (li, i) { var ok = USERNAME_RULES[i][1](u); li.className = !u ? '' : ok ? 'ok' : 'bad'; li.firstChild.textContent = !u ? '•' : ok ? '✓' : '✕'; });
+  }
   var toLogin = function (u) { return u.toLowerCase() + '@' + ACCOUNT_DOMAIN; };
   var mode = 'signin', note = null, started = false, inviteNeeded = null;
   var INVITE_LABEL = function () { return inviteNeeded === false ? 'Invite code (not needed at the moment)' : 'Invite code (from Command Authority)'; };
@@ -44,18 +68,20 @@
     /* A redraw keeps what was typed, so a failed attempt can be corrected rather than started again. */
     var typed = {}; ['au-user', 'au-pass', 'au-pass2', 'au-invite'].forEach(function (id) { typed[id] = val(id); });
     var title = { signin: 'Sign in', signup: 'Create an account' }[mode];
-    var body = field('au-user', 'Username', 'text', 'autocomplete="username" autocapitalize="none" spellcheck="false" required')
+    var body = field('au-user', 'Username', 'text', 'autocomplete="username" autocapitalize="none" spellcheck="false" required' + (mode === 'signup' ? ' aria-describedby="au-rules"' : ''))
+      + (mode === 'signup' ? usernameRulesHtml() : '')
       + field('au-pass', mode === 'signup' ? 'Password (at least 8 characters)' : 'Password', 'password', 'autocomplete="' + (mode === 'signup' ? 'new-password' : 'current-password') + '" required')
       + (mode === 'signup' ? field('au-pass2', 'Password again', 'password', 'autocomplete="new-password" required')
         + field('au-invite', '<span id="au-invite-label">' + INVITE_LABEL() + '</span>', 'text', 'autocomplete="off" autocapitalize="none" spellcheck="false"') : '');
     card('<p class="kicker">UNITED NATIONS · UNTSF-COMM</p><h1>' + title + '</h1>' + (note ? '<p class="notice ' + (note.bad ? 'warn' : '') + '" id="au-note" role="alert">' + esc(note.text) + '</p>' : '')
-      + (mode === 'signup' ? '<p class="small muted">Choose a username: 3 to 24 letters, numbers, hyphens or underscores. No email address is needed or stored.</p>' : '')
+      + (mode === 'signup' ? '<p class="small muted">No email address is needed or stored.</p>' : '')
       + '<form id="au-form" class="auth-form" novalidate>' + body + '<button class="btn primary" type="submit" id="au-go">' + (mode === 'signup' ? 'Create account' : 'Sign in') + '</button></form>'
       + '<div class="auth-links">' + (mode === 'signin' ? '<button class="link-row" data-au="signup">New here? Create an account</button><p class="small muted" style="margin:6px 0 0">Forgotten your password? Ask the Administrator to reset it.</p>'
         : '<button class="link-row" data-au="signin">Back to sign in</button>') + '</div>');
     var f = document.getElementById('au-form'); if (f) f.addEventListener('submit', function (e) { e.preventDefault(); submit(); });
     Array.prototype.forEach.call(document.querySelectorAll('[data-au]'), function (b) { b.addEventListener('click', function () { mode = b.getAttribute('data-au'); note = null; showGate(); if (mode === 'signup') checkInvite(); }); });
     Object.keys(typed).forEach(function (id) { var el = document.getElementById(id); if (el) el.value = typed[id]; });
+    var nameBox = document.getElementById('au-user'); if (nameBox) nameBox.addEventListener('input', paintUsernameRules); paintUsernameRules();
     /* Focusing a field on a phone scrolls the message away, so a message takes priority. */
     var shown = document.getElementById('au-note'), first = document.querySelector('#au-form input');
     if (shown) shown.scrollIntoView({ block: 'center' }); else if (first) first.focus();
@@ -64,7 +90,7 @@
   function busy(on) { var b = document.getElementById('au-go'); if (b) { b.disabled = on; if (on) b.textContent = 'Working…'; } }
   async function submit() {
     var user = val('au-user').trim().toLowerCase(), pass = val('au-pass');
-    if (!USERNAME.test(user)) { note = { bad: true, text: 'Usernames are 3 to 24 letters, numbers, hyphens or underscores, starting with a letter or number.' }; return showGate(); }
+    var nameIssue = usernameProblem(user); if (nameIssue) { note = { bad: true, text: nameIssue }; return showGate(); }
     if (mode === 'signup' && pass.length < 8) { note = { bad: true, text: 'Use a password of at least 8 characters.' }; return showGate(); }
     if (mode === 'signup' && pass !== val('au-pass2')) { note = { bad: true, text: 'The two passwords don’t match.' }; return showGate(); }
     busy(true);
