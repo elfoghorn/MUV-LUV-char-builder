@@ -749,6 +749,20 @@ button.ob-person { cursor: pointer; } button.ob-person:hover { border-color: var
 .ob-children.grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
 @media (max-width: 700px) { .ob-children { margin-left: 8px; padding-left: 10px; } .ob-children > .ob-unit::before { left: -12px; width: 10px; } .ob-strength { width: 100%; align-items: stretch; } }
 @media (prefers-reduced-motion: reduce) { button.ob-person:hover { transform: none; } }
+/* written chapters in the application */
+.story-quick { margin-bottom: 14px; }
+.story-step { max-width: 780px; }
+.story-intro { margin: 0 0 18px; color: var(--muted); line-height: 1.55; }
+.story-field { position: relative; margin-bottom: 22px; padding-left: 14px; border-left: 2px solid var(--line); min-width: 0; }
+.story-field:focus-within { border-left-color: var(--accent); }
+.story-field > label { display: block; font: 600 18px/1.25 var(--font-cond); letter-spacing: .02em; color: var(--text); }
+.story-prompt { margin: 2px 0 8px; font-size: 13px; line-height: 1.45; color: var(--muted); }
+.story-field textarea { display: block; width: 100%; padding: 10px 12px; resize: vertical; font: 15px/1.6 var(--font-body); color: var(--text); background: var(--inset, var(--panel-2)); border: 1px solid var(--line); border-radius: var(--radius-control); }
+.story-field textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+.story-count { display: block; margin-top: 4px; text-align: right; font: 11px var(--font-mono); color: var(--faint, var(--muted)); }
+.story-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+@media (max-width: 640px) { .story-pair { grid-template-columns: 1fr; } }
+.dd-story { margin-bottom: 10px; } .dd-story h4 { margin: 0 0 2px; font: 700 12px 'IBM Plex Mono', monospace; letter-spacing: .06em; text-transform: uppercase; } .dd-story p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
 /* user guide */
 .guide-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 16px; align-items: start; max-width: 1100px; }
 @media (max-width: 900px) { .guide-layout { grid-template-columns: 1fr; } .guide-toc { position: static; } }
