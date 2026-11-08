@@ -8967,10 +8967,7 @@ function imageXml(rid, n, wPx, hPx, name) { const cx = Math.round(wPx * 9525), c
 function buildDocx(o) {
   const NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"';
   const hdrFtr = (tag, inner) => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:${tag} ${NS}>${inner}</w:${tag}>`;
-  /* A tint behind every page. Word's own page colour comes out partly white when saved as PDF; a picture in the header prints and exports whole. */
-  const paper = o.paper ? `<w:r><w:drawing><wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="0" behindDoc="1" locked="1" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionH><wp:positionV relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionV><wp:extent cx="7560310" cy="10692130"/><wp:wrapNone/><wp:docPr id="900" name="Paper" descr=""/>
-    <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="900" name="paper"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdPaper"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="7560310" cy="10692130"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:anchor></w:drawing></w:r>` : '';
-  const header = hdrFtr('hdr', para([paper, runs('UNITED NATIONS · UNTSF-COMM · ', { size: 14, color: '4C5B67', caps: true }), runs(o.classification, { size: 14, bold: true, caps: true })], { align: 'right', after: 0 }));
+  const header = hdrFtr('hdr', para([runs('UNITED NATIONS · UNTSF-COMM · ', { size: 14, color: '4C5B67', caps: true }), runs(o.classification, { size: 14, bold: true, caps: true })], { align: 'right', after: 0 }));
   const footer = hdrFtr('ftr', `<w:p><w:pPr><w:jc w:val="left"/><w:spacing w:after="0"/></w:pPr>${runs(o.footer + ' · Page ', { size: 14, color: '4C5B67', mono: true })}<w:fldSimple w:instr="PAGE">${runs('1', { size: 14, mono: true })}</w:fldSimple>${runs(' of ', { size: 14, color: '4C5B67', mono: true })}<w:fldSimple w:instr="NUMPAGES">${runs('1', { size: 14, mono: true })}</w:fldSimple></w:p>`);
   const doc = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ${NS}><w:body>${o.body}
     <w:sectPr><w:headerReference w:type="default" r:id="rIdH"/><w:footerReference w:type="default" r:id="rIdF"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr></w:body></w:document>`;
@@ -8997,7 +8994,6 @@ function buildDocx(o) {
     { name: '_rels/.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>` },
     { name: 'word/document.xml', data: doc }, { name: 'word/styles.xml', data: styles }, { name: 'word/header1.xml', data: header }, { name: 'word/footer1.xml', data: footer },
     { name: 'word/_rels/document.xml.rels', data: rels }, { name: 'docProps/core.xml', data: core },
-    ...(o.paper ? [{ name: 'word/media/paper.png', data: o.paper }, { name: 'word/_rels/header1.xml.rels', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdPaper" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/paper.png"/></Relationships>' }] : []),
     ...imgs.map(im => ({ name: `word/media/${im.rid}.${im.ext}`, data: im.bytes }))
   ]);
 }
@@ -9564,7 +9560,7 @@ function makeServiceNumber(p) {
 }
 function dossierOnApproval(p, f, now) {
   const out = { dossierIssuedAt: now, serviceNumber: p.serviceNumber || makeServiceNumber(p) };
-  if (f && f.coRemarks != null) { const r = String(f.coRemarks).trim(); out.coRemarks = r; out.coRemarksBy = r ? coSignature() : ''; }
+  if (f && f.coRemarks != null) { const r = String(f.coRemarks).trim(); out.coRemarks = r; out.coRemarksBy = r ? coSignature() : ''; out.coRemarksDate = r ? ddAsOf() : ''; }
   return out;
 }
 const _appStatusDossier = applicationStatusView;
@@ -9623,7 +9619,9 @@ DRAWERS_REG('pilot-edit', d => {
     <section><h3>J2 file <span class="chip">STAFF ONLY</span></h3><p class="small muted">Read only by Command Authority and the character’s own player.</p>
       ${area('p-j2c', 'ui/edit/secrets/connections', 'Secret connections', e.secrets.connections)}${area('p-j2s', 'ui/edit/secrets/secrets', 'Secrets', e.secrets.secrets)}${area('p-j2h', 'ui/edit/secrets/hooks', 'Hooks for the GM', e.secrets.hooks)}</section>
     <section><h3>Commanding officer’s remarks</h3>${area('p-co', b + '/coRemarks', 'Remarks', p.coRemarks)}
-      <label class="field">Signed${txt('p-cosig', b + '/coRemarksBy', p.coRemarksBy, coSignature())}</label></section>`;
+      <label class="field">Signed${txt('p-cosig', b + '/coRemarksBy', p.coRemarksBy, coSignature())}</label>
+      <label class="field">Signed on (in-world date)${txt('p-codate', b + '/coRemarksDate', p.coRemarksDate, '2012-01-14')}</label></section>
+    <section><h3>Dossier margin notes</h3>${area('p-rail', b + '/marginNotes', 'One per line, year first, for example: 1998 Kōzan bridge. Six at most.', p.marginNotes)}</section>`;
   return html.replace('<section><h3>Portrait and insignia</h3>', add + '<section><h3>Portrait and insignia</h3>');
 });
 const _pilotGmSaveDossier = ACTIONS['pilot-gm-save'];
@@ -9654,45 +9652,144 @@ function historyListHtml(p, acc) {
     return `<li><span>${y || '—'}</span><div>${acc.clr >= (Number(x.clearance) || 0) ? `<b>${esc(entryName(x))}</b>${historyFilled(x) ? `<div class="dd-hist-text">${esc(historyDetails(x).trim())}</div>` : ''}`
       : `${redactBar(16)}<br>${redactBar(9)}`}</div></li>`; }).join('')}</ul>`;
 }
-function dossierHtml(p) {
-  const acc = dossierAccess(p), lv = dossierLevels(), rank = rankById(p.rankId), bt = birthOf(p.dob), age = ageAt(bt, settingDate());
-  const ok = s => acc.clr >= (lv[s] || 0);
-  const f = (label, v, s) => v == null || v === '' ? '' : `<div><dt>${esc(label)}</dt><dd>${ok(s || 'record') ? v : redactBar(6 + String(v).length % 8)}</dd></div>`;
-  const sec = (n, title, body) => `<section class="dd-sec"><h3>${n}. ${title}</h3>${body}</section>`;
-  const g = guardOf(p.guardStanding), slot = list('slots').find(s => s.holderPilotId === p.id), rec = pilotRecordFull(p.id), t = p.tally || {}, kills = t.kills || {};
-  const extraKills = BETA_CLASSES.reduce((s, [k]) => s + (Number(kills[k]) || 0), 0), secrets = (S.store.dossier_secrets || {})[p.id];
-  const byClass = BETA_CLASSES.filter(([k]) => Number(kills[k])).map(([k, l]) => `${l} ${Number(kills[k])}`).join(', ');
-  const provisional = p.status === 'pending', file = p.serviceNumber || REF.pers(p);
-  return `<div class="btn-row dd-tools"><button class="btn ghost" data-act="dossier-export" data-id="${esc(p.id)}">${icon('download', 16)} Export as image</button>${S.downloads ? `<button class="btn ghost" data-act="dossier-docx" data-id="${esc(p.id)}">${icon('file', 16)} Export as Word</button>` : ''}</div>
-  <article class="dossier-doc" data-id="${esc(p.id)}" aria-label="Personnel dossier: ${esc(p.callsign || p.fullName)}">
-    <div class="dd-margin" aria-hidden="true">FILE ${esc(file)} · J1 PERSONNEL · ${esc(file)}</div>
-    <div class="dd-stamp">UNFEC RESTRICTED</div>${provisional ? '<div class="dd-stamp second">PROVISIONAL</div>' : ''}
-    <header class="dd-head"><p class="dd-kicker">${esc(dossierSettings().header || 'UNITED NATIONS FAR EAST COMMAND · YOKOHAMA BASE')}</p><h2>PERSONNEL DOSSIER</h2>
-      <p class="dd-kicker">${esc(rank ? rank.name.toUpperCase() : 'RANK NOT ASSIGNED')}${p.callsign ? ' · CALLSIGN ' + esc(p.callsign.toUpperCase()) : ''}</p></header>
-    <div class="dd-top"><figure class="dd-photo">${avatarHtml(p, 150)}<figcaption>${esc([p.fcIrl, p.fcAnime].filter(Boolean).join(' · ') || 'No face claim on file')}</figcaption></figure>
-      ${sec(1, 'PERSONNEL RECORD', `<dl class="dd-grid">${f('Name', esc(p.fullName))}${f('Native script', esc(p.nativeName))}${f('Born as / alias', esc(p.alias))}${f('Callsign', esc(p.callsign))}
-        ${f('Service number', esc(p.serviceNumber || 'Issued on approval'))}${f('Personnel reference', esc(REF.pers(p)))}${f('Date of birth', p.dob ? esc(p.dob) + (age != null ? ` (age ${age})` : '') : '')}${f('Place of birth', esc(p.birthplace))}
-        ${f('Nationality', esc([p.nationality, p.otherNationalities].filter(Boolean).join(', ')))}${f('Service branch', p.factionId ? esc(facName(p.factionId)) : '')}
-        ${isGuard(p) && g ? f('Royal Guard', `<span class="guard-swatch" style="background:${GUARD_SWATCH[g[2]]}"></span> ${esc(g[3])}, ${esc(g[1].charAt(0).toLowerCase() + g[1].slice(1))}`) : ''}
-        ${f('Blood type', esc(p.bloodType))}${f('Height', p.heightCm ? esc(p.heightCm + ' cm') : '')}${f('Languages', esc(p.languages))}${f('Distinguishing marks', esc(p.marks))}</dl>`)}</div>
-    ${sec(2, 'SERVICE HISTORY', ok('history') ? dossierServiceHtml(p, acc) : `${redactBar(20)}<br>${redactBar(14)}`)}
-    ${sec(3, 'QUALIFICATIONS AND AWARDS', `<dl class="dd-grid">${f('Qualifications', esc((p.qualifications || []).map(q => q.title).join(', ') || 'None'), 'quals')}${f('Awards', esc((p.commendations || []).map(c => c.title).join(', ') || 'None'), 'quals')}
-      ${f('Sorties', String(rec.sorties + (Number(t.sorties) || 0)), 'quals')}${f('BETA kills', String(rec.kills + extraKills) + (byClass ? ` (${esc(byClass)})` : ''), 'quals')}
-      ${f('Frames lost', String(rec.lost + (Number(t.framesLost) || 0)), 'quals')}${f('Times bailed out', String(Number(t.bailouts) || 0), 'quals')}</dl>`)}
-    ${sec(4, 'APTITUDE ASSESSMENT', `<p class="dd-note">Comprehensive combat evaluation</p>${ok('aptitude') ? `<dl class="dd-grid">${statDefs('pilot').map(s => { const v = Number((p.attributes || {})[s.code]) || 0;
-      return `<div><dt>${esc(s.name)} · ${v}</dt><dd><div class="dd-bar"><i style="width:${Math.min(100, v)}%"></i></div></dd></div>`; }).join('')}</dl>` : redactBar(24)}`)}
-    ${sec(5, 'ASSIGNMENT', `<dl class="dd-grid">${f('Unit', esc(p.unitId ? unitChain(p.unitId).map(u => u.name).join(' › ') : 'Unassigned'), 'assignment')}${f('Role', p.unitId ? esc(roleLabel(p.unitRole)) : '', 'assignment')}
-      ${f('Roster slot', slot ? esc(slot.title) : '', 'assignment')}${f('Position', esc((slot && posName(slot.position)) || (specOf(p) || {}).name || ''), 'assignment')}
-      ${f('Preferred role', p.preferredRoleId ? esc(className(p.preferredRoleId)) + ' <i>(subject to GM approval)</i>' : '', 'assignment')}</dl>`)}
-    ${sec(6, 'PERSONAL', `<dl class="dd-grid">${f('Next of kin', esc(p.nextOfKin), 'personal')}${f('Family location', esc(p.familyLocation), 'personal')}</dl>
-      <dl class="dd-grid dd-long">${f('Why did you volunteer?', esc(p.motivation), 'personal')}${f('What the war has taken', esc(p.storyLoss), 'personal')}${f('Personality', esc(p.personality), 'personal')}${f('Fears', esc(p.fears), 'personal')}${f('Habits', esc(p.habits), 'personal')}</dl>`)}
-    ${sec(7, 'J2 FILE', acc.all ? (secrets && (secrets.connections || secrets.secrets || secrets.hooks) ? `<p class="dd-note">Staff and subject only</p><dl class="dd-grid dd-long">${f('Secret connections', esc(secrets.connections))}${f('Secrets', esc(secrets.secrets))}${f('Hooks for the GM', esc(secrets.hooks))}</dl>` : '<p class="dd-note">Nothing on file.</p>')
-      : `<p class="dd-note">Section withheld by J2.</p>${redactBar(22)}`)}
-    ${sec(8, 'COMMANDING OFFICER’S REMARKS', p.coRemarks ? `<div class="dd-remarks"><p>${esc(p.coRemarks)}</p><p class="dd-sign">${esc(p.coRemarksBy || coSignature())}${p.dossierIssuedAt ? ', ' + esc(fmtDate(p.dossierIssuedAt)) : ''}</p></div>` : `<p class="dd-note">${provisional ? 'Written when the dossier is issued.' : 'None on file.'}</p>`)}
-    <footer class="dd-foot">UNFEC RESTRICTED · Handle in accordance with base security regulations · ${esc(file)}</footer>
-  </article>`;
+/* One dossier model feeds the web view, the PDF and the Word file, so all three apply the same clearance rules.
+   What a reader may not see never enters the model, so it cannot reach any of the outputs. */
+const DD_MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DD_CLASS = ['OPEN', 'RESTRICTED', 'CONFIDENTIAL', 'SECRET', 'TOP SECRET'];
+const DD_WITHHELD = 'WITHHELD · CLEARANCE REQUIRED';
+const ddClass = n => DD_CLASS[Math.max(0, Math.min(DD_CLASS.length - 1, Number(n) || 0))];
+const ddClip = (v, n) => { const s = String(v || '').trim(); return s.length > n ? s.slice(0, n).replace(/\s+\S*$/, '') + '…' : s; };
+const ddText = v => String(v == null ? '' : v).trim();
+/* The dossier is set in 2012. The campaign clock's own default is 2001, so anything earlier falls back to the record date. */
+const ddAsOf = () => { const d = (get('settings', 'campaign') || {}).date; return d && d >= '2012' ? d : '2012-03-14'; };
+function ddDay(v) {
+  const s = ddText(v), iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (iso) return `${+iso[3]} ${DD_MON[+iso[2] - 1]} ${iso[1]}`;
+  if (!/\b\d{1,2}\b/.test(s)) return s;
+  const d = new Date(s); return isNaN(d) ? s : `${d.getDate()} ${DD_MON[d.getMonth()]} ${d.getFullYear()}`;
 }
-/* Export: the dossier as the viewer sees it, redactions included, as a PNG. */
+function ddSentences(t) {
+  const out = [], re = /[.!?]+["'”’)]*(?=\s+\S|\s*$)/g; let m, start = 0;
+  while ((m = re.exec(t))) { if (/\b(?:Lt|Col|Capt|Sgt|Maj|Gen|Mt|St|Dr|Mr|Mrs|Ms|No)\.$/.test(t.slice(start, m.index + m[0].length))) continue; out.push(t.slice(start, m.index + m[0].length).trim()); start = m.index + m[0].length; }
+  const tail = t.slice(start).trim(); if (tail) out.push(tail); return out;
+}
+const ddParas = v => ddText(v).split(/\n{2,}/).map(x => x.trim()).filter(Boolean);
+/* Long paragraphs are cut for the page, so one can never run past the bottom of a fixed PDF page. */
+function ddChunks(t, max) {
+  const out = []; let rest = t;
+  while (rest.length > max) { const head = rest.slice(0, max), stop = Math.max(head.lastIndexOf('. '), head.lastIndexOf('! '), head.lastIndexOf('? ')), cut = stop > max * .5 ? stop + 1 : head.lastIndexOf(' ') > 0 ? head.lastIndexOf(' ') : max; out.push(rest.slice(0, cut).trim()); rest = rest.slice(cut).trim(); }
+  if (rest) out.push(rest); return out;
+}
+const ddTrim = (list2, n) => list2.length > n ? list2.slice(0, n).concat([`+${list2.length - n} more`]) : list2;
+function ddMarginNotes(p) { return ddText(p.marginNotes).split('\n').map(x => x.trim().match(/^(\S+)\s+(.+)$/)).filter(Boolean).slice(0, 6).map(x => ({ year: x[1], note: x[2] })); }
+
+function dossierModel(p) {
+  const acc = dossierAccess(p), lv = dossierLevels(), ok = s => acc.clr >= (lv[s] || 0), sees = n => acc.clr >= (Number(n) || 0);
+  const copy = S.isGm && !S.ui.previewAs ? 'staff' : acc.all ? 'subject' : 'player', showBackground = copy !== 'player' || p.shareBackground !== false;
+  const rank = rankById(p.rankId), fac = get('factions', p.factionId), asOf = ddAsOf(), age = ageAt(birthOf(p.dob), new Date(asOf + 'T00:00:00Z'));
+  const chain = p.unitId ? unitChain(p.unitId) : [], slot = list('slots').find(s => s.holderPilotId === p.id), rec = pilotRecordFull(p.id), t = p.tally || {}, kills = t.kills || {};
+  const record = ok('record'), name = record ? ddText(p.fullName) : ddText(p.callsign) || 'NAME WITHHELD', rankName = rank ? rank.name : '';
+  const seconded = fac && p.factionId !== 'fac-un' && chain.some(u => u.factionId === 'fac-un');
+  const ownUnits = chain.slice(-2).reverse().map(u => u.name);
+  const rankLine = [rankName, fac ? fac.name + (seconded ? ', seconded to UNFEC' : '') : ''].filter(Boolean).join(' · ');
+
+  const entries = (p.history || []).slice().sort((x, y) => (entryYear(x) || 9999) - (entryYear(y) || 9999));
+  const gradedChapters = SERVICE_CHAPTERS.map(([k, title], i) => ({ k, title, no: `6.${i + 1}`, text: ddText(p[k]), level: Number((p.storyClearance || {})[k]) || 0 })).filter(c => c.text && (c.k !== 'motivation' || showBackground));
+  const history = ok('history'), shownLevels = !history ? [] : entries.map(x => Number(x.clearance) || 0).filter(sees).concat(gradedChapters.map(c => c.level).filter(sees));
+  const cls = ddClass(Math.max.apply(null, [1].concat(shownLevels)));
+
+  const chapters = gradedChapters.map(c => { if (!sees(c.level)) return { no: c.no, title: c.title, withheld: true }; const paras = ddParas(c.text); return { no: c.no, title: c.title, paras, lead: ddSentences(paras[0])[0] || paras[0] }; });
+  const chron = entries.map(x => sees(x.clearance) ? { year: entryYear(x) || '—', title: entryName(x), cls: ddClass(x.clearance) } : { year: entryYear(x) || '—', withheld: true, cls: ddClass(x.clearance) });
+  const held = chron.filter(x => x.withheld).length, n = chron.length;
+
+  const statDefsRows = statDefs('pilot').map(s => ({ name: s.name, value: Math.max(0, Math.min(100, Number((p.attributes || {})[s.code]) || 0)) }));
+  const secrets = (S.store.dossier_secrets || {})[p.id], hasSecrets = secrets && (ddText(secrets.connections) || ddText(secrets.secrets) || ddText(secrets.hooks));
+  const short = v => { const s = ddText(v).replace(/\s*\n+\s*/g, ' '), sent = ddSentences(s); return sent.length > 2 ? { text: sent.slice(0, 2).join(' '), full: ddText(v), more: true } : { text: ddText(v) }; };
+  const tf = primaryTsf(p), classKills = BETA_CLASSES.map(([k, l]) => ({ label: l, value: Number(kills[k]) || 0 })), classTotal = classKills.reduce((s, x) => s + x.value, 0), by = ddText(p.coRemarksBy) || coSignature(), comma = by.indexOf(',');
+  const signed = ddDay(p.coRemarksDate), fileNo = REF.pers(p), serviceNo = ddText(p.serviceNumber);
+
+  return {
+    id: p.id, copy, banner: `UNFEC ${cls}`, cls, fileNo, serviceNo, status: String(STATUS_LABEL[p.status] || p.status || '').toUpperCase(), asOf: ddDay(asOf).toUpperCase(),
+    copyLabel: copy === 'staff' ? 'COPY 1 OF 2' : copy === 'subject' ? 'COPY 2 OF 2' : 'EXTRACT', command: dossierSettings().header || 'UNITED NATIONS FAR EAST COMMAND · YOKOHAMA BASE',
+    unitLine: ok('assignment') ? ownUnits.join(' · ') : '', name, nativeName: record ? ddText(p.nativeName) : '', rankName, rankLine, callsign: ddText(p.callsign),
+    runningName: [name, rankName, p.callsign].filter(Boolean).join(' · '), portraitId: p.portraitAssetId || null, alt: `Portrait of ${name}`,
+    identity: record ? [['Born as / alias', p.alias], ['Date of birth', p.dob ? ddDay(p.dob) + (age != null ? ` (age ${age})` : '') : ''], ['Place of birth', p.birthplace], ['Nationality', [p.nationality, p.otherNationalities].filter(Boolean).join(' · ')],
+      ['Service numbers', p.serviceNumber], ['Service branch', fac ? fac.name : ''], ['Blood type', p.bloodType], ['Height', p.heightCm ? p.heightCm + ' cm' : ''], ['Languages', p.languages]].filter(x => ddText(x[1])) : null,
+    marks: record ? ddText(p.marks).replace(/\s*\n+\s*/g, ' · ') : '',
+    assignment: !ok('assignment') ? { withheld: true } : p.unitId ? { fields: [['Unit', ownUnits.join(', ')], ['Appointment', (slot && slot.title) || roleLabel(p.unitRole)], ['Assigned frame', tf ? [tsfLabel(tf), tf.serial].filter(Boolean).join(' · ') : ''], ['Position', (slot && posName(slot.position)) || (specOf(p) || {}).name || '']].filter(x => ddText(x[1])) } : null,
+    quals: !ok('quals') ? { withheld: true } : (p.qualifications || []).length ? { tags: p.qualifications.map(q => q.title + (q.date ? ' · ' + String(q.date).slice(0, 4) : '')) } : null,
+    awards: !ok('quals') ? { withheld: true } : (p.commendations || []).length ? { items: p.commendations.map(c => c.title) } : null,
+    combat: !ok('quals') ? { withheld: true } : { tiles: [['Sorties', rec.sorties + (Number(t.sorties) || 0)], ['BETA kills', rec.kills + classTotal], ['Frames lost', rec.lost + (Number(t.framesLost) || 0)], ['Times bailed out', Number(t.bailouts) || 0]], strip: classKills, unclassed: rec.kills },
+    aptitude: !ok('aptitude') ? { withheld: true } : statDefsRows.some(x => x.value) ? { rows: statDefsRows.sort((a, b) => b.value - a.value), source: 'Comprehensive combat evaluation · scale 0–100' } : null,
+    service: !history ? { withheld: true } : chapters.length ? { chapters, rail: ddMarginNotes(p) } : null,
+    chronology: !history ? { withheld: true } : n ? { rows: chron, count: `${n} ${n === 1 ? 'entry' : 'entries'} on file · ${n - held} shown${held ? ` · ${held} withheld at this reader’s clearance` : ''}` } : null,
+    personal: !ok('personal') ? { withheld: true } : (() => { const rows = [['Next of kin', { text: ddText(p.nextOfKin) }], ['Family', { text: ddText(p.familyLocation) }]].concat(showBackground ? [['What the war has taken', short(p.storyLoss)], ['Personality', short(p.personality)], ['Strengths', short(p.strengths)], ['Weaknesses', short(p.weaknesses)], ['Fears', short(p.fears)], ['Habits', short(p.habits)]] : []).filter(x => x[1].text); return rows.length ? { rows } : null; })(),
+    remarks: ddText(p.coRemarks) ? { text: ddText(p.coRemarks), name: comma > 0 ? by.slice(0, comma) : by, role: comma > 0 ? by.slice(comma + 1).trim() : '', date: signed.toUpperCase() } : null,
+    annex: acc.all && hasSecrets ? [['Secret connections', ddText(secrets.connections) || 'None'], ['Secrets', ddText(secrets.secrets)], ['Hooks for the GM', ddText(secrets.hooks)]].filter(x => x[1]) : null,
+    handling: [['Prepared by', dossierSettings().preparedBy || 'J1 Personnel, Yokohama Base'], ['Handling', copy === 'staff' ? 'Command Authority holding copy. Handle in accordance with base security regulations.' : copy === 'subject' ? 'Subject’s copy. Do not reproduce Annex A.' : 'Extract. Annex A and anything above the reader’s clearance have been removed.'], ['Record revision', ddDay(asOf).toUpperCase()]]
+  };
+}
+
+/* ---------------------------------------------------------------- the dossier as HTML: web view and print pages */
+const ddX = () => `<span class="dd-x" role="img" aria-label="Redacted"></span>`;
+const ddWithheld = () => `<p class="dd-withheld">${ddX()}<span>${DD_WITHHELD}</span></p>`;
+const ddF = (label, value, extra) => ddText(value) ? `<div class="dd-f${extra ? ' ' + extra : ''}"><div class="dd-l">${esc(label)}</div><div class="dd-v">${esc(value)}</div></div>` : '';
+const ddBanner = m => `<div class="dd-banner">${esc(m.banner)}</div>`;
+const ddH = (n, title) => `<h3 class="dd-sh"><span>${esc(n)}</span>${esc(title)}</h3>`;
+const ddFooter = (m, n, total) => `<div class="dd-footer"><span>FILE ${esc([m.fileNo, m.serviceNo].filter(Boolean).join(' · '))}</span><span>${esc(m.copyLabel)}${n ? ` · PAGE ${n} OF ${total}` : ''}</span></div>`;
+const ddRow = (label, inner, extra) => `<div class="dd-lv${extra ? ' ' + extra : ''}"><div class="dd-l">${esc(label)}</div><div class="dd-v">${inner}</div></div>`;
+function ddSummaryHtml(m, o = {}) {
+  const part = (n, title, body) => `<section class="dd-part">${ddH(n, title)}${body}</section>`;
+  const a = m.aptitude, c = m.combat, tags = m.quals && m.quals.tags && (o.quals ? ddTrim(m.quals.tags, o.quals) : m.quals.tags), awards = m.awards && m.awards.items && (o.awards ? ddTrim(m.awards.items, o.awards) : m.awards.items);
+  const marks = o.marks ? ddClip(m.marks, o.marks) : m.marks;
+  return `<header class="dd-head"><div><p class="dd-command">${esc(m.command)}</p><h2 class="dd-title">Personnel Dossier</h2>${m.unitLine ? `<p class="dd-unit">${esc(m.unitLine)}</p>` : ''}</div>
+    <dl class="dd-file"><dt>FILE</dt><dd>${esc(m.fileNo)}</dd><dt>CLEARANCE</dt><dd>${esc(m.cls)}</dd><dt>STATUS</dt><dd class="dd-strong">${esc(m.status)}</dd><dt>AS OF</dt><dd>${esc(m.asOf)}</dd></dl></header>
+  <section class="dd-identity"><figure class="dd-photo"><div class="dd-portrait">${m.portraitId ? `<img src="${ASSET_BASE}${esc(m.portraitId)}" alt="${esc(m.alt)}" data-fallback="1">` : '<span>PORTRAIT</span>'}</div><figcaption>${m.portraitId ? 'Photograph on file' : 'No photograph on file'}</figcaption></figure>
+    <div class="dd-who"><p class="dd-name">${esc(m.name)}${m.nativeName ? ` <span>${esc(m.nativeName)}</span>` : ''}</p>${m.rankLine ? `<p class="dd-rank">${esc(m.rankLine)}</p>` : ''}${m.callsign ? `<p class="dd-call">Callsign ${esc(m.callsign)}</p>` : ''}
+      ${m.identity ? `<div class="dd-grid3">${m.identity.map(x => ddF(x[0], x[1])).join('')}</div>${ddF('Distinguishing marks', marks, 'dd-marks')}` : ddWithheld()}</div></section>
+  ${m.assignment ? part('1', 'Current assignment', m.assignment.withheld ? ddWithheld() : `<div class="dd-grid4">${m.assignment.fields.map(x => ddF(x[0], x[1])).join('')}</div>`) : ''}
+  ${m.quals || m.awards ? `<div class="dd-two">${m.quals ? part('2', 'Qualifications', m.quals.withheld ? ddWithheld() : `<p class="dd-tags">${tags.map(x => `<span class="dd-tag">${esc(x)}</span>`).join('')}</p>`) : '<div></div>'}${m.awards ? part('3', 'Awards', m.awards.withheld ? ddWithheld() : `<ul class="dd-awards">${awards.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`) : '<div></div>'}</div>` : ''}
+  ${part('4', 'Combat record', c.withheld ? ddWithheld() : `<div class="dd-tiles">${c.tiles.map(x => `<div class="dd-tile"><b>${Number(x[1]).toLocaleString('en-GB')}</b><div class="dd-l">${esc(x[0])}</div></div>`).join('')}</div>
+    <div class="dd-strip">${c.strip.map(x => `<div><div class="dd-l">${esc(x.label)}</div><b>${x.value.toLocaleString('en-GB')}</b></div>`).join('')}</div>${c.unclassed ? `<p class="dd-source">Total includes ${c.unclassed.toLocaleString('en-GB')} mission kills not recorded by class.</p>` : ''}`)}
+  ${a ? part('5', 'Aptitude assessment', a.withheld ? ddWithheld() : `<div class="dd-apt" style="grid-template-rows:repeat(${Math.ceil(a.rows.length / 2)},auto)">${a.rows.map(x => `<div class="dd-aptr"><span>${esc(x.name)}</span><i><u style="width:${x.value}%"></u></i><b>${x.value}</b></div>`).join('')}</div><p class="dd-source">${esc(a.source)}</p>`) : ''}`;
+}
+/* Sections 6 and 7 as a run of blocks the PDF can page between. */
+function ddRecordItems(m, print) {
+  const items = [], add = (h, o = {}) => items.push(Object.assign({ h, col: 'full' }, o));
+  if (m.service) { add(ddH('6', 'Service record'), { sec: '6', keep: true });
+    if (m.service.withheld) add(ddWithheld(), { sec: '6' });
+    else m.service.chapters.forEach(c => { add(`<h4 class="dd-ch">${esc(c.no)} ${esc(c.title)}</h4>`, { sec: '6', keep: true, col: 'main' });
+      if (c.withheld) return add(ddWithheld(), { sec: '6', col: 'main' });
+      c.paras.forEach((para, i) => { const tail = i ? para : para.slice(c.lead.length), pieces = print ? ddChunks(tail, 1200) : [tail];
+        pieces.forEach((x, j) => add(`<p class="dd-p">${!i && !j ? `<b>${esc(c.lead)}</b>` : ''}${esc(x)}</p>`, { sec: '6', col: 'main' })); }); }); }
+  if (m.chronology) { add(ddH('7', 'Chronology'), { sec: '7', keep: true });
+    if (m.chronology.withheld) add(ddWithheld(), { sec: '7' });
+    else { const head = `<div class="dd-cr dd-crh"><div>YEAR</div><div>ENTRY</div><div>CLASS</div></div>`; add(head, { sec: '7', keep: true, chronHead: true });
+      m.chronology.rows.forEach((r, i) => add(`<div class="dd-cr"><div class="dd-yr">${esc(r.year)}</div><div>${r.withheld ? ddX() + `<span class="dd-wt">${DD_WITHHELD}</span>` : esc(r.title)}</div><div class="dd-cls dd-c-${r.cls.split(' ').pop().toLowerCase()}">${esc(r.cls)}</div></div>`, { sec: '7', chron: true, keep: i === m.chronology.rows.length - 1 }));
+      add(`<p class="dd-count">${esc(m.chronology.count)}</p>`, { sec: '7' }); } }
+  return items;
+}
+function ddPersonalItems(m, web) {
+  const items = [], add = (h, sec, keep) => items.push({ h, col: 'full', sec, keep: !!keep }), val = v => esc(v.text) + (v.more ? (web ? `<details class="dd-more"><summary>see full record</summary><div>${esc(v.full)}</div></details>` : ' <span class="dd-wt">SEE FULL RECORD</span>') : '');
+  if (m.personal) { add(ddH('8', 'Personal'), '8', true); if (m.personal.withheld) add(ddWithheld(), '8'); else m.personal.rows.forEach(r => add(ddRow(r[0], val(r[1])), '8')); }
+  if (m.remarks) { const r = m.remarks; add(ddH('9', 'Commanding officer’s remarks'), '9', true);
+    add(`<div class="dd-remarks"><p>${esc(r.text)}</p><div class="dd-sign"><div><b>${esc(r.name)}</b>${r.role ? `<span>${esc(r.role)}</span>` : ''}</div>${r.date ? `<time>${esc(r.date)}</time>` : ''}</div></div>`, '9'); }
+  if (m.annex) { add(`<div class="dd-ax dd-ax-top"><div class="dd-ax-head"><b>ANNEX A · J2 FILE</b><span>STAFF AND SUBJECT ONLY · OMITTED FROM PLAYER COPIES</span></div></div>`, 'A', true);
+    m.annex.forEach((r, i) => add(`<div class="dd-ax${i === m.annex.length - 1 ? ' dd-ax-end' : ''}">${ddRow(r[0], esc(r[1]))}</div>`, 'A')); }
+  add(`<div class="dd-handling">${m.handling.map(x => ddF(x[0], x[1])).join('')}</div>`, '');
+  return items;
+}
+function ddItemsHtml(items, rail) {
+  let out = '', main = [], railHtml = rail && rail.length ? `<aside class="dd-rail">${rail.map(n => `<div><b>${esc(n.year)}</b><span>${esc(n.note)}</span></div>`).join('')}</aside>` : '';
+  const flush = () => { if (!main.length) return; out += `<div class="dd-serv"><div>${main.join('')}</div>${railHtml}</div>`; railHtml = ''; main = []; };
+  items.forEach(x => { if (x.col === 'main') main.push(`<div class="dd-i">${x.h}</div>`); else { flush(); out += `<div class="dd-i">${x.h}</div>`; } });
+  flush(); return out;
+}
+function dossierHtml(p) {
+  const m = dossierModel(p), rail = m.service && m.service.rail;
+  return `<div class="btn-row dd-tools"><button class="btn ghost" data-act="dossier-pdf" data-id="${esc(p.id)}">${icon('download', 16)} Export as PDF</button>${S.downloads ? `<button class="btn ghost" data-act="dossier-docx" data-id="${esc(p.id)}">${icon('file', 16)} Export as Word</button>` : ''}<button class="btn ghost" data-act="dossier-export" data-id="${esc(p.id)}">${icon('download', 16)} Export as image</button></div>
+  <article class="dossier-doc dd-web" data-id="${esc(p.id)}" aria-label="Personnel dossier: ${esc(p.callsign || p.fullName)}">${ddBanner(m)}${ddSummaryHtml(m)}${ddItemsHtml(ddRecordItems(m), rail)}${ddItemsHtml(ddPersonalItems(m, true))}${ddFooter(m)}${ddBanner(m)}</article>`;
+}
+/* Export: the dossier as the viewer sees it/* Export: the dossier as the viewer sees it, redactions included, as a PNG. */
 function loadHtml2canvas() {
   if (window.html2canvas) return Promise.resolve(window.html2canvas);
   return new Promise((ok, no) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
@@ -9702,8 +9799,9 @@ ACTIONS['dossier-export'] = async d => {
   const p = get('pilots', d.id); if (!p) return;
   toast('Preparing the dossier image…');
   /* A copy of its own, off screen: the page re-renders while the image is made. */
-  const holder = document.createElement('div'); holder.style.cssText = 'position:fixed;left:-12000px;top:0;width:920px';
+  const holder = document.createElement('div'); holder.style.cssText = 'position:fixed;left:-12000px;top:0;width:794px';
   holder.innerHTML = dossierHtml(p).replace(/^[\s\S]*?(<article)/, '$1'); document.body.appendChild(holder);
+  holder.querySelectorAll('.dd-portrait img').forEach(i => { const f = i.parentNode; f.style.cssText = `background:url('${i.src}') center/cover no-repeat`; i.remove(); });
   try {
     const h2c = await loadHtml2canvas(), canvas = await h2c(holder.querySelector('.dossier-doc'), { scale: 2, useCORS: true, backgroundColor: null, scrollX: 0, scrollY: 0 });
     const a = document.createElement('a'); a.download = `dossier-${String(p.callsign || p.fullName || 'eishi').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`;
@@ -9711,79 +9809,173 @@ ACTIONS['dossier-export'] = async d => {
   } catch (e) { toast('Couldn’t make the image: ' + ((e && e.message) || e), true); }
   finally { holder.remove(); }
 };
+/* ---------------------------------------------------------------- the dossier as a PDF: fixed A4 pages sent to the print dialog */
+const ddRange = secs => { const nums = secs.filter(x => /^\d+$/.test(x)), head = nums.length > 1 ? `SECTIONS ${nums[0]}–${nums[nums.length - 1]}` : nums.length ? `SECTION ${nums[0]}` : ''; return [head, secs.indexOf('A') !== -1 ? 'ANNEX A' : ''].filter(Boolean).join(' · '); };
+const ddRunningHead = (m, range) => `<div class="dd-run"><div><p>UNITED NATIONS FAR EAST COMMAND · PERSONNEL DOSSIER</p><b>${esc(m.runningName)}</b></div><p>${esc(range)}</p></div>`;
+const ddPage = (m, body, n, total, head) => `<section class="dd-page">${ddBanner(m)}${head || ''}<div class="dd-page-body">${body}</div>${ddFooter(m, n, total)}${ddBanner(m)}</section>`;
+function ddPaginate(root, m, items, rail) {
+  if (!items.length) return [];
+  const shell = document.createElement('div'); shell.innerHTML = ddPage(m, '', 1, 1, ddRunningHead(m, 'SECTIONS 6–7')); root.appendChild(shell);
+  const body = shell.querySelector('.dd-page-body'), room = body.clientHeight;
+  items.forEach(x => { const w = document.createElement('div'); w.className = 'dd-i'; w.style.width = x.col === 'main' ? '492px' : '698px'; w.innerHTML = x.h; body.appendChild(w); x.height = w.getBoundingClientRect().height; w.remove(); });
+  shell.remove();
+  const chronHead = items.find(x => x.chronHead), pages = []; let cur = [], used = 0, i = 0;
+  while (i < items.length) {
+    let j = i; while (items[j].keep && j < items.length - 1) j++;
+    const group = items.slice(i, j + 1), h = group.reduce((s, x) => s + x.height, 0);
+    if (cur.length && used + h > room) { pages.push(cur); cur = []; used = 0; if (group[0].chron && chronHead) { cur.push(chronHead); used = chronHead.height; } }
+    cur = cur.concat(group); used += h; i = j + 1;
+  }
+  if (cur.length) pages.push(cur);
+  return pages.map((page, n) => ({ html: ddItemsHtml(page, n === 0 ? rail : null), range: ddRange(page.map(x => x.sec).filter((x, k, a) => x && a.indexOf(x) === k)) }));
+}
+/* Page 1 always fits: long awards, then qualifications, then marks are shortened, and only then is the page scaled. */
+function ddFitSummary(root, m) {
+  const holder = document.createElement('div'); root.appendChild(holder); let o = {};
+  const over = () => { holder.innerHTML = ddPage(m, ddSummaryHtml(m, o), 1, 1); const b = holder.querySelector('.dd-page-body'); return b.scrollHeight - b.clientHeight; };
+  [{}, { awards: 4 }, { awards: 4, quals: 6 }, { awards: 4, quals: 6, marks: 160 }].some(step => { o = step; return over() <= 1; });
+  const b = holder.querySelector('.dd-page-body'), extra = b.scrollHeight - b.clientHeight, zoom = extra > 1 ? b.clientHeight / b.scrollHeight : 1;
+  holder.remove(); return { html: ddSummaryHtml(m, o), zoom };
+}
+const DD_PRINT_CSS = `@page { size: A4; margin: 0; } @media print { html, body { height: auto !important; min-height: 0 !important; overflow: visible !important; margin: 0 !important; background: #F5F2EA !important; } body > *:not(.dd-print-root) { display: none !important; } .dd-print-root { position: static !important; } }`;
+async function dossierPrintRoot(p) {
+  document.querySelectorAll('.dd-print-root, .dd-print-css').forEach(x => x.remove());
+  const m = dossierModel(p), root = document.createElement('div'), css = document.createElement('style'); root.className = 'dd-print-root'; css.className = 'dd-print-css'; css.textContent = DD_PRINT_CSS;
+  document.head.appendChild(css); document.body.appendChild(root);
+  if (document.fonts && document.fonts.load) await Promise.race([Promise.all(['400 13px "IBM Plex Sans"', '600 13px "IBM Plex Sans"', '700 13px "IBM Plex Sans"', '400 11px "IBM Plex Mono"', '600 11px "IBM Plex Mono"'].map(f => document.fonts.load(f))).catch(() => {}), new Promise(ok => setTimeout(ok, 4000))]);
+  const first = ddFitSummary(root, m), record = ddPaginate(root, m, ddRecordItems(m, true), m.service && m.service.rail), personal = ddPaginate(root, m, ddPersonalItems(m, false));
+  const rest = record.concat(personal), total = rest.length + 1;
+  root.innerHTML = ddPage(m, first.html, 1, total) + rest.map((x, i) => ddPage(m, x.html, i + 2, total, ddRunningHead(m, x.range))).join('');
+  if (first.zoom < 1) root.querySelector('.dd-page-body').style.zoom = first.zoom;
+  await Promise.all(Array.from(root.querySelectorAll('img')).map(i => i.decode ? i.decode().catch(() => {}) : null));
+  return { root, css };
+}
+ACTIONS['dossier-pdf'] = async d => {
+  const p = get('pilots', d.id); if (!p) return;
+  toast('Preparing the dossier…');
+  try {
+    const { root, css } = await dossierPrintRoot(p), title = document.title;
+    const done = () => { window.removeEventListener('afterprint', done); root.remove(); css.remove(); document.title = title; };
+    document.title = `dossier-${String(p.callsign || p.fullName || 'eishi').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+    window.addEventListener('afterprint', done); window.print();
+    if (S.isGm) await Data.audit('records.export', 'pilot', p.id, 'Exported a dossier as PDF');
+  } catch (err) { toast('The dossier could not be prepared: ' + ((err && err.message) || 'unknown error'), true); }
+};
+
 /* ---------------------------------------------------------------- the dossier as a Word document */
-/* The same file on the same aged paper. It follows dossierHtml's clearance rules: what a reader can't see is never written into the file. */
-const DX_INK = '1F1C17', DX_SUB = '6D6455', DX_LINE = '8F846C', DX_RED = 'A3241C', DX_MONO = 'Courier New', DX_BODY = 'Georgia';
-const dxRun = (text, o = {}) => String(text == null ? '' : text).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').split('\n').map((line, i) => `<w:r><w:rPr><w:rFonts w:ascii="${o.font || DX_BODY}" w:hAnsi="${o.font || DX_BODY}" w:cs="${o.font || DX_BODY}"/>${o.bold ? '<w:b/>' : ''}${o.italic ? '<w:i/>' : ''}${o.caps ? '<w:caps/>' : ''}<w:color w:val="${o.color || DX_INK}"/>${o.track ? `<w:spacing w:val="${o.track}"/>` : ''}<w:sz w:val="${o.size || 20}"/>${o.fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${o.fill}"/>` : ''}</w:rPr>${i ? '<w:br/>' : ''}<w:t xml:space="preserve">${xe(line)}</w:t></w:r>`).join('');
-const dxP = (inner, o = {}) => `<w:p><w:pPr>${o.keep ? '<w:keepNext/>' : ''}${o.rule ? `<w:pBdr><w:bottom w:val="single" w:sz="${o.rule}" w:space="2" w:color="${o.ruleColor || DX_LINE}"/></w:pBdr>` : ''}<w:spacing w:before="${o.before || 0}" w:after="${o.after != null ? o.after : 80}"${o.exact ? ` w:line="${o.exact}" w:lineRule="exact"` : ''}/>${o.align ? `<w:jc w:val="${o.align}"/>` : ''}</w:pPr>${inner || ''}</w:p>`;
-const dxTiny = () => dxP('', { after: 0, exact: 40 });
+/* The same model, sections and typography as the PDF, without the margin rail or the bars. Plex falls back to Arial and Consolas. */
+const DX = { paper: 'F5F2EA', raised: 'FBF9F4', ink: '1D2127', muted: '4A5260', rule: 'B9B4A6', tint: 'E9E4D6', navy: '1F3A5F', red: 'A32020', wash: 'F7ECE8', sans: 'IBM Plex Sans', mono: 'IBM Plex Mono', W: 10466 };
+const DX_NBSP = ' ';
+const dxRun = (text, o = {}) => { const font = o.font || DX.sans; return String(text == null ? '' : text).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').split('\n').map((line, i) => `<w:r><w:rPr><w:rFonts w:ascii="${font}" w:hAnsi="${font}" w:eastAsia="Yu Gothic" w:cs="${font}"/>${o.bold ? '<w:b/>' : ''}${o.caps ? '<w:caps/>' : ''}<w:color w:val="${o.color || DX.ink}"/>${o.track ? `<w:spacing w:val="${o.track}"/>` : ''}<w:sz w:val="${o.size || 19}"/>${o.bdr ? `<w:bdr w:val="single" w:sz="8" w:space="0" w:color="${o.bdr}"/>` : ''}${o.fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${o.fill}"/>` : ''}</w:rPr>${i ? '<w:br/>' : ''}<w:t xml:space="preserve">${xe(line)}</w:t></w:r>`).join(''); };
+const dxTab = () => '<w:r><w:tab/></w:r>';
+const dxP = (inner, o = {}) => `<w:p><w:pPr>${o.keep ? '<w:keepNext/>' : ''}${o.rule || o.ruleTop ? `<w:pBdr>${o.ruleTop ? `<w:top w:val="single" w:sz="${o.ruleTop}" w:space="4" w:color="${o.ruleColor || DX.rule}"/>` : ''}${o.rule ? `<w:bottom w:val="single" w:sz="${o.rule}" w:space="3" w:color="${o.ruleColor || DX.ink}"/>` : ''}</w:pBdr>` : ''}${o.tab ? `<w:tabs><w:tab w:val="${o.tabVal || 'right'}" w:pos="${o.tab}"/></w:tabs>` : ''}<w:spacing w:before="${o.before || 0}" w:after="${o.after != null ? o.after : 0}"${o.exact ? ` w:line="${o.exact}" w:lineRule="exact"` : o.line ? ` w:line="${o.line}" w:lineRule="auto"` : ''}/>${o.indRight ? `<w:ind w:right="${o.indRight}"/>` : ''}${o.align ? `<w:jc w:val="${o.align}"/>` : ''}${o.outline != null ? `<w:outlineLvl w:val="${o.outline}"/>` : ''}${o.sect || ''}</w:pPr>${inner || ''}</w:p>`;
+const dxTiny = (exact = 40) => dxP('', { exact });
 const dxEdge = (tag, kinds, val, sz, color) => `<w:${tag}>${kinds.map(k => val === 'nil' ? `<w:${k} w:val="nil"/>` : `<w:${k} w:val="${val}" w:sz="${sz}" w:space="0" w:color="${color}"/>`).join('')}</w:${tag}>`;
-const dxCell = (w, inner, o = {}) => `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${o.border ? dxEdge('tcBorders', o.borderSides || ['top', 'left', 'bottom', 'right'], o.border[0], o.border[1], o.border[2]) : ''}${o.fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${o.fill}"/>` : ''}${o.pad != null ? `<w:tcMar><w:top w:w="${o.pad}" w:type="dxa"/><w:left w:w="${o.pad}" w:type="dxa"/><w:bottom w:w="${o.pad}" w:type="dxa"/><w:right w:w="${o.pad}" w:type="dxa"/></w:tcMar>` : ''}${o.valign ? `<w:vAlign w:val="${o.valign}"/>` : ''}</w:tcPr>${inner}</w:tc>`;
-const dxTable = (ws, rows, o = {}) => `<w:tbl><w:tblPr><w:tblW w:w="${ws.reduce((s, x) => s + x, 0)}" w:type="dxa"/>${o.align ? `<w:jc w:val="${o.align}"/>` : ''}${dxEdge('tblBorders', ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'], 'nil')}<w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="0" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="${o.gutter || 0}" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${ws.map(w => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${rows.map(r => `<w:tr><w:trPr><w:cantSplit/>${o.height ? `<w:trHeight w:val="${o.height}" w:hRule="exact"/>` : ''}</w:trPr>${r}</w:tr>`).join('')}</w:tbl>`;
-/* A black-out carries only the word REDACTED, so copying it reveals nothing. */
-const dxRedact = n => dxRun('REDACTED '.repeat(Math.ceil(n / 9)).slice(0, n), { font: DX_MONO, size: 18, color: '000000', fill: '000000' });
-const dxText = (v, o) => String(v).split(/\n{2,}/).map(t => dxP(dxRun(t.trim(), Object.assign({ size: 19 }, o)), { after: 100 })).join('');
-const dxField = (label, value) => dxP(dxRun(label, { font: DX_MONO, caps: true, size: 15, color: DX_SUB, track: 10 }), { after: 10, keep: true }) + value;
-const dxNote = t => dxP(dxRun(t, { font: DX_MONO, caps: true, size: 16, color: DX_SUB, track: 14 }), { after: 80 });
-const dxSec = (n, title, body) => dxP(dxRun(`${n}. ${title}`, { font: DX_MONO, bold: true, size: 21, track: 28 }), { keep: true, rule: 6, before: 240, after: 100 }) + body;
-function dxGrid(fields, W) {
-  const rows = [], list2 = fields.filter(Boolean), half = Math.floor(W / 2); if (!list2.length) return '';
-  for (let i = 0; i < list2.length; i += 2) rows.push(dxCell(half, list2[i]) + dxCell(half, list2[i + 1] || dxP('', { after: 0 })));
-  return dxTable([half, half], rows, { gutter: 240 }) + dxTiny();
+const dxCell = (w, inner, o = {}) => `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${o.span ? `<w:gridSpan w:val="${o.span}"/>` : ''}${o.border ? dxEdge('tcBorders', o.sides || ['top', 'left', 'bottom', 'right'], 'single', o.border[0], o.border[1]) : ''}${o.fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${o.fill}"/>` : ''}${o.pad ? `<w:tcMar><w:top w:w="${o.pad[0]}" w:type="dxa"/><w:left w:w="${o.pad[1]}" w:type="dxa"/><w:bottom w:w="${o.pad[0]}" w:type="dxa"/><w:right w:w="${o.pad[1]}" w:type="dxa"/></w:tcMar>` : ''}${o.valign ? `<w:vAlign w:val="${o.valign}"/>` : ''}</w:tcPr>${inner}</w:tc>`;
+const dxTable = (ws, rows, o = {}) => `<w:tbl><w:tblPr><w:tblW w:w="${ws.reduce((s, x) => s + x, 0)}" w:type="dxa"/>${dxEdge('tblBorders', ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'], 'nil')}<w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="0" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${ws.map(w => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${rows.map((r, i) => `<w:tr><w:trPr><w:cantSplit/>${o.height ? `<w:trHeight w:val="${o.height}" w:hRule="exact"/>` : ''}${o.header && !i ? '<w:tblHeader/>' : ''}</w:trPr>${r}</w:tr>`).join('')}</w:tbl>`;
+/* A redaction is shaded blank space. The withheld words are not in the file at all. */
+const dxLabel = (t, o) => dxRun(t, Object.assign({ font: DX.mono, size: 15, color: DX.muted, track: 18, caps: true }, o));
+const dxBar = () => dxRun(DX_NBSP.repeat(28), { font: DX.mono, size: 19, fill: DX.ink });
+const dxWithheld = () => dxP(dxBar() + dxRun('  ' + DD_WITHHELD, { font: DX.mono, size: 15, color: DX.muted }), { before: 40, after: 80 });
+const dxH = (n, title, o = {}) => dxP(dxRun(n, { font: DX.mono, size: 18, bold: true, color: DX.navy }) + dxRun('   ', { size: 21 }) + dxRun(title, { size: 21, bold: true, caps: true, track: 22 }), { keep: true, rule: 8, before: o.before != null ? o.before : 210, after: 120, outline: 0 });
+const dxF = (label, value) => dxP(dxLabel(label), { after: 20, keep: true }) + dxP(dxRun(value), { after: 110, line: 288 });
+function dxGrid(fields, W, cols, gutter = 240) {
+  const rows = [], w = Math.floor((W - gutter * (cols - 1)) / cols), last = W - (w + gutter) * (cols - 1);
+  const ws = []; for (let i = 0; i < cols; i++) ws.push(i === cols - 1 ? last : w + gutter);
+  for (let i = 0; i < fields.length; i += cols) rows.push(ws.map((cw, k) => dxCell(cw, fields[i + k] || dxP(''), k < cols - 1 ? { pad: [0, 0] } : {})).join(''));
+  return rows.length ? dxTable(ws, rows) + dxTiny() : '';
 }
-function dxBar(value, W) {
-  const pct = Math.max(0, Math.min(100, Number(value) || 0)), a = Math.round(W * pct / 100), b = W - a, tiny = dxP('', { after: 0, exact: 20 });
-  const parts = [[a, '3D382F'], [b, 'D6CDB8']].filter(x => x[0] > 0), edge = { border: ['single', 4, DX_LINE] };
-  return dxTable(parts.map(x => x[0]), [parts.map(([w, fill]) => dxCell(w, tiny, Object.assign({ fill }, edge))).join('')], { height: 130 }) + dxP('', { after: 70, exact: 60 });
+function dxPortrait(img, alt) {
+  const W = 150, H = 196, cx = W * 9525, cy = H * 9525, have = img.w / img.h, want = W / H, side = have > want ? Math.round((1 - want / have) / 2 * 100000) : 0, top = have < want ? Math.round((1 - have / want) / 2 * 100000) : 0;
+  return `<w:p><w:pPr><w:spacing w:before="0" w:after="60"/><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="1" name="Portrait" descr="${xe(alt)}"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="1" name="portrait"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${img.rid}"/><a:srcRect l="${side}" t="${top}" r="${side}" b="${top}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:ln w="9525"><a:solidFill><a:srgbClr val="${DX.ink}"/></a:solidFill></a:ln></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
 }
-const dxStamp = (t, size) => dxTable([2900], [dxCell(2900, dxP(dxRun(t, { font: DX_MONO, bold: true, size, color: DX_RED, track: 20 }), { before: 40, after: 40, align: 'center' }), { border: ['double', 6, DX_RED] })], { align: 'right' });
-function dossierBody(p, img) {
-  const acc = dossierAccess(p), lv = dossierLevels(), rank = rankById(p.rankId), bt = birthOf(p.dob), age = ageAt(bt, settingDate()), ok = s => acc.clr >= (lv[s] || 0);
-  const F = (label, v, s) => v == null || v === '' ? null : dxField(label, ok(s || 'record') ? dxText(v) : dxP(dxRedact(14), { after: 100 }));
-  const g = guardOf(p.guardStanding), slot = list('slots').find(s => s.holderPilotId === p.id), rec = pilotRecordFull(p.id), t = p.tally || {}, kills = t.kills || {}, secrets = (S.store.dossier_secrets || {})[p.id];
-  const extraKills = BETA_CLASSES.reduce((s, [k]) => s + (Number(kills[k]) || 0), 0), byClass = BETA_CLASSES.filter(([k]) => Number(kills[k])).map(([k, l]) => `${l} ${Number(kills[k])}`).join(', ');
-  const provisional = p.status === 'pending', file = p.serviceNumber || REF.pers(p), join = (...x) => x.filter(Boolean).join(', ');
-  const kicker = x => dxP(dxRun(x, { font: DX_MONO, size: 17, color: '5D5446', track: 20 }), { after: 40 });
-  const head = dxTable([6638, 3000], [dxCell(6638, kicker(dossierSettings().header || 'UNITED NATIONS FAR EAST COMMAND · YOKOHAMA BASE')
-      + dxP(dxRun('PERSONNEL DOSSIER', { font: DX_MONO, bold: true, size: 38, track: 30 }), { after: 40 })
-      + kicker((rank ? rank.name.toUpperCase() : 'RANK NOT ASSIGNED') + (p.callsign ? ' · CALLSIGN ' + p.callsign.toUpperCase() : '')), { valign: 'bottom' })
-    + dxCell(3000, dxStamp('UNFEC RESTRICTED', 22) + (provisional ? dxP('', { after: 60 }) + dxStamp('PROVISIONAL', 20) : '') + dxTiny(), { valign: 'center' })]) + dxP('', { rule: 18, ruleColor: DX_INK, after: 160, exact: 80 });
-  const picXml = img ? (() => { let w = img.kind === 'portrait' ? 150 : 120, h = Math.round(w * img.h / img.w); if (h > 200) { w = Math.round(w * 200 / h); h = 200; }
-    return imageXml(img.rid, img.n, w, h, img.kind === 'portrait' ? `Portrait of ${p.fullName}` : `Insignia of ${p.callsign || p.fullName}`).replace('<w:jc w:val="right"/><w:spacing w:after="0"/>', '<w:spacing w:after="60"/><w:jc w:val="center"/>'); })() : '';
-  const caption = dxP(dxRun([p.fcIrl, p.fcAnime].filter(Boolean).join(' · ') || 'No face claim on file', { font: DX_MONO, size: 15, color: '4B4438' }), { after: 0, align: 'center' });
-  const record = dxGrid([F('Name', p.fullName), F('Native script', p.nativeName), F('Born as / alias', p.alias), F('Callsign', p.callsign), F('Service number', p.serviceNumber || 'Issued on approval'), F('Personnel reference', REF.pers(p)),
-    F('Date of birth', p.dob ? p.dob + (age != null ? ` (age ${age})` : '') : ''), F('Place of birth', p.birthplace), F('Nationality', join(p.nationality, p.otherNationalities)), F('Service branch', p.factionId ? facName(p.factionId) : ''),
-    isGuard(p) && g ? F('Royal Guard', `${g[3]}, ${g[1].charAt(0).toLowerCase() + g[1].slice(1)}`) : null, F('Blood type', p.bloodType), F('Height', p.heightCm ? p.heightCm + ' cm' : ''), F('Languages', p.languages), F('Distinguishing marks', p.marks)], 6838);
-  const top = dxTable([2560, 240, 6838], [dxCell(2560, picXml + caption, { fill: 'DDD5C3', border: ['single', 4, '9C9178'], pad: 100 }) + dxCell(240, dxP('', { after: 0 })) + dxCell(6838, dxP(dxRun('1. PERSONNEL RECORD', { font: DX_MONO, bold: true, size: 21, track: 28 }), { keep: true, rule: 6, after: 100 }) + (record || dxTiny()))]) + dxTiny();
-  const chapters = [['Training and earlier units', p.priorService, 'priorService'], ['Operations and the war', p.storyOps, 'storyOps'], ['The moment that changed them', p.storyTurning, 'storyTurning'], ['How they came to this posting', p.storyRecent, 'storyRecent']].filter(x => (x[1] || '').trim())
-    .map(([title, v, k]) => dxP(dxRun(title, { font: DX_MONO, bold: true, caps: true, size: 17, track: 12 }), { keep: true, before: 60, after: 40 }) + (acc.clr >= (Number((p.storyClearance || {})[k]) || 0) ? dxText(v) : dxP(dxRedact(44), { after: 40 }) + dxP(dxRedact(32), { after: 40 }) + dxP(dxRedact(38), { after: 120 }))).join('');
-  const dotted = { border: ['dotted', 4, 'B7AB90'], borderSides: ['bottom'] };
-  const entries = (p.history || []).slice().sort((x, y) => (entryYear(x) || 9999) - (entryYear(y) || 9999)).map(x => dxCell(900, dxP(dxRun(entryYear(x) || '—', { font: DX_MONO, size: 18 }), { before: 60, after: 60 }), dotted)
-    + dxCell(8738, acc.clr >= (Number(x.clearance) || 0) ? dxP(dxRun(entryName(x), { bold: true, size: 19 }), { before: 60, after: historyFilled(x) ? 20 : 60 }) + (historyFilled(x) ? dxText(historyDetails(x).trim()) : '') : dxP(dxRedact(30), { before: 60, after: 30 }) + dxP(dxRedact(16), { after: 60 }), dotted));
-  const service = !ok('history') ? dxP(dxRedact(40), { after: 40 }) + dxP(dxRedact(26)) : (chapters + (entries.length ? dxTable([900, 8738], entries) + dxTiny() : '')) || dxText('No prior service recorded.');
-  const stats = statDefs('pilot').map(s => { const v = Number((p.attributes || {})[s.code]) || 0; return dxField(`${s.name} · ${v}`, dxBar(v, 4400)); });
-  const remarks = p.coRemarks ? dxTable([9638], [dxCell(9638, dxText(p.coRemarks) + dxP(dxRun([p.coRemarksBy || coSignature(), p.dossierIssuedAt ? fmtDate(p.dossierIssuedAt) : ''].filter(Boolean).join(', '), { italic: true, size: 19 }), { before: 80, after: 0, align: 'right' }), { fill: 'F6F2E8', border: ['single', 4, DX_LINE], pad: 140 })]) + dxTiny() : dxNote(provisional ? 'Written when the dossier is issued.' : 'None on file.');
-  return head + top
-    + dxSec(2, 'SERVICE HISTORY', service)
-    + dxSec(3, 'QUALIFICATIONS AND AWARDS', dxGrid([F('Qualifications', (p.qualifications || []).map(q => q.title).join(', ') || 'None', 'quals'), F('Awards', (p.commendations || []).map(c => c.title).join(', ') || 'None', 'quals'), F('Sorties', String(rec.sorties + (Number(t.sorties) || 0)), 'quals'),
-        F('BETA kills', String(rec.kills + extraKills) + (byClass ? ` (${byClass})` : ''), 'quals'), F('Frames lost', String(rec.lost + (Number(t.framesLost) || 0)), 'quals'), F('Times bailed out', String(Number(t.bailouts) || 0), 'quals')], 9638))
-    + dxSec(4, 'APTITUDE ASSESSMENT', dxNote('Comprehensive combat evaluation') + (ok('aptitude') ? dxGrid(stats, 9638) : dxP(dxRedact(48))))
-    + dxSec(5, 'ASSIGNMENT', dxGrid([F('Unit', p.unitId ? unitChain(p.unitId).map(u => u.name).join(' › ') : 'Unassigned', 'assignment'), F('Role', p.unitId ? roleLabel(p.unitRole) : '', 'assignment'), F('Roster slot', slot ? slot.title : '', 'assignment'),
-        F('Position', (slot && posName(slot.position)) || (specOf(p) || {}).name || '', 'assignment'), F('Preferred role', p.preferredRoleId ? className(p.preferredRoleId) + ' (subject to GM approval)' : '', 'assignment')], 9638))
-    + dxSec(6, 'PERSONAL', dxGrid([F('Next of kin', p.nextOfKin, 'personal'), F('Family location', p.familyLocation, 'personal')], 9638) + [F('Why did you volunteer?', p.motivation, 'personal'), F('What the war has taken', p.storyLoss, 'personal'), F('Personality', p.personality, 'personal'), F('Fears', p.fears, 'personal'), F('Habits', p.habits, 'personal')].filter(Boolean).join(''))
-    + dxSec(7, 'J2 FILE', acc.all ? (secrets && (secrets.connections || secrets.secrets || secrets.hooks) ? dxNote('Staff and subject only') + [F('Secret connections', secrets.connections), F('Secrets', secrets.secrets), F('Hooks for the GM', secrets.hooks)].filter(Boolean).join('') : dxNote('Nothing on file.')) : dxNote('Section withheld by J2.') + dxP(dxRedact(44)))
-    + dxSec(8, 'COMMANDING OFFICER’S REMARKS', remarks)
-    + dxP(dxRun(`UNFEC RESTRICTED · Handle in accordance with base security regulations · ${file}`, { font: DX_MONO, size: 15, color: DX_SUB, track: 14 }), { before: 240, after: 0, align: 'center' });
+function dxSummary(m, img) {
+  const file = [['FILE', m.fileNo], ['CLEARANCE', m.cls], ['STATUS', m.status], ['AS OF', m.asOf]].map(([k, v]) => dxP(dxRun(k, { font: DX.mono, size: 16, color: DX.muted }) + dxTab() + dxRun(v, { font: DX.mono, size: 16, bold: k === 'STATUS' }), { tab: 1100, tabVal: 'left', after: 20 })).join('');
+  const head = dxTable([7066, 3400], [dxCell(7066, dxP(dxRun(m.command, { font: DX.mono, size: 16, color: DX.muted }), { after: 40 }) + dxP(dxRun('Personnel Dossier', { size: 45, bold: true, caps: true, track: 30 }), { after: 40 }) + dxP(dxRun(m.unitLine, { size: 20, color: DX.muted }), { after: 0 }), { valign: 'bottom' })
+    + dxCell(3400, file, { border: [9, DX.ink], pad: [120, 180], valign: 'center' })]) + dxP('', { rule: 12, exact: 100, after: 140 });
+  const marks = m.marks.length > 240 ? ddClip(m.marks, 160) : m.marks, W2 = DX.W - 2250 - 300, identity = m.identity ? dxGrid(m.identity.map(x => dxF(x[0], x[1])), W2, 3) + (marks ? dxF('Distinguishing marks', marks) : '') : dxWithheld();
+  const placeholder = dxTable([2250], [dxCell(2250, dxP(dxRun('PORTRAIT', { font: DX.mono, size: 15, color: DX.muted }), { align: 'center' }), { fill: DX.tint, border: [8, DX.ink], valign: 'center' })], { height: 2940 });
+  const photo = (img ? dxPortrait(img, m.alt) : placeholder + dxTiny(60)) + dxP(dxRun(img ? 'Photograph on file' : 'No photograph on file', { font: DX.mono, size: 15, color: DX.muted }), { align: 'center' });
+  const who = dxP(dxRun(m.name, { size: 36, bold: true }) + (m.nativeName ? dxRun(' ' + m.nativeName, { size: 36, color: DX.muted }) : ''), { after: 40 }) + (m.rankLine ? dxP(dxRun(m.rankLine, { size: 20 }), { after: 30 }) : '') + (m.callsign ? dxP(dxRun('Callsign ' + m.callsign, { size: 20, color: DX.muted }), { after: 150 }) : '') + identity;
+  let out = head + dxTable([2250, 300, W2], [dxCell(2250, photo) + dxCell(300, dxP('')) + dxCell(W2, who + dxP(''))]) + dxTiny();
+  if (m.assignment) out += dxH('1', 'Current assignment') + (m.assignment.withheld ? dxWithheld() : dxGrid(m.assignment.fields.map(x => dxF(x[0], x[1])), DX.W, 4));
+  if (m.quals || m.awards) { const col = 5113;
+    const left = m.quals ? dxH('2', 'Qualifications', { before: 0 }) + (m.quals.withheld ? dxWithheld() : dxP((m.quals.tags.length > 8 ? ddTrim(m.quals.tags, 6) : m.quals.tags).map(x => dxRun(DX_NBSP + x.replace(/ /g, DX_NBSP) + DX_NBSP, { font: DX.mono, size: 16, color: DX.navy, caps: true, bdr: DX.navy })).join(dxRun('  ', { size: 16 })), { line: 360 })) : dxP('');
+    const right = m.awards ? dxH('3', 'Awards', { before: 0 }) + (m.awards.withheld ? dxWithheld() : (m.awards.items.length > 6 ? ddTrim(m.awards.items, 4) : m.awards.items).map(x => dxP(dxRun(x), { after: 40 })).join('')) : dxP('');
+    out += dxP('', { exact: 200 }) + dxTable([col, 240, col], [dxCell(col, left) + dxCell(240, dxP('')) + dxCell(col, right)]) + dxTiny(); }
+  const c = m.combat; out += dxH('4', 'Combat record');
+  if (c.withheld) out += dxWithheld(); else {
+    const tileW = [2496, 160, 2497, 160, 2496, 160, 2497], tile = x => dxP(dxRun(Number(x[1]).toLocaleString('en-GB'), { size: 30, bold: true }), { after: 10 }) + dxP(dxLabel(x[0]));
+    out += dxTable(tileW, [tileW.map((w, i) => i % 2 ? dxCell(w, dxP('')) : dxCell(w, tile(c.tiles[i / 2]), { border: [8, DX.rule], fill: DX.raised, pad: [80, 150] })).join('')]) + dxP('', { exact: 120 });
+    const stripW = [1495, 1495, 1495, 1495, 1495, 1495, 1496];
+    out += dxTable(stripW, [stripW.map((w, i) => dxCell(w, dxP(dxLabel(c.strip[i].label, { track: 6 }), { after: 30 }) + dxP(dxRun(c.strip[i].value.toLocaleString('en-GB'), { font: DX.mono, size: 18, bold: true })), { border: [8, DX.rule], pad: [60, 90] })).join('')]) + dxTiny();
+    if (c.unclassed) out += dxP(dxRun(`Total includes ${c.unclassed.toLocaleString('en-GB')} mission kills not recorded by class.`, { font: DX.mono, size: 15, color: DX.muted }), { before: 60 }); }
+  const a = m.aptitude; if (a) { out += dxH('5', 'Aptitude assessment');
+    if (a.withheld) out += dxWithheld(); else {
+      const down = Math.ceil(a.rows.length / 2), ws = [4113, 1000, 240, 4113, 1000], line = { border: [8, DX.rule], sides: ['bottom'], pad: [40, 0] }, pair = x => x ? [dxP(dxRun(x.name)), dxP(dxRun(x.value, { font: DX.mono, size: 18, bold: true }), { align: 'right' })] : [dxP(''), dxP('')], rows = [];
+      for (let i = 0; i < down; i++) { const l = pair(a.rows[i]), r = pair(a.rows[i + down]); rows.push(dxCell(ws[0], l[0], line) + dxCell(ws[1], l[1], line) + dxCell(ws[2], dxP('')) + dxCell(ws[3], r[0], a.rows[i + down] ? line : {}) + dxCell(ws[4], r[1], a.rows[i + down] ? line : {})); }
+      out += dxTable(ws, rows) + dxP(dxRun(a.source, { font: DX.mono, size: 15, color: DX.muted }), { before: 80 }); } }
+  return out;
+}
+function dxRecord(m) {
+  let out = '';
+  if (m.service) { out += dxH('6', 'Service record', { before: 0 });
+    if (m.service.withheld) out += dxWithheld();
+    else m.service.chapters.forEach(c => { out += dxP(dxRun(`${c.no} ${c.title}`, { font: DX.mono, size: 17, bold: true, color: DX.navy, track: 18, caps: true }), { keep: true, before: 80, after: 60 });
+      if (c.withheld) { out += dxWithheld(); return; }
+      c.paras.forEach((para, i) => { out += dxP((i ? '' : dxRun(c.lead, { bold: true })) + dxRun(i ? para : para.slice(c.lead.length)), { after: 120, line: 372, indRight: 4466 }); }); }); }
+  if (m.chronology) { out += dxH('7', 'Chronology');
+    if (m.chronology.withheld) out += dxWithheld(); else {
+      const ws = [780, 8306, 1380], head = { border: [12, DX.ink], sides: ['bottom'], pad: [50, 0] }, row = { border: [8, DX.rule], sides: ['bottom'], pad: [50, 0] }, tone = c => /SECRET/.test(c) ? DX.red : c === 'OPEN' ? DX.muted : DX.navy;
+      const rows = [ws.map((w, i) => dxCell(w, dxP(dxLabel(['Year', 'Entry', 'Class'][i])), head)).join('')].concat(m.chronology.rows.map(r => dxCell(ws[0], dxP(dxRun(r.year, { font: DX.mono, size: 18, bold: true })), row)
+        + dxCell(ws[1], dxP(r.withheld ? dxBar() + dxRun('  ' + DD_WITHHELD, { font: DX.mono, size: 15, color: DX.muted }) : dxRun(r.title)), row) + dxCell(ws[2], dxP(dxRun(r.cls, { font: DX.mono, size: 16, bold: true, color: tone(r.cls) })), row)));
+      out += dxTable(ws, rows, { header: true }) + dxP(dxRun(m.chronology.count, { font: DX.mono, size: 15, color: DX.muted }), { before: 100 }); } }
+  return out;
+}
+function dxPersonal(m) {
+  let out = ''; const ws = [1950, 8516], row = { border: [8, DX.rule], sides: ['bottom'], pad: [70, 0] }, lv = rows => dxTable(ws, rows.map(r => dxCell(ws[0], dxP(dxLabel(r[0])), row) + dxCell(ws[1], dxP(r[1], { line: 336 }), row))) + dxTiny();
+  if (m.personal) { out += dxH('8', 'Personal', { before: 0 }); out += m.personal.withheld ? dxWithheld() : lv(m.personal.rows.map(r => [r[0], dxRun(r[1].text) + (r[1].more ? dxRun('  SEE FULL RECORD', { font: DX.mono, size: 15, color: DX.muted }) : '')])); }
+  if (m.remarks) { const r = m.remarks; out += dxH('9', 'Commanding officer’s remarks') + dxTable([DX.W], [dxCell(DX.W, dxP(dxRun(r.text, { size: 20 }), { after: 140, line: 384 }) + dxP(dxRun(r.name, { bold: true }) + (r.date ? dxTab() + dxRun(r.date, { font: DX.mono, size: 17 }) : ''), { tab: DX.W - 480, after: 20 }) + (r.role ? dxP(dxRun(r.role, { font: DX.mono, size: 15, color: DX.muted })) : ''), { fill: DX.raised, border: [8, DX.ink], pad: [210, 240] })]) + dxTiny(); }
+  if (m.annex) { const bw = [12, DX.red], W = DX.W, a = { fill: DX.wash, pad: [90, 210] }, s = (sides, extra) => Object.assign({}, a, { border: bw, sides }, extra);
+    const last = m.annex.length - 1, rows = [dxCell(W, dxP(dxRun('ANNEX A · J2 FILE', { font: DX.mono, size: 18, bold: true, color: DX.red }) + dxTab() + dxRun('STAFF AND SUBJECT ONLY · OMITTED FROM PLAYER COPIES', { font: DX.mono, size: 13, color: DX.muted }), { tab: W - 420, keep: true }), Object.assign(s(['top', 'left', 'right']), { span: 2 }))].concat(m.annex.map((r, i) => dxCell(ws[0], dxP(dxLabel(r[0])), s(i === last ? ['left', 'bottom'] : ['left'])) + dxCell(ws[1], dxP(dxRun(r[1]), { line: 336 }), s(i === last ? ['bottom', 'right'] : ['right']))));
+    out += dxP('', { exact: 200 }) + dxTable(ws, rows) + dxTiny(); }
+  out += dxP('', { ruleTop: 8, before: 160, exact: 80 }) + dxGrid(m.handling.map(x => dxF(x[0], x[1])), DX.W, 3);
+  return out;
+}
+function dossierDocxFile(m, img, paper) {
+  const NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"', XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>', REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships', PX = 'application/vnd.openxmlformats-officedocument.wordprocessingml';
+  /* A tint behind every page: Word's own page colour comes out partly white when saved as PDF, a picture in the header does not. */
+  const sheet = n => `<w:r><w:drawing><wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="0" behindDoc="1" locked="1" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionH><wp:positionV relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionV><wp:extent cx="7560310" cy="10692130"/><wp:wrapNone/><wp:docPr id="${900 + n}" name="Paper" descr=""/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${900 + n}" name="paper"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdPaper"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="7560310" cy="10692130"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:anchor></w:drawing></w:r>`;
+  const banner = (lead = '') => dxP(lead + dxRun(m.banner, { font: DX.mono, size: 17, bold: true, color: DX.red, track: 45 }), { align: 'center', exact: 330 });
+  const hdr = (n, range) => `${XML}<w:hdr ${NS}>${banner(sheet(n))}${range ? dxP(dxRun('UNITED NATIONS FAR EAST COMMAND · PERSONNEL DOSSIER', { font: DX.mono, size: 15, color: DX.muted }) + dxTab() + dxRun(range, { font: DX.mono, size: 15, color: DX.muted }), { tab: DX.W, before: 80, after: 20 }) + dxP(dxRun(m.runningName, { size: 20, bold: true }), { rule: 12, after: 120 }) : ''}</w:hdr>`;
+  const field = code => `<w:fldSimple w:instr="${code}">${dxRun('1', { font: DX.mono, size: 15, color: DX.muted })}</w:fldSimple>`, mono = t => dxRun(t, { font: DX.mono, size: 15, color: DX.muted });
+  const footer = `${XML}<w:ftr ${NS}>${dxP(mono('FILE ' + [m.fileNo, m.serviceNo].filter(Boolean).join(' · ')) + dxTab() + mono(m.copyLabel + ' · PAGE ') + field('PAGE') + mono(' OF ') + field('NUMPAGES'), { ruleTop: 8, tab: DX.W, after: 40 })}${banner()}</w:ftr>`;
+  const sect = rid => `<w:sectPr><w:headerReference w:type="default" r:id="${rid}"/><w:footerReference w:type="default" r:id="rIdF"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="660" w:right="720" w:bottom="1020" w:left="720" w:header="210" w:footer="270" w:gutter="0"/></w:sectPr>`;
+  const page = (xml, rid) => xml + dxP('', { exact: 20, sect: sect(rid) });
+  const summary = dxSummary(m, img), record = dxRecord(m), personal = dxPersonal(m), headers = [['rIdH1', hdr(1, '')]];
+  let body = page(summary, 'rIdH1'), n = 2;
+  if (record) { const rid = 'rIdH' + n; headers.push([rid, hdr(n, ddRange([m.service && '6', m.chronology && '7'].filter(Boolean)))]); body += page(record, rid); n++; }
+  const tailRid = 'rIdH' + n; headers.push([tailRid, hdr(n, ddRange([m.personal && '8', m.remarks && '9', m.annex && 'A'].filter(Boolean)))]);
+  const doc = `${XML}<w:document ${NS}><w:body>${body}${personal}${sect(tailRid)}</w:body></w:document>`;
+  const styles = `${XML}<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="${DX.sans}" w:hAnsi="${DX.sans}" w:eastAsia="Yu Gothic" w:cs="${DX.sans}"/><w:sz w:val="19"/><w:color w:val="${DX.ink}"/><w:lang w:val="en-GB"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="0"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style></w:styles>`;
+  const fonts = `${XML}<w:fonts xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:font w:name="${DX.sans}"><w:altName w:val="Arial"/><w:family w:val="swiss"/><w:pitch w:val="variable"/></w:font><w:font w:name="${DX.mono}"><w:altName w:val="Consolas"/><w:family w:val="modern"/><w:pitch w:val="fixed"/></w:font></w:fonts>`;
+  const now = new Date().toISOString().replace(/\.\d+Z$/, 'Z'), core = `${XML}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${xe('Personnel dossier: ' + (m.callsign || m.name))}</dc:title><dc:creator>UNTSF-COMM</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${now}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${now}</dcterms:modified></cp:coreProperties>`;
+  const paperRels = `${XML}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdPaper" Type="${REL}/image" Target="media/paper.png"/></Relationships>`;
+  const docRels = `${XML}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdS" Type="${REL}/styles" Target="styles.xml"/><Relationship Id="rIdFT" Type="${REL}/fontTable" Target="fontTable.xml"/><Relationship Id="rIdF" Type="${REL}/footer" Target="footer1.xml"/>${headers.map(([rid]) => `<Relationship Id="${rid}" Type="${REL}/header" Target="${rid.replace('rIdH', 'header')}.xml"/>`).join('')}${img ? `<Relationship Id="${img.rid}" Type="${REL}/image" Target="media/${img.rid}.${img.ext}"/>` : ''}</Relationships>`;
+  const types = `${XML}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Default Extension="jpeg" ContentType="image/jpeg"/><Override PartName="/word/document.xml" ContentType="${PX}.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="${PX}.styles+xml"/><Override PartName="/word/fontTable.xml" ContentType="${PX}.fontTable+xml"/><Override PartName="/word/footer1.xml" ContentType="${PX}.footer+xml"/>${headers.map(([rid]) => `<Override PartName="/word/${rid.replace('rIdH', 'header')}.xml" ContentType="${PX}.header+xml"/>`).join('')}<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>`;
+  return zipFiles([{ name: '[Content_Types].xml', data: types }, { name: '_rels/.rels', data: `${XML}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${REL}/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>` },
+    { name: 'word/document.xml', data: doc }, { name: 'word/styles.xml', data: styles }, { name: 'word/fontTable.xml', data: fonts }, { name: 'word/footer1.xml', data: footer }, { name: 'word/_rels/document.xml.rels', data: docRels }, { name: 'docProps/core.xml', data: core }, { name: 'word/media/paper.png', data: paper },
+    ...headers.reduce((all, [rid, xml]) => all.concat([{ name: `word/${rid.replace('rIdH', 'header')}.xml`, data: xml }, { name: `word/_rels/${rid.replace('rIdH', 'header')}.xml.rels`, data: paperRels }]), []),
+    ...(img ? [{ name: `word/media/${img.rid}.${img.ext}`, data: img.bytes }] : [])]);
 }
 ACTIONS['dossier-docx'] = async d => {
   const p = get('pilots', d.id); if (!p || !S.downloads) return;
   toast('Preparing the dossier…');
   const filename = `dossier-${String(p.callsign || p.fullName || 'eishi').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.docx`;
   try {
-    const pic = await eishiPicture(p), img = pic ? Object.assign({ rid: 'rIdImg0', n: 1 }, pic) : null, file = p.serviceNumber || REF.pers(p);
-    const sheet = document.createElement('canvas'); sheet.width = sheet.height = 8; const ink = sheet.getContext('2d'); ink.fillStyle = '#efe9dc'; ink.fillRect(0, 0, 8, 8);
-    const paper = await canvasBytes(sheet, 'image/png');
-    const r = await S.downloads.save({ filename, data: buildDocx({ title: `Personnel dossier: ${p.callsign || p.fullName}`, classification: 'UNFEC RESTRICTED', footer: `File ${file}`, paper, body: dossierBody(p, img), images: img ? [img] : [] }) });
+    const pic = p.portraitAssetId ? await portraitImage(p.portraitAssetId, 720) : null, img = pic ? Object.assign({ rid: 'rIdImg0' }, pic) : null;
+    const sheet = document.createElement('canvas'); sheet.width = sheet.height = 8; const ink = sheet.getContext('2d'); ink.fillStyle = '#' + DX.paper; ink.fillRect(0, 0, 8, 8);
+    const r = await S.downloads.save({ filename, data: dossierDocxFile(dossierModel(p), img, await canvasBytes(sheet, 'image/png')) });
     if (r && r.status !== 'declined') toast(`${filename} saved.`);
     if (S.isGm) await Data.audit('records.export', 'pilot', p.id, 'Exported a dossier as Word');
   } catch (err) { if (!err || err.code !== 'declined') toast('The dossier could not be saved: ' + ((err && err.message) || 'unknown error'), true); }
@@ -10532,13 +10724,6 @@ function backgroundStepHtml(d, q, r) {
       <p class="small muted">Where the family lives matters: the BETA are hitting the supply towns.</p></div>`;
 }
 /* The dossier reads the chapters; entries recorded the older way stay listed under them. */
-function dossierServiceHtml(p, acc) {
-  const ch = [['Training and earlier units', p.priorService, 'priorService'], ['Operations and the war', p.storyOps, 'storyOps'], ['The moment that changed them', p.storyTurning, 'storyTurning'], ['How they came to this posting', p.storyRecent, 'storyRecent']].filter(x => (x[1] || '').trim());
-  const story = ch.map(([t, v, k]) => `<div class="dd-story"><h4>${esc(t)}</h4>${acc.clr >= (Number((p.storyClearance || {})[k]) || 0) ? `<p>${esc(v)}</p>` : `<p>${redactBar(22)}<br>${redactBar(16)}<br>${redactBar(19)}</p>`}</div>`).join('');
-  if ((p.history || []).length) return story + historyListHtml(p, acc);
-  return story || '<p class="small">No prior service recorded.</p>';
-}
-
 /* Command Authority grades each service chapter; above a reader's clearance it is blacked out. */
 const _pilotEditStory = DRAWERS['pilot-edit'];
 DRAWERS_REG('pilot-edit', d => {

@@ -17,7 +17,7 @@
 <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Special+Elite&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Special+Elite&display=swap">
 <style>
 :root {
   /* ================= UX-STD-001 design tokens (single source of truth) =================
@@ -762,7 +762,6 @@ button.ob-person { cursor: pointer; } button.ob-person:hover { border-color: var
 .story-count { display: block; margin-top: 4px; text-align: right; font: 11px var(--font-mono); color: var(--faint, var(--muted)); }
 .story-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
 @media (max-width: 640px) { .story-pair { grid-template-columns: 1fr; } }
-.dd-story { margin-bottom: 10px; } .dd-story h4 { margin: 0 0 2px; font: 700 12px 'IBM Plex Mono', monospace; letter-spacing: .06em; text-transform: uppercase; } .dd-story p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
 .tpl-offer { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; padding: 8px 12px; border: 1px dashed var(--line); border-radius: var(--radius-control); color: var(--muted); font-size: 14px; }
 .tpl-offer .btn { margin-left: auto; }
 /* a player's application status */
@@ -1077,52 +1076,85 @@ ol.service-tl { list-style: none; margin: 0; padding: 0 0 0 6px; border-left: 2p
 .setup-choices .plate { background: var(--panel-2); } .invite-box { background: var(--panel-2); margin: 0 0 12px; } .file-btn input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
 
 
-/* ---------- eishi dossier: a restricted personnel document ---------- */
+/* ---------- personnel dossier: web view and fixed A4 print pages ---------- */
 .dd-tools { justify-content: flex-end; margin-bottom: 8px; }
-.dossier-doc { position: relative; max-width: 920px; margin: 0 auto 18px; padding: 34px 40px 26px 66px; color: #1f1c17; background-color: #efe9dc;
-  background-image: repeating-linear-gradient(0deg, rgba(0,0,0,.02) 0 1px, transparent 1px 3px), radial-gradient(circle at 18% 8%, rgba(255,255,255,.55), transparent 55%);
-  border: 1px solid #c9bfa8; box-shadow: 0 3px 14px rgba(0,0,0,.35); font: 15px/1.55 'Special Elite', 'IBM Plex Mono', monospace; overflow: hidden; }
-.dossier-doc .dd-margin { position: absolute; left: 12px; top: 28px; bottom: 28px; writing-mode: vertical-rl; transform: rotate(180deg); font: 11px 'IBM Plex Mono', monospace;
-  letter-spacing: .22em; color: #6d6455; border-left: 1px dashed #b7ab90; padding-left: 8px; white-space: nowrap; overflow: hidden; }
-.dd-head { border-bottom: 2px solid #1f1c17; padding: 0 180px 10px 0; margin-bottom: 16px; }
-.dd-head h2 { margin: 2px 0; font: 700 22px/1.2 'IBM Plex Mono', monospace; letter-spacing: .1em; color: #1f1c17; }
-.dd-kicker { margin: 0; font: 12px 'IBM Plex Mono', monospace; letter-spacing: .12em; color: #5d5446; }
-.dd-stamp { position: absolute; top: 24px; right: 28px; transform: rotate(-7deg); border: 3px double #a3241c; color: #a3241c; padding: 4px 12px;
-  font: 700 17px 'IBM Plex Mono', monospace; letter-spacing: .16em; opacity: .85; }
-.dd-stamp.second { top: auto; bottom: 46px; right: 36px; transform: rotate(5deg); font-size: 14px; }
-.dd-top { display: grid; grid-template-columns: 172px minmax(0, 1fr); gap: 22px; align-items: start; }
-.dd-top .dd-sec { margin-top: 0; }
-.dd-photo { margin: 0; border: 1px solid #9c9178; background: #ddd5c3; padding: 8px; text-align: center; transform: rotate(-1deg); box-shadow: 1px 2px 4px rgba(0,0,0,.25); }
-.dd-photo figcaption { font: 11px/1.4 'IBM Plex Mono', monospace; margin-top: 6px; color: #4b4438; }
-.dd-sec { margin-top: 18px; }
-.dd-sec h3 { margin: 0 0 8px; padding-bottom: 3px; border-bottom: 1px solid #8f846c; font: 700 13px 'IBM Plex Mono', monospace; letter-spacing: .14em; color: #1f1c17; }
-.dd-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 24px; margin: 0; }
-.dd-grid.dd-long { grid-template-columns: minmax(0, 1fr); margin-top: 4px; }
-.dd-grid dt { font: 10.5px 'IBM Plex Mono', monospace; letter-spacing: .1em; text-transform: uppercase; color: #6d6455; }
-.dd-grid dd { margin: 0 0 7px; white-space: pre-wrap; overflow-wrap: anywhere; }
-.dd-note { margin: 0 0 6px; font: 11px 'IBM Plex Mono', monospace; letter-spacing: .1em; text-transform: uppercase; color: #6d6455; }
-.dd-hist { list-style: none; margin: 0; padding: 0; }
-.dd-hist li { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 10px; padding: 6px 0; border-bottom: 1px dotted #b7ab90; }
-.dd-hist-text { margin-top: 2px; white-space: pre-wrap; overflow-wrap: anywhere; }
-.dd-bar { height: 8px; margin-top: 3px; background: #d6cdb8; border: 1px solid #8f846c; }
-.dd-bar i { display: block; height: 100%; background: #3d382f; }
-.dd-remarks { border: 1px solid #8f846c; padding: 10px 14px; background: rgba(255,255,255,.35); }
-.dd-remarks p { margin: 0; white-space: pre-wrap; }
-.dd-remarks .dd-sign { margin-top: 10px; text-align: right; font-style: italic; }
-.dd-foot { margin-top: 20px; padding-top: 6px; border-top: 1px solid #8f846c; font: 10.5px 'IBM Plex Mono', monospace; letter-spacing: .12em; color: #6d6455; text-align: center; }
+.dossier-doc, .dd-page { --dd-paper: #F5F2EA; --dd-raised: #FBF9F4; --dd-ink: #1D2127; --dd-muted: #4A5260; --dd-rule: #B9B4A6; --dd-tint: #E9E4D6; --dd-navy: #1F3A5F; --dd-red: #A32020; --dd-wash: #F7ECE8;
+  --dd-sans: 'IBM Plex Sans', Arial, sans-serif; --dd-mono: 'IBM Plex Mono', Consolas, monospace; box-sizing: border-box; color: var(--dd-ink); background: var(--dd-paper); font: 400 12.5px/1.55 var(--dd-sans); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.dossier-doc *, .dd-page * { box-sizing: border-box; }
+.dossier-doc { max-width: 794px; margin: 0 auto 18px; padding: 14px 48px 18px; }
+.dd-print-root { position: absolute; left: -12000px; top: 0; width: 794px; }
+.dd-page { width: 794px; height: 1122px; padding: 14px 48px 18px; display: flex; flex-direction: column; overflow: hidden; break-after: page; page-break-after: always; }
+.dd-page:last-child { break-after: auto; page-break-after: auto; }
+.dd-page-body { flex: 1 1 auto; min-height: 0; overflow: hidden; padding-top: 2px; }
+.dd-i { display: flow-root; }
+.dd-banner { height: 22px; text-align: center; font: 600 11px/22px var(--dd-mono); letter-spacing: 3px; text-transform: uppercase; color: var(--dd-red); }
+.dd-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; padding-bottom: 10px; border-bottom: 2px solid var(--dd-ink); }
+.dd-command { margin: 0; font: 400 10.5px/1.4 var(--dd-mono); color: var(--dd-muted); }
+.dd-title { margin: 2px 0; font: 700 30px/1.15 var(--dd-sans); letter-spacing: 2px; text-transform: uppercase; color: var(--dd-ink); }
+.dd-unit { margin: 0; font-size: 13px; line-height: 1.4; color: var(--dd-muted); }
+.dd-file { display: grid; grid-template-columns: auto auto; gap: 2px 12px; margin: 0; padding: 8px 12px; border: 1.5px solid var(--dd-ink); font: 400 10.5px/1.45 var(--dd-mono); flex: none; }
+.dd-file dt { color: var(--dd-muted); } .dd-file dd { margin: 0; color: var(--dd-ink); } .dd-file .dd-strong { font-weight: 600; }
+.dd-identity { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; margin-top: 14px; }
+.dd-photo { margin: 0; } .dd-photo figcaption { margin-top: 4px; font: 400 10px/1.3 var(--dd-mono); text-align: center; color: var(--dd-muted); }
+.dd-portrait { display: flex; align-items: center; justify-content: center; width: 150px; height: 196px; border: 1px solid var(--dd-ink); background: var(--dd-tint); font: 400 10px var(--dd-mono); letter-spacing: 1.2px; color: var(--dd-muted); overflow: hidden; }
+.dd-portrait img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.dd-name { margin: 0; font: 600 24px/1.2 var(--dd-sans); color: var(--dd-ink); } .dd-name span { font-weight: 400; color: var(--dd-muted); }
+.dd-rank { margin: 2px 0 0; font-size: 13px; line-height: 1.4; } .dd-call { margin: 0 0 10px; font-size: 13px; line-height: 1.4; color: var(--dd-muted); }
+.dd-grid3, .dd-grid4 { display: grid; gap: 10px 16px; } .dd-grid3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .dd-grid4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.dd-l { margin: 0 0 2px; font: 400 10px/1.3 var(--dd-mono); letter-spacing: 1.2px; text-transform: uppercase; color: var(--dd-muted); }
+.dd-v { font: 400 12.5px/1.4 var(--dd-sans); white-space: pre-wrap; overflow-wrap: anywhere; }
+.dd-marks { margin-top: 10px; }
+.dd-part { margin-top: 14px; } .dd-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+h3.dd-sh { display: flex; align-items: baseline; gap: 8px; margin: 14px 0 8px; padding: 0 0 3px; border-bottom: 1px solid var(--dd-ink); font: 700 14px/1.3 var(--dd-sans); letter-spacing: 1.5px; text-transform: uppercase; color: var(--dd-ink); }
+.dd-part > h3.dd-sh { margin-top: 0; } h3.dd-sh span { font: 600 12px/1 var(--dd-mono); letter-spacing: 0; color: var(--dd-navy); }
+.dd-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; } .dd-tag { padding: 3px 8px; border: 1px solid var(--dd-navy); font: 400 10.5px/1.3 var(--dd-mono); text-transform: uppercase; color: var(--dd-navy); }
+.dd-awards { margin: 0; padding: 0; list-style: none; line-height: 1.5; }
+.dd-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.dd-tile { padding: 8px 10px; border: 1px solid var(--dd-rule); background: var(--dd-raised); } .dd-tile b { display: block; font: 600 20px/1.2 var(--dd-sans); } .dd-tile .dd-l { margin: 0; }
+.dd-strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); margin-top: 8px; border: 1px solid var(--dd-rule); }
+.dd-strip > div { padding: 5px 6px; border-left: 1px solid var(--dd-rule); } .dd-strip > div:first-child { border-left: 0; } .dd-strip .dd-l { letter-spacing: .4px; white-space: nowrap; } .dd-strip b { font: 600 12px/1.3 var(--dd-mono); }
+.dd-apt { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px 24px; }
+.dd-aptr { display: grid; grid-template-columns: 150px minmax(0, 1fr) 32px; align-items: center; gap: 0; } .dd-aptr span { line-height: 1.3; } .dd-aptr b { font: 600 11px var(--dd-mono); text-align: right; }
+.dd-aptr i { display: block; height: 8px; background: var(--dd-tint); border: 1px solid var(--dd-rule); } .dd-aptr u { display: block; height: 100%; background: var(--dd-navy); text-decoration: none; }
+.dd-source, .dd-count { margin: 6px 0 0; font: 400 10px/1.4 var(--dd-mono); color: var(--dd-muted); } .dd-count { margin-top: 8px; }
+.dd-serv { display: grid; grid-template-columns: minmax(0, 492px) 190px; gap: 16px; align-items: start; }
+.dd-ch { margin: 8px 0 4px; font: 600 11px/1.4 var(--dd-mono); letter-spacing: 1.2px; text-transform: uppercase; color: var(--dd-navy); }
+.dd-p { max-width: 390px; margin: 0 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--dd-ink); }
+.dd-rail { padding-left: 16px; border-left: 1px solid var(--dd-rule); margin-top: 8px; } .dd-rail > div { margin-bottom: 10px; line-height: 1.35; } .dd-rail b { display: block; font: 600 11px/1.4 var(--dd-mono); color: var(--dd-navy); } .dd-rail span { font-size: 11.5px; }
+.dd-cr { display: grid; grid-template-columns: 52px minmax(0, 1fr) 92px; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--dd-rule); }
+.dd-crh { padding-top: 0; border-bottom: 1.5px solid var(--dd-ink); font: 400 10px/1.3 var(--dd-mono); letter-spacing: 1.2px; color: var(--dd-muted); }
+.dd-yr { font: 600 11px var(--dd-mono); } .dd-cls { font: 600 10.5px var(--dd-mono); } .dd-c-open { color: var(--dd-muted); } .dd-c-restricted, .dd-c-confidential { color: var(--dd-navy); } .dd-c-secret { color: var(--dd-red); }
+.dd-x { display: inline-block; width: 28ch; max-width: 100%; height: 11px; vertical-align: -1px; background: var(--dd-ink); font: 400 12.5px var(--dd-mono); }
+.dd-wt { margin-left: 8px; font: 400 10px var(--dd-mono); color: var(--dd-muted); } .dd-withheld { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 8px; font: 400 10px var(--dd-mono); color: var(--dd-muted); }
+.dd-lv { display: grid; grid-template-columns: 130px minmax(0, 1fr); padding: 5px 0; border-bottom: 1px solid var(--dd-rule); }
+.dd-more summary { cursor: pointer; font: 400 10px var(--dd-mono); text-transform: uppercase; color: var(--dd-navy); } .dd-more div { margin-top: 4px; white-space: pre-wrap; }
+.dd-remarks { padding: 14px 16px; border: 1px solid var(--dd-ink); background: var(--dd-raised); } .dd-remarks p { margin: 0; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
+.dd-sign { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-top: 10px; } .dd-sign b { display: block; font: 600 12.5px/1.4 var(--dd-sans); } .dd-sign span { font: 400 10px var(--dd-mono); color: var(--dd-muted); } .dd-sign time { font: 400 11px var(--dd-mono); white-space: nowrap; }
+.dd-ax { padding: 0 14px; border-left: 2px solid var(--dd-red); border-right: 2px solid var(--dd-red); background: var(--dd-wash); } .dd-ax .dd-lv:last-child { border-bottom: 0; }
+.dd-ax-top { margin-top: 14px; padding-top: 12px; border-top: 2px solid var(--dd-red); } .dd-ax-end { padding-bottom: 8px; border-bottom: 2px solid var(--dd-red); }
+.dd-ax-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--dd-rule); } .dd-ax-head b { font: 600 12px var(--dd-mono); color: var(--dd-red); } .dd-ax-head span { font: 400 9.5px var(--dd-mono); color: var(--dd-muted); text-align: right; }
+.dd-ax:not(.dd-ax-top) .dd-lv { border-bottom: 1px solid var(--dd-rule); } .dd-ax-end .dd-lv { border-bottom: 0 !important; }
+.dd-handling { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 14px; padding-top: 8px; border-top: 1px solid var(--dd-rule); }
+.dd-footer { display: flex; justify-content: space-between; gap: 16px; margin-top: 14px; padding-top: 4px; border-top: 1px solid var(--dd-rule); font: 400 10px/1.4 var(--dd-mono); text-transform: uppercase; color: var(--dd-muted); }
+.dd-page .dd-footer { flex: none; margin-top: 6px; }
+.dd-run { display: flex; justify-content: space-between; align-items: flex-end; flex: none; gap: 16px; padding-bottom: 6px; margin-bottom: 4px; border-bottom: 2px solid var(--dd-ink); } .dd-run p { margin: 0; font: 400 10px/1.4 var(--dd-mono); color: var(--dd-ink); } .dd-run b { font: 600 13px/1.4 var(--dd-sans); }
 .redact { display: inline-block; max-width: 100%; height: 1.05em; vertical-align: -2px; background: #111; }
 .guard-swatch { display: inline-block; width: 14px; height: 14px; border: 1px solid #333; border-radius: 2px; vertical-align: -2px; }
 .stamp-chip { display: inline-block; border: 2px solid var(--warn); color: var(--warn); padding: 2px 8px; font: 700 12px var(--font-mono); letter-spacing: .12em; }
 .hist-row { padding: 12px; margin-bottom: 8px; }
 /* Long tab rows (the Eishi File) wrap on wider screens; phones scroll them sideways. */
 @media (min-width: 768px) { .tabs { flex-wrap: wrap; } }
-@media (max-width: 767px) {
-  .dossier-doc { padding: 22px 14px 20px 36px; font-size: 14px; }
-  .dossier-doc .dd-margin { left: 6px; padding-left: 5px; }
-  .dd-head { padding-right: 0; }
-  .dd-stamp { position: static; display: inline-block; margin: 0 0 10px; }
-  .dd-top, .dd-grid { grid-template-columns: minmax(0, 1fr); }
-  .dd-photo { max-width: 190px; }
+@media (max-width: 600px) {
+  .dd-web.dossier-doc { padding: 14px 16px 18px; }
+  .dd-web .dd-head, .dd-web .dd-sign { flex-direction: column; align-items: flex-start; }
+  .dd-web .dd-identity, .dd-web .dd-grid3, .dd-web .dd-grid4, .dd-web .dd-two, .dd-web .dd-serv, .dd-web .dd-handling, .dd-web .dd-lv { grid-template-columns: minmax(0, 1fr); }
+  .dd-web .dd-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dd-web .dd-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dd-web .dd-strip > div { border-left: 0; }
+  .dd-web .dd-apt { grid-auto-flow: row; grid-template-rows: none !important; }
+  .dd-web .dd-aptr { grid-template-columns: minmax(0, 130px) minmax(0, 1fr) 32px; }
+  .dd-web .dd-rail { margin-top: 0; }
+  .dd-web .dd-ax-head { flex-direction: column; }
 }
 </style>
 </head>
