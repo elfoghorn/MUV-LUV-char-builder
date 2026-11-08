@@ -763,6 +763,8 @@ button.ob-person { cursor: pointer; } button.ob-person:hover { border-color: var
 .story-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
 @media (max-width: 640px) { .story-pair { grid-template-columns: 1fr; } }
 .dd-story { margin-bottom: 10px; } .dd-story h4 { margin: 0 0 2px; font: 700 12px 'IBM Plex Mono', monospace; letter-spacing: .06em; text-transform: uppercase; } .dd-story p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+.tpl-offer { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; padding: 8px 12px; border: 1px dashed var(--line); border-radius: var(--radius-control); color: var(--muted); font-size: 14px; }
+.tpl-offer .btn { margin-left: auto; }
 /* user guide */
 .guide-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 16px; align-items: start; max-width: 1100px; }
 @media (max-width: 900px) { .guide-layout { grid-template-columns: 1fr; } .guide-toc { position: static; } }
