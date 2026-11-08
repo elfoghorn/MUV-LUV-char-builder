@@ -8967,7 +8967,10 @@ function imageXml(rid, n, wPx, hPx, name) { const cx = Math.round(wPx * 9525), c
 function buildDocx(o) {
   const NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"';
   const hdrFtr = (tag, inner) => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:${tag} ${NS}>${inner}</w:${tag}>`;
-  const header = hdrFtr('hdr', para([runs('UNITED NATIONS · UNTSF-COMM · ', { size: 14, color: '4C5B67', caps: true }), runs(o.classification, { size: 14, bold: true, caps: true })], { align: 'right', after: 0 }));
+  /* A tint behind every page. Word's own page colour comes out partly white when saved as PDF; a picture in the header prints and exports whole. */
+  const paper = o.paper ? `<w:r><w:drawing><wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="0" behindDoc="1" locked="1" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionH><wp:positionV relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionV><wp:extent cx="7560310" cy="10692130"/><wp:wrapNone/><wp:docPr id="900" name="Paper" descr=""/>
+    <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="900" name="paper"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdPaper"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="7560310" cy="10692130"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:anchor></w:drawing></w:r>` : '';
+  const header = hdrFtr('hdr', para([paper, runs('UNITED NATIONS · UNTSF-COMM · ', { size: 14, color: '4C5B67', caps: true }), runs(o.classification, { size: 14, bold: true, caps: true })], { align: 'right', after: 0 }));
   const footer = hdrFtr('ftr', `<w:p><w:pPr><w:jc w:val="left"/><w:spacing w:after="0"/></w:pPr>${runs(o.footer + ' · Page ', { size: 14, color: '4C5B67', mono: true })}<w:fldSimple w:instr="PAGE">${runs('1', { size: 14, mono: true })}</w:fldSimple>${runs(' of ', { size: 14, color: '4C5B67', mono: true })}<w:fldSimple w:instr="NUMPAGES">${runs('1', { size: 14, mono: true })}</w:fldSimple></w:p>`);
   const doc = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ${NS}><w:body>${o.body}
     <w:sectPr><w:headerReference w:type="default" r:id="rIdH"/><w:footerReference w:type="default" r:id="rIdF"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr></w:body></w:document>`;
@@ -8994,6 +8997,7 @@ function buildDocx(o) {
     { name: '_rels/.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>` },
     { name: 'word/document.xml', data: doc }, { name: 'word/styles.xml', data: styles }, { name: 'word/header1.xml', data: header }, { name: 'word/footer1.xml', data: footer },
     { name: 'word/_rels/document.xml.rels', data: rels }, { name: 'docProps/core.xml', data: core },
+    ...(o.paper ? [{ name: 'word/media/paper.png', data: o.paper }, { name: 'word/_rels/header1.xml.rels', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdPaper" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/paper.png"/></Relationships>' }] : []),
     ...imgs.map(im => ({ name: `word/media/${im.rid}.${im.ext}`, data: im.bytes }))
   ]);
 }
@@ -9659,7 +9663,7 @@ function dossierHtml(p) {
   const extraKills = BETA_CLASSES.reduce((s, [k]) => s + (Number(kills[k]) || 0), 0), secrets = (S.store.dossier_secrets || {})[p.id];
   const byClass = BETA_CLASSES.filter(([k]) => Number(kills[k])).map(([k, l]) => `${l} ${Number(kills[k])}`).join(', ');
   const provisional = p.status === 'pending', file = p.serviceNumber || REF.pers(p);
-  return `<div class="btn-row dd-tools"><button class="btn ghost" data-act="dossier-export" data-id="${esc(p.id)}">${icon('download', 16)} Export as image</button></div>
+  return `<div class="btn-row dd-tools"><button class="btn ghost" data-act="dossier-export" data-id="${esc(p.id)}">${icon('download', 16)} Export as image</button>${S.downloads ? `<button class="btn ghost" data-act="dossier-docx" data-id="${esc(p.id)}">${icon('file', 16)} Export as Word</button>` : ''}</div>
   <article class="dossier-doc" data-id="${esc(p.id)}" aria-label="Personnel dossier: ${esc(p.callsign || p.fullName)}">
     <div class="dd-margin" aria-hidden="true">FILE ${esc(file)} · J1 PERSONNEL · ${esc(file)}</div>
     <div class="dd-stamp">UNFEC RESTRICTED</div>${provisional ? '<div class="dd-stamp second">PROVISIONAL</div>' : ''}
@@ -9706,6 +9710,83 @@ ACTIONS['dossier-export'] = async d => {
     a.href = canvas.toDataURL('image/png'); document.body.appendChild(a); a.click(); a.remove(); toast('Dossier image saved.');
   } catch (e) { toast('Couldn’t make the image: ' + ((e && e.message) || e), true); }
   finally { holder.remove(); }
+};
+/* ---------------------------------------------------------------- the dossier as a Word document */
+/* The same file on the same aged paper. It follows dossierHtml's clearance rules: what a reader can't see is never written into the file. */
+const DX_INK = '1F1C17', DX_SUB = '6D6455', DX_LINE = '8F846C', DX_RED = 'A3241C', DX_MONO = 'Courier New', DX_BODY = 'Georgia';
+const dxRun = (text, o = {}) => String(text == null ? '' : text).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').split('\n').map((line, i) => `<w:r><w:rPr><w:rFonts w:ascii="${o.font || DX_BODY}" w:hAnsi="${o.font || DX_BODY}" w:cs="${o.font || DX_BODY}"/>${o.bold ? '<w:b/>' : ''}${o.italic ? '<w:i/>' : ''}${o.caps ? '<w:caps/>' : ''}<w:color w:val="${o.color || DX_INK}"/>${o.track ? `<w:spacing w:val="${o.track}"/>` : ''}<w:sz w:val="${o.size || 20}"/>${o.fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${o.fill}"/>` : ''}</w:rPr>${i ? '<w:br/>' : ''}<w:t xml:space="preserve">${xe(line)}</w:t></w:r>`).join('');
+const dxP = (inner, o = {}) => `<w:p><w:pPr>${o.keep ? '<w:keepNext/>' : ''}${o.rule ? `<w:pBdr><w:bottom w:val="single" w:sz="${o.rule}" w:space="2" w:color="${o.ruleColor || DX_LINE}"/></w:pBdr>` : ''}<w:spacing w:before="${o.before || 0}" w:after="${o.after != null ? o.after : 80}"${o.exact ? ` w:line="${o.exact}" w:lineRule="exact"` : ''}/>${o.align ? `<w:jc w:val="${o.align}"/>` : ''}</w:pPr>${inner || ''}</w:p>`;
+const dxTiny = () => dxP('', { after: 0, exact: 40 });
+const dxEdge = (tag, kinds, val, sz, color) => `<w:${tag}>${kinds.map(k => val === 'nil' ? `<w:${k} w:val="nil"/>` : `<w:${k} w:val="${val}" w:sz="${sz}" w:space="0" w:color="${color}"/>`).join('')}</w:${tag}>`;
+const dxCell = (w, inner, o = {}) => `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${o.border ? dxEdge('tcBorders', o.borderSides || ['top', 'left', 'bottom', 'right'], o.border[0], o.border[1], o.border[2]) : ''}${o.fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${o.fill}"/>` : ''}${o.pad != null ? `<w:tcMar><w:top w:w="${o.pad}" w:type="dxa"/><w:left w:w="${o.pad}" w:type="dxa"/><w:bottom w:w="${o.pad}" w:type="dxa"/><w:right w:w="${o.pad}" w:type="dxa"/></w:tcMar>` : ''}${o.valign ? `<w:vAlign w:val="${o.valign}"/>` : ''}</w:tcPr>${inner}</w:tc>`;
+const dxTable = (ws, rows, o = {}) => `<w:tbl><w:tblPr><w:tblW w:w="${ws.reduce((s, x) => s + x, 0)}" w:type="dxa"/>${o.align ? `<w:jc w:val="${o.align}"/>` : ''}${dxEdge('tblBorders', ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'], 'nil')}<w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="0" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="${o.gutter || 0}" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${ws.map(w => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${rows.map(r => `<w:tr><w:trPr><w:cantSplit/>${o.height ? `<w:trHeight w:val="${o.height}" w:hRule="exact"/>` : ''}</w:trPr>${r}</w:tr>`).join('')}</w:tbl>`;
+/* A black-out carries only the word REDACTED, so copying it reveals nothing. */
+const dxRedact = n => dxRun('REDACTED '.repeat(Math.ceil(n / 9)).slice(0, n), { font: DX_MONO, size: 18, color: '000000', fill: '000000' });
+const dxText = (v, o) => String(v).split(/\n{2,}/).map(t => dxP(dxRun(t.trim(), Object.assign({ size: 19 }, o)), { after: 100 })).join('');
+const dxField = (label, value) => dxP(dxRun(label, { font: DX_MONO, caps: true, size: 15, color: DX_SUB, track: 10 }), { after: 10, keep: true }) + value;
+const dxNote = t => dxP(dxRun(t, { font: DX_MONO, caps: true, size: 16, color: DX_SUB, track: 14 }), { after: 80 });
+const dxSec = (n, title, body) => dxP(dxRun(`${n}. ${title}`, { font: DX_MONO, bold: true, size: 21, track: 28 }), { keep: true, rule: 6, before: 240, after: 100 }) + body;
+function dxGrid(fields, W) {
+  const rows = [], list2 = fields.filter(Boolean), half = Math.floor(W / 2); if (!list2.length) return '';
+  for (let i = 0; i < list2.length; i += 2) rows.push(dxCell(half, list2[i]) + dxCell(half, list2[i + 1] || dxP('', { after: 0 })));
+  return dxTable([half, half], rows, { gutter: 240 }) + dxTiny();
+}
+function dxBar(value, W) {
+  const pct = Math.max(0, Math.min(100, Number(value) || 0)), a = Math.round(W * pct / 100), b = W - a, tiny = dxP('', { after: 0, exact: 20 });
+  const parts = [[a, '3D382F'], [b, 'D6CDB8']].filter(x => x[0] > 0), edge = { border: ['single', 4, DX_LINE] };
+  return dxTable(parts.map(x => x[0]), [parts.map(([w, fill]) => dxCell(w, tiny, Object.assign({ fill }, edge))).join('')], { height: 130 }) + dxP('', { after: 70, exact: 60 });
+}
+const dxStamp = (t, size) => dxTable([2900], [dxCell(2900, dxP(dxRun(t, { font: DX_MONO, bold: true, size, color: DX_RED, track: 20 }), { before: 40, after: 40, align: 'center' }), { border: ['double', 6, DX_RED] })], { align: 'right' });
+function dossierBody(p, img) {
+  const acc = dossierAccess(p), lv = dossierLevels(), rank = rankById(p.rankId), bt = birthOf(p.dob), age = ageAt(bt, settingDate()), ok = s => acc.clr >= (lv[s] || 0);
+  const F = (label, v, s) => v == null || v === '' ? null : dxField(label, ok(s || 'record') ? dxText(v) : dxP(dxRedact(14), { after: 100 }));
+  const g = guardOf(p.guardStanding), slot = list('slots').find(s => s.holderPilotId === p.id), rec = pilotRecordFull(p.id), t = p.tally || {}, kills = t.kills || {}, secrets = (S.store.dossier_secrets || {})[p.id];
+  const extraKills = BETA_CLASSES.reduce((s, [k]) => s + (Number(kills[k]) || 0), 0), byClass = BETA_CLASSES.filter(([k]) => Number(kills[k])).map(([k, l]) => `${l} ${Number(kills[k])}`).join(', ');
+  const provisional = p.status === 'pending', file = p.serviceNumber || REF.pers(p), join = (...x) => x.filter(Boolean).join(', ');
+  const kicker = x => dxP(dxRun(x, { font: DX_MONO, size: 17, color: '5D5446', track: 20 }), { after: 40 });
+  const head = dxTable([6638, 3000], [dxCell(6638, kicker(dossierSettings().header || 'UNITED NATIONS FAR EAST COMMAND · YOKOHAMA BASE')
+      + dxP(dxRun('PERSONNEL DOSSIER', { font: DX_MONO, bold: true, size: 38, track: 30 }), { after: 40 })
+      + kicker((rank ? rank.name.toUpperCase() : 'RANK NOT ASSIGNED') + (p.callsign ? ' · CALLSIGN ' + p.callsign.toUpperCase() : '')), { valign: 'bottom' })
+    + dxCell(3000, dxStamp('UNFEC RESTRICTED', 22) + (provisional ? dxP('', { after: 60 }) + dxStamp('PROVISIONAL', 20) : '') + dxTiny(), { valign: 'center' })]) + dxP('', { rule: 18, ruleColor: DX_INK, after: 160, exact: 80 });
+  const picXml = img ? (() => { let w = img.kind === 'portrait' ? 150 : 120, h = Math.round(w * img.h / img.w); if (h > 200) { w = Math.round(w * 200 / h); h = 200; }
+    return imageXml(img.rid, img.n, w, h, img.kind === 'portrait' ? `Portrait of ${p.fullName}` : `Insignia of ${p.callsign || p.fullName}`).replace('<w:jc w:val="right"/><w:spacing w:after="0"/>', '<w:spacing w:after="60"/><w:jc w:val="center"/>'); })() : '';
+  const caption = dxP(dxRun([p.fcIrl, p.fcAnime].filter(Boolean).join(' · ') || 'No face claim on file', { font: DX_MONO, size: 15, color: '4B4438' }), { after: 0, align: 'center' });
+  const record = dxGrid([F('Name', p.fullName), F('Native script', p.nativeName), F('Born as / alias', p.alias), F('Callsign', p.callsign), F('Service number', p.serviceNumber || 'Issued on approval'), F('Personnel reference', REF.pers(p)),
+    F('Date of birth', p.dob ? p.dob + (age != null ? ` (age ${age})` : '') : ''), F('Place of birth', p.birthplace), F('Nationality', join(p.nationality, p.otherNationalities)), F('Service branch', p.factionId ? facName(p.factionId) : ''),
+    isGuard(p) && g ? F('Royal Guard', `${g[3]}, ${g[1].charAt(0).toLowerCase() + g[1].slice(1)}`) : null, F('Blood type', p.bloodType), F('Height', p.heightCm ? p.heightCm + ' cm' : ''), F('Languages', p.languages), F('Distinguishing marks', p.marks)], 6838);
+  const top = dxTable([2560, 240, 6838], [dxCell(2560, picXml + caption, { fill: 'DDD5C3', border: ['single', 4, '9C9178'], pad: 100 }) + dxCell(240, dxP('', { after: 0 })) + dxCell(6838, dxP(dxRun('1. PERSONNEL RECORD', { font: DX_MONO, bold: true, size: 21, track: 28 }), { keep: true, rule: 6, after: 100 }) + (record || dxTiny()))]) + dxTiny();
+  const chapters = [['Training and earlier units', p.priorService, 'priorService'], ['Operations and the war', p.storyOps, 'storyOps'], ['The moment that changed them', p.storyTurning, 'storyTurning'], ['How they came to this posting', p.storyRecent, 'storyRecent']].filter(x => (x[1] || '').trim())
+    .map(([title, v, k]) => dxP(dxRun(title, { font: DX_MONO, bold: true, caps: true, size: 17, track: 12 }), { keep: true, before: 60, after: 40 }) + (acc.clr >= (Number((p.storyClearance || {})[k]) || 0) ? dxText(v) : dxP(dxRedact(44), { after: 40 }) + dxP(dxRedact(32), { after: 40 }) + dxP(dxRedact(38), { after: 120 }))).join('');
+  const dotted = { border: ['dotted', 4, 'B7AB90'], borderSides: ['bottom'] };
+  const entries = (p.history || []).slice().sort((x, y) => (entryYear(x) || 9999) - (entryYear(y) || 9999)).map(x => dxCell(900, dxP(dxRun(entryYear(x) || '—', { font: DX_MONO, size: 18 }), { before: 60, after: 60 }), dotted)
+    + dxCell(8738, acc.clr >= (Number(x.clearance) || 0) ? dxP(dxRun(entryName(x), { bold: true, size: 19 }), { before: 60, after: historyFilled(x) ? 20 : 60 }) + (historyFilled(x) ? dxText(historyDetails(x).trim()) : '') : dxP(dxRedact(30), { before: 60, after: 30 }) + dxP(dxRedact(16), { after: 60 }), dotted));
+  const service = !ok('history') ? dxP(dxRedact(40), { after: 40 }) + dxP(dxRedact(26)) : (chapters + (entries.length ? dxTable([900, 8738], entries) + dxTiny() : '')) || dxText('No prior service recorded.');
+  const stats = statDefs('pilot').map(s => { const v = Number((p.attributes || {})[s.code]) || 0; return dxField(`${s.name} · ${v}`, dxBar(v, 4400)); });
+  const remarks = p.coRemarks ? dxTable([9638], [dxCell(9638, dxText(p.coRemarks) + dxP(dxRun([p.coRemarksBy || coSignature(), p.dossierIssuedAt ? fmtDate(p.dossierIssuedAt) : ''].filter(Boolean).join(', '), { italic: true, size: 19 }), { before: 80, after: 0, align: 'right' }), { fill: 'F6F2E8', border: ['single', 4, DX_LINE], pad: 140 })]) + dxTiny() : dxNote(provisional ? 'Written when the dossier is issued.' : 'None on file.');
+  return head + top
+    + dxSec(2, 'SERVICE HISTORY', service)
+    + dxSec(3, 'QUALIFICATIONS AND AWARDS', dxGrid([F('Qualifications', (p.qualifications || []).map(q => q.title).join(', ') || 'None', 'quals'), F('Awards', (p.commendations || []).map(c => c.title).join(', ') || 'None', 'quals'), F('Sorties', String(rec.sorties + (Number(t.sorties) || 0)), 'quals'),
+        F('BETA kills', String(rec.kills + extraKills) + (byClass ? ` (${byClass})` : ''), 'quals'), F('Frames lost', String(rec.lost + (Number(t.framesLost) || 0)), 'quals'), F('Times bailed out', String(Number(t.bailouts) || 0), 'quals')], 9638))
+    + dxSec(4, 'APTITUDE ASSESSMENT', dxNote('Comprehensive combat evaluation') + (ok('aptitude') ? dxGrid(stats, 9638) : dxP(dxRedact(48))))
+    + dxSec(5, 'ASSIGNMENT', dxGrid([F('Unit', p.unitId ? unitChain(p.unitId).map(u => u.name).join(' › ') : 'Unassigned', 'assignment'), F('Role', p.unitId ? roleLabel(p.unitRole) : '', 'assignment'), F('Roster slot', slot ? slot.title : '', 'assignment'),
+        F('Position', (slot && posName(slot.position)) || (specOf(p) || {}).name || '', 'assignment'), F('Preferred role', p.preferredRoleId ? className(p.preferredRoleId) + ' (subject to GM approval)' : '', 'assignment')], 9638))
+    + dxSec(6, 'PERSONAL', dxGrid([F('Next of kin', p.nextOfKin, 'personal'), F('Family location', p.familyLocation, 'personal')], 9638) + [F('Why did you volunteer?', p.motivation, 'personal'), F('What the war has taken', p.storyLoss, 'personal'), F('Personality', p.personality, 'personal'), F('Fears', p.fears, 'personal'), F('Habits', p.habits, 'personal')].filter(Boolean).join(''))
+    + dxSec(7, 'J2 FILE', acc.all ? (secrets && (secrets.connections || secrets.secrets || secrets.hooks) ? dxNote('Staff and subject only') + [F('Secret connections', secrets.connections), F('Secrets', secrets.secrets), F('Hooks for the GM', secrets.hooks)].filter(Boolean).join('') : dxNote('Nothing on file.')) : dxNote('Section withheld by J2.') + dxP(dxRedact(44)))
+    + dxSec(8, 'COMMANDING OFFICER’S REMARKS', remarks)
+    + dxP(dxRun(`UNFEC RESTRICTED · Handle in accordance with base security regulations · ${file}`, { font: DX_MONO, size: 15, color: DX_SUB, track: 14 }), { before: 240, after: 0, align: 'center' });
+}
+ACTIONS['dossier-docx'] = async d => {
+  const p = get('pilots', d.id); if (!p || !S.downloads) return;
+  toast('Preparing the dossier…');
+  const filename = `dossier-${String(p.callsign || p.fullName || 'eishi').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.docx`;
+  try {
+    const pic = await eishiPicture(p), img = pic ? Object.assign({ rid: 'rIdImg0', n: 1 }, pic) : null, file = p.serviceNumber || REF.pers(p);
+    const sheet = document.createElement('canvas'); sheet.width = sheet.height = 8; const ink = sheet.getContext('2d'); ink.fillStyle = '#efe9dc'; ink.fillRect(0, 0, 8, 8);
+    const paper = await canvasBytes(sheet, 'image/png');
+    const r = await S.downloads.save({ filename, data: buildDocx({ title: `Personnel dossier: ${p.callsign || p.fullName}`, classification: 'UNFEC RESTRICTED', footer: `File ${file}`, paper, body: dossierBody(p, img), images: img ? [img] : [] }) });
+    if (r && r.status !== 'declined') toast(`${filename} saved.`);
+    if (S.isGm) await Data.audit('records.export', 'pilot', p.id, 'Exported a dossier as Word');
+  } catch (err) { if (!err || err.code !== 'declined') toast('The dossier could not be saved: ' + ((err && err.message) || 'unknown error'), true); }
 };
 /* Other players' eishi profiles open on the dossier. */
 if (ROUTES.eishi) { const _eishiDossier = ROUTES.eishi.view; ROUTES.eishi.view = function () { const html = _eishiDossier.call(this), p = get('pilots', S.ui.eishiId); return p ? html.replace('<div class="eishi-grid">', dossierHtml(p) + '<div class="eishi-grid">') : html; }; }
