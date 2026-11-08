@@ -36,22 +36,29 @@
   var USERNAME = /^[a-z0-9][a-z0-9_-]{2,23}$/;
   var toLogin = function (u) { return u.toLowerCase() + '@' + ACCOUNT_DOMAIN; };
   var mode = 'signin', note = null, started = false, inviteNeeded = null;
-  function checkInvite() { sb.rpc('invite_required').then(function (r) { var v = !r.error && r.data === true; if (v !== inviteNeeded) { inviteNeeded = v; if (mode === 'signup') showGate(); } }, function () {}); }
+  var INVITE_LABEL = function () { return inviteNeeded === false ? 'Invite code (not needed at the moment)' : 'Invite code (from Command Authority)'; };
+  /* The answer can arrive while someone is typing, so only the label changes: never redraw the form here. */
+  function checkInvite() { sb.rpc('invite_required').then(function (r) { inviteNeeded = !r.error && r.data === true; var l = document.getElementById('au-invite-label'); if (l) l.textContent = INVITE_LABEL(); }, function () {}); }
   function field(id, label, type, extra) { return '<label class="field">' + label + '<input id="' + id + '" type="' + type + '" ' + (extra || '') + '></label>'; }
   function showGate() {
+    /* A redraw keeps what was typed, so a failed attempt can be corrected rather than started again. */
+    var typed = {}; ['au-user', 'au-pass', 'au-pass2', 'au-invite'].forEach(function (id) { typed[id] = val(id); });
     var title = { signin: 'Sign in', signup: 'Create an account' }[mode];
     var body = field('au-user', 'Username', 'text', 'autocomplete="username" autocapitalize="none" spellcheck="false" required')
       + field('au-pass', mode === 'signup' ? 'Password (at least 8 characters)' : 'Password', 'password', 'autocomplete="' + (mode === 'signup' ? 'new-password' : 'current-password') + '" required')
       + (mode === 'signup' ? field('au-pass2', 'Password again', 'password', 'autocomplete="new-password" required')
-        + field('au-invite', inviteNeeded === false ? 'Invite code (not needed at the moment)' : 'Invite code (from Command Authority)', 'text', 'autocomplete="off" autocapitalize="none" spellcheck="false"') : '');
-    card('<p class="kicker">UNITED NATIONS · UNTSF-COMM</p><h1>' + title + '</h1>' + (note ? '<p class="notice ' + (note.bad ? 'warn' : '') + '" role="status">' + esc(note.text) + '</p>' : '')
+        + field('au-invite', '<span id="au-invite-label">' + INVITE_LABEL() + '</span>', 'text', 'autocomplete="off" autocapitalize="none" spellcheck="false"') : '');
+    card('<p class="kicker">UNITED NATIONS · UNTSF-COMM</p><h1>' + title + '</h1>' + (note ? '<p class="notice ' + (note.bad ? 'warn' : '') + '" id="au-note" role="alert">' + esc(note.text) + '</p>' : '')
       + (mode === 'signup' ? '<p class="small muted">Choose a username: 3 to 24 letters, numbers, hyphens or underscores. No email address is needed or stored.</p>' : '')
       + '<form id="au-form" class="auth-form" novalidate>' + body + '<button class="btn primary" type="submit" id="au-go">' + (mode === 'signup' ? 'Create account' : 'Sign in') + '</button></form>'
       + '<div class="auth-links">' + (mode === 'signin' ? '<button class="link-row" data-au="signup">New here? Create an account</button><p class="small muted" style="margin:6px 0 0">Forgotten your password? Ask the Administrator to reset it.</p>'
         : '<button class="link-row" data-au="signin">Back to sign in</button>') + '</div>');
     var f = document.getElementById('au-form'); if (f) f.addEventListener('submit', function (e) { e.preventDefault(); submit(); });
     Array.prototype.forEach.call(document.querySelectorAll('[data-au]'), function (b) { b.addEventListener('click', function () { mode = b.getAttribute('data-au'); note = null; showGate(); if (mode === 'signup') checkInvite(); }); });
-    var first = document.querySelector('#au-form input'); if (first) first.focus();
+    Object.keys(typed).forEach(function (id) { var el = document.getElementById(id); if (el) el.value = typed[id]; });
+    /* Focusing a field on a phone scrolls the message away, so a message takes priority. */
+    var shown = document.getElementById('au-note'), first = document.querySelector('#au-form input');
+    if (shown) shown.scrollIntoView({ block: 'center' }); else if (first) first.focus();
   }
   function val(id) { var el = document.getElementById(id); return el ? el.value : ''; }
   function busy(on) { var b = document.getElementById('au-go'); if (b) { b.disabled = on; if (on) b.textContent = 'Working…'; } }
@@ -75,7 +82,7 @@
       else if (/rate limit/i.test(m)) m = 'Too many attempts. Wait a minute and try again.';
       else if (/not confirmed/i.test(m)) m = 'This account still needs confirming. Ask the Administrator to switch off “Confirm email” in Supabase.';
       else if (/signups? not allowed|disabled/i.test(m)) m = 'New accounts are closed. Ask the Administrator to create one for you.';
-      else if (/invite_code_invalid|database error saving new user/i.test(m)) m = 'That invite code isn’t right. Ask Command Authority for the current one.';
+      else if (/invite_code_invalid|database error saving new user/i.test(m)) m = inviteNeeded === false ? 'The database wouldn’t create this account. Tell the Administrator, and quote this message.' : 'That invite code isn’t right. Ask Command Authority for the current one.';
       note = { bad: true, text: m }; showGate();
     }
   }
