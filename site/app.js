@@ -9786,10 +9786,10 @@ function ddItemsHtml(items, rail) {
 }
 function dossierHtml(p) {
   const m = dossierModel(p), rail = m.service && m.service.rail;
-  return `<div class="btn-row dd-tools"><button class="btn ghost" data-act="dossier-pdf" data-id="${esc(p.id)}">${icon('download', 16)} Export as PDF</button>${S.downloads ? `<button class="btn ghost" data-act="dossier-docx" data-id="${esc(p.id)}">${icon('file', 16)} Export as Word</button>` : ''}<button class="btn ghost" data-act="dossier-export" data-id="${esc(p.id)}">${icon('download', 16)} Export as image</button></div>
+  return `<div class="btn-row dd-tools"><button class="btn ghost" data-act="dossier-pdf" data-id="${esc(p.id)}">${icon('download', 16)} Export as PDF</button>${S.downloads ? `<button class="btn ghost" data-act="dossier-docx" data-id="${esc(p.id)}">${icon('file', 16)} Export as Word</button>` : ''}<button class="btn ghost" data-act="dossier-export" data-id="${esc(p.id)}">${icon('download', 16)} Export as 1 image</button><button class="btn ghost" data-act="dossier-pages" data-id="${esc(p.id)}">${icon('download', 16)} Export as page images</button></div>
   <article class="dossier-doc dd-web" data-id="${esc(p.id)}" aria-label="Personnel dossier: ${esc(p.callsign || p.fullName)}">${ddBanner(m)}${ddSummaryHtml(m)}${ddItemsHtml(ddRecordItems(m), rail)}${ddItemsHtml(ddPersonalItems(m, true))}${ddFooter(m)}${ddBanner(m)}</article>`;
 }
-/* Export: the dossier as the viewer sees it/* Export: the dossier as the viewer sees it, redactions included, as a PNG. */
+/* Export: the dossier as the viewer sees it, redactions included, as a PNG. */
 function loadHtml2canvas() {
   if (window.html2canvas) return Promise.resolve(window.html2canvas);
   return new Promise((ok, no) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
@@ -9860,6 +9860,25 @@ ACTIONS['dossier-pdf'] = async d => {
     window.addEventListener('afterprint', done); window.print();
     if (S.isGm) await Data.audit('records.export', 'pilot', p.id, 'Exported a dossier as PDF');
   } catch (err) { toast('The dossier could not be prepared: ' + ((err && err.message) || 'unknown error'), true); }
+};
+/* Each PDF page as its own PNG, ready to post. Browsers may ask once to allow several downloads. */
+ACTIONS['dossier-pages'] = async d => {
+  const p = get('pilots', d.id); if (!p) return;
+  toast('Preparing the page images…');
+  let made = null;
+  try {
+    const h2c = await loadHtml2canvas(); made = await dossierPrintRoot(p);
+    const pages = Array.from(made.root.querySelectorAll('.dd-page')), slug = String(p.callsign || p.fullName || 'eishi').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    made.root.querySelectorAll('.dd-portrait img').forEach(i => { i.parentNode.style.cssText = `background:url('${i.src}') center/cover no-repeat`; i.remove(); });
+    for (let i = 0; i < pages.length; i++) {
+      const canvas = await h2c(pages[i], { scale: 2, useCORS: true, backgroundColor: '#F5F2EA', scrollX: 0, scrollY: 0 }), blob = await new Promise(ok => canvas.toBlob(ok, 'image/png'));
+      const a = document.createElement('a'); a.download = `dossier-${slug}-page-${i + 1}-of-${pages.length}.png`; a.href = URL.createObjectURL(blob); document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 60000); await new Promise(ok => setTimeout(ok, 400));
+    }
+    toast(`${pages.length} page images saved.`);
+    if (S.isGm) await Data.audit('records.export', 'pilot', p.id, 'Exported a dossier as page images');
+  } catch (e) { toast('Couldn’t make the images: ' + ((e && e.message) || e), true); }
+  finally { if (made) { made.root.remove(); made.css.remove(); } }
 };
 
 /* ---------------------------------------------------------------- the dossier as a Word document */
