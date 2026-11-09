@@ -2292,7 +2292,15 @@ const ACTIONS = {
     const slug = (f.designation + '-' + f.name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const mid = 'mdl-' + slug, vid = 'var-' + slug + '-std';
     if (get('models', mid)) { toast('A model with that designation and name already exists.', true); return; }
-    const hp = (code, label, slots, w) => ({ code, label, slots, maxWeight: w || 'heavy' });
+    /* What the mounts carry follows the TSF's type and generation, as in supabase/migrations/…_mount_limits.sql. */
+    const role = f.classificationId, lightRole = ['interceptor', 'reconnaissance', 'electronic_warfare', 'training'].includes(role);
+    const limited = lightRole || ['assault', 'general_purpose', 'close_combat'].includes(role);
+    const hp = (code, label, slots, w) => {
+      if (!limited || !['R_HAND', 'L_HAND', 'BACK_L', 'BACK_R'].includes(code)) return { code, label, slots, maxWeight: w || 'heavy' };
+      const cap = lightRole || (code === 'BACK_R' && ['3', 'q3'].includes(f.generationId));
+      const keepHeavy = !cap && (role === 'assault' ? code.startsWith('BACK') : role === 'general_purpose' && code === 'BACK_L');
+      return { code, label, slots: keepHeavy ? slots : slots.filter(s => s !== 'heavy'), maxWeight: cap ? 'medium' : w || 'heavy' };
+    };
     const hand = ['primary', 'secondary', 'heavy', 'melee', 'defensive'];
     const model = { designation: f.designation.trim(), name: f.name.trim(), primeManufacturerId: f.primeManufacturerId, partners: [], originFactionId: null,
       generationId: f.generationId, classificationId: f.classificationId, productionStatus: 'prototype', availability: 'restricted', origin: f.origin, lore: '', publishStatus: 'draft' };
