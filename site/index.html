@@ -1210,15 +1210,64 @@ h3.dd-sh { display: flex; align-items: baseline; gap: 8px; margin: 14px 0 8px; p
   .dd-web .dd-rail { margin-top: 0; }
   .dd-web .dd-ax-head { flex-direction: column; }
 }
+
+/* ---------- TSF art panes and the request window */
+.seg { display: inline-flex; gap: 4px; align-self: flex-end; }
+.tsf-gen { margin-bottom: 22px; }
+.tsf-gen-head { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font: 700 18px/1.2 var(--font-cond); letter-spacing: .03em; text-transform: uppercase; color: var(--muted); }
+.tsf-gen-head .count { font: 600 12px var(--font-cond); background: var(--inset); color: var(--text); border-radius: 8px; padding: 1px 8px; }
+.tsf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 12px; }
+.tsf-card { display: flex; flex-direction: column; text-align: left; padding: 0; background: var(--panel); color: var(--text); border: 1px solid var(--line);
+  border-radius: var(--radius-card); overflow: hidden; font: inherit; cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .15s; }
+.tsf-card:hover:not(:disabled) { border-color: var(--accent); box-shadow: 0 6px 18px rgba(8,14,22,.14); transform: translateY(-1px); }
+.tsf-card:focus-visible { outline: 2px solid var(--nav-active); outline-offset: 2px; }
+.tsf-card.on { border-color: var(--nav-active); box-shadow: inset 0 0 0 2px var(--nav-active); }
+.tsf-card:disabled { cursor: not-allowed; opacity: .6; }
+.tsf-art { position: relative; display: grid; place-items: center; aspect-ratio: 4 / 3; background: var(--inset); color: var(--steel); overflow: hidden; border-bottom: 1px solid var(--line); }
+.tsf-art img { width: 100%; height: 100%; object-fit: contain; }
+.tsf-noart { display: grid; justify-items: center; gap: 6px; opacity: .8; }
+.tsf-badge { position: absolute; top: 8px; left: 8px; font: 600 11px var(--font-cond); letter-spacing: .08em; text-transform: uppercase; background: var(--panel); color: var(--text);
+  border: 1px solid var(--line-strong); border-radius: 3px; padding: 2px 6px; }
+.tsf-card.on .tsf-badge { background: var(--nav-active); color: #fff; border-color: transparent; }
+.tsf-body { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px 12px; min-width: 0; }
+.tsf-title { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.tsf-title b { font: 700 17px/1.15 var(--font-cond); letter-spacing: .02em; }
+.tsf-title .ref { font-size: 10px; white-space: nowrap; }
+.tsf-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.tsf-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 12px; margin: 4px 0 2px; }
+.tsf-stat { display: grid; grid-template-columns: 30px 1fr 22px; align-items: center; gap: 6px; font: 600 11px var(--font-cond); }
+.tsf-stat b { color: var(--muted); font-weight: 600; letter-spacing: .06em; }
+.tsf-stat i { display: block; height: 5px; background: var(--inset); border-radius: 3px; overflow: hidden; }
+.tsf-stat em { display: block; height: 100%; background: var(--steel); border-radius: 3px; }
+.tsf-stat span { text-align: right; }
+/* the request window: a centred window rather than a side drawer */
+.drawer:has(.tsf-window) { top: 3vh; bottom: 3vh; right: auto; left: 50%; transform: translateX(-50%); width: min(1200px, 96vw);
+  border: 1px solid var(--line-strong); border-radius: var(--radius-card); box-shadow: 0 24px 70px rgba(8,14,22,.4); overflow: hidden; }
+.tsf-foot { display: grid; gap: 10px; background: var(--panel); }
+.tsf-choice { display: grid; grid-template-columns: 150px minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.tsf-choice .tsf-art { border: 1px solid var(--line); border-radius: var(--radius-control); }
+.tsf-choice h3 { margin: 0; font: 700 18px/1.2 var(--font-cond); }
+.tsf-choice .kicker { margin: 0 0 2px; }
+.tsf-choice p { margin: 2px 0; }
+.tsf-lore { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.tsf-reason { margin: 0; } .tsf-reason textarea { min-height: 110px; }
+@media (max-width: 900px) { .tsf-choice { grid-template-columns: 110px 1fr; } .tsf-reason { grid-column: 1 / -1; } }
+@media (max-width: 767px) {
+  .drawer:has(.tsf-window) { top: 0; bottom: 0; left: 0; transform: none; width: 100vw; border-radius: 0; }
+  .tsf-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr)); gap: 8px; }
+  .tsf-stats { display: none; } .tsf-choice .tsf-stats { display: grid; }
+  .tsf-choice { grid-template-columns: 1fr; } .tsf-choice > .tsf-art { max-height: 140px; }
+}
+@media (prefers-reduced-motion: reduce) { .tsf-card:hover:not(:disabled) { transform: none; } }
 </style>
 </head>
 <body>
 <div id="auth-root"><div class="boot"><div class="plate boot-card"><h1>UNTSF-COMM</h1><p>Loading…</p></div></div></div>
 <div id="app"></div>
-<script>window.UNTSF_BUILD = '8788c34fba';</script>
+<script>window.UNTSF_BUILD = 'd0db38e811';</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
-<script src="config.js?v=8788c34fba"></script>
-<script src="bridge.js?v=8788c34fba"></script>
+<script src="config.js?v=d0db38e811"></script>
+<script src="bridge.js?v=d0db38e811"></script>
 <noscript>UNTSF-COMM needs JavaScript switched on.</noscript>
 </body>
 </html>

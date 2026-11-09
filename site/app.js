@@ -1,4 +1,4 @@
-/* UNTSF-COMM 8788c34fba: built from the same sources as the claude.ai edition. */
+/* UNTSF-COMM d0db38e811: built from the same sources as the claude.ai edition. */
 /* =====================================================================
    TSF COMMAND engine — statistics, validation and change classification.
    Pure functions, no I/O. The SQL functions tsf_calculate_configuration
@@ -10927,6 +10927,199 @@ AFTER_RENDER.push(() => {
   shell.classList.toggle('has-bottomnav', !!html);
 });
 
+
+/* ---------------------------------------------------------------- TSF art panes, player visibility and the request window
+   GM TSF Database and the TSF catalogue show frames as art cards grouped by generation.
+   Players never see restricted or GM-only frames, except ones they already own.
+   "Request TSF allocation" opens a window of frame cards instead of a drop-down. */
+Object.assign(GEN_SHORT, { q4: 'Quasi-4th gen', '4': '4th gen', q5: 'Quasi-5th gen', '5': '5th gen' });
+
+function ownsVariant(vid) { return !!S.pilotId && list('tsfs').some(t => t.ownerPilotId === S.pilotId && t.variantId === vid); }
+variantVisible = function (v) {
+  if (!v) return false;
+  if (S.isGm) return v.publishStatus === 'published';
+  if (v.publishStatus !== 'published') return false;
+  if (v.availability === 'gm_only' || v.availability === 'restricted') return ownsVariant(v.id);
+  return true;
+};
+/* What a player may put in an allocation request: published, public, still in production. */
+function variantRequestable(v) {
+  return !!v && v.publishStatus === 'published' && v.availability === 'public' && v.productionStatus !== 'out_of_production';
+}
+
+const genSortOf = id => ((vocab('generations').find(g => g.id === id) || {}).sort) || 0;
+const byGenThenName = (a, b) => (genSortOf(a.generationId) - genSortOf(b.generationId)) || String(a.designation + a.code).localeCompare(String(b.designation + b.code), undefined, { numeric: true });
+
+/* Artwork: the variant's own, else any published sibling's, else the workshop frame drawing, else a placeholder. */
+function variantArtId(v) {
+  if (!v) return null;
+  if (v.artAssetId) return v.artAssetId;
+  const sib = list('variants').filter(x => x.modelId === v.modelId && x.artAssetId && (S.isGm || x.publishStatus === 'published'))
+    .sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0))[0];
+  return sib ? sib.artAssetId : null;
+}
+function tsfArtHtml(v, alt) {
+  const a = variantArtId(v), frame = get('settings', 'frame');
+  if (a) return `<img src="${ASSET_BASE}${esc(a)}" alt="${esc(alt || '')}" data-fallback="1" loading="lazy">`;
+  if (frame && frame.assetId) return `<img class="frame-art" src="${ASSET_BASE}${esc(frame.assetId)}" alt="" data-fallback="1" loading="lazy">`;
+  return `<span class="tsf-noart">${insignia(56, true)}<span class="small muted">No artwork yet</span></span>`;
+}
+
+const TSF_STAT_ABBR = { 'tsf.mobility': 'MOB', 'tsf.firepower': 'FPW', 'tsf.defence': 'DEF', 'tsf.accuracy': 'ACC', 'tsf.handling': 'HDL', 'tsf.durability': 'DUR' };
+function tsfStatBars(stats) {
+  return `<span class="tsf-stats">${statDefs('tsf').map(s => {
+    const n = Number((stats || {})[s.code]) || 0;
+    return `<span class="tsf-stat" title="${esc(s.name)}: ${n}"><b>${esc(TSF_STAT_ABBR[s.code] || s.name.slice(0, 3).toUpperCase())}</b><i><em style="width:${Math.max(0, Math.min(100, n))}%"></em></i><span>${n}</span></span>`;
+  }).join('')}</span>`;
+}
+const PROD_TEXT = { prototype: 'Prototype', limited: 'Limited production', production: 'In production', out_of_production: 'Out of production' };
+const AVAIL_LABEL = { public: 'Public', restricted: 'Restricted', gm_only: 'GM only' };
+
+/* One frame card. attrs: the button's data-* string; extra: chips/notes under the title. */
+function tsfCardHtml(v, o) {
+  o = o || {};
+  const title = `${v.designation || ''} ${v.modelName || ''}`.trim();
+  const sub = [v.code && v.code !== 'STD' ? v.name : null, genShort(v.generationId), className(v.classificationId)].filter(Boolean).join(' · ');
+  return `<button type="button" class="tsf-card${o.selected ? ' on' : ''}" ${o.attrs || ''} ${o.disabled ? 'disabled' : ''} ${o.selected ? 'aria-pressed="true"' : ''}>
+    <span class="tsf-art">${tsfArtHtml(v, title)}${o.badge ? `<span class="tsf-badge">${o.badge}</span>` : ''}</span>
+    <span class="tsf-body"><span class="tsf-title"><b>${esc(title)}</b>${o.ref ? `<span class="ref">${o.ref}</span>` : ''}</span>
+      <span class="small muted">${esc(sub)}</span><span class="small muted">${esc(mfrName(v.primeManufacturerId))}</span>
+      ${o.stats === false ? '' : tsfStatBars(v.stats)}
+      <span class="tsf-chips">${o.chips || ''}</span>${o.note ? `<span class="small why-inline">${esc(o.note)}</span>` : ''}</span></button>`;
+}
+function tsfGroupedGrid(items, cardFn) {
+  const groups = [];
+  items.forEach(v => { const g = v.generationId || '–'; let grp = groups.find(x => x.g === g); if (!grp) groups.push(grp = { g, rows: [] }); grp.rows.push(v); });
+  return groups.map(grp => `<section class="tsf-gen"><h2 class="tsf-gen-head">${esc(genName(grp.g))} <span class="count">${grp.rows.length}</span></h2>
+    <div class="tsf-grid">${grp.rows.map(cardFn).join('')}</div></section>`).join('');
+}
+function tsfFilterBar(base, f, idp, opts) {
+  const s = (key, label, list_) => `<label class="field">${label}<select id="${idp}-${key}" data-bind="${base}/${key}" data-rerender="1"><option value="">Any</option>${list_.map(([v, l]) => `<option value="${esc(v)}" ${f[key] === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>`;
+  return `<div class="filters"><label class="field">Search<input type="text" id="${idp}-q" data-bind="${base}/q" data-rerender="1" value="${esc(f.q || '')}" placeholder="Designation, name or maker"></label>
+    ${s('gen', 'Generation', (opts.gens || vocab('generations')).map(g => [g.id, g.name]))}
+    ${s('cls', 'Role', vocab('classifications').map(c => [c.id, c.name]))}${opts.extra || ''}</div>`;
+}
+const tsfMatches = (v, f) => {
+  const q = String(f.q || '').toLowerCase().trim();
+  return (!q || `${v.designation} ${v.modelName} ${v.name} ${v.code} ${mfrName(v.primeManufacturerId)}`.toLowerCase().indexOf(q) !== -1)
+    && (!f.gen || v.generationId === f.gen) && (!f.cls || v.classificationId === f.cls);
+};
+const usedGens = vs => vocab('generations').filter(g => vs.some(v => v.generationId === g.id));
+
+/* ---------- GM: TSF Database as art panes (table view kept as a toggle) */
+const _tsfDbView = ROUTES['tsf-db'].view;
+ROUTES['tsf-db'].view = function () {
+  const f = S.ui.tdb || (S.ui.tdb = { view: 'cards', q: '', gen: '', cls: '', av: '', src: '' });
+  const toggle = `<div class="seg" role="group" aria-label="Layout"><button class="btn ${f.view === 'cards' ? 'primary' : 'ghost'}" data-act="set-path" data-path="ui/tdb/view" data-value="cards">Art panes</button><button class="btn ${f.view === 'table' ? 'primary' : 'ghost'}" data-act="set-path" data-path="ui/tdb/view" data-value="table">Table</button></div>`;
+  if (f.view === 'table') {
+    const html = _tsfDbView();
+    const at = html.indexOf('<div class="scroll-x"><table class="data"><thead><tr><th>Model</th>');
+    return at === -1 ? html : html.slice(0, at) + `<div class="filters">${toggle}</div>` + html.slice(at);
+  }
+  const inService = vid => list('tsfs').filter(t => t.variantId === vid).length;
+  const models = list('models').map(m => {
+    const vs = list('variants').filter(v => v.modelId === m.id);
+    const dv = vs.find(v => v.isDefault) || vs[0];
+    const ev = dv ? effVariant(dv.id) : null;
+    return { m, vs, ev, generationId: m.generationId, classificationId: m.classificationId, designation: m.designation, code: '' };
+  }).filter(x => x.ev);
+  const shown = models.filter(x => tsfMatches(Object.assign({}, x.ev, { generationId: x.m.generationId, classificationId: x.m.classificationId, name: x.vs.map(v => v.name).join(' ') }), f)
+      && (!f.av || x.m.availability === f.av || x.vs.some(v => v.availability === f.av)) && (!f.src || x.m.origin === f.src))
+    .sort(byGenThenName);
+  const extra = `<label class="field">Availability<select id="tdb-av" data-bind="ui/tdb/av" data-rerender="1"><option value="">Any</option>${AVAIL_OPTS.map(([v, l]) => `<option value="${v}" ${f.av === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    <label class="field">Source<select id="tdb-src" data-bind="ui/tdb/src" data-rerender="1"><option value="">Any</option><option value="canon" ${f.src === 'canon' ? 'selected' : ''}>Canon</option><option value="original" ${f.src === 'original' ? 'selected' : ''}>Original</option></select></label>${toggle}`;
+  const card = x => {
+    const m = x.m, svc = x.vs.reduce((n, v) => n + inService(v.id), 0);
+    const hidden = m.availability !== 'public' ? '' : x.vs.filter(v => v.availability && v.availability !== 'public').length;
+    const ev = Object.assign({}, x.ev, { code: 'STD', name: '', generationId: m.generationId, classificationId: m.classificationId });
+    return tsfCardHtml(ev, {
+      attrs: `data-act="open-drawer" data-type="model-edit" data-id="${m.id}"`, ref: esc(REF.model ? REF.model(m) : ''),
+      badge: m.availability !== 'public' ? esc(AVAIL_LABEL[m.availability] || m.availability) : '',
+      chips: `${chip(m.availability, AVAIL_LABEL[m.availability])} ${m.publishStatus !== 'published' ? chip(m.publishStatus) : ''} <span class="chip">${esc(PROD_TEXT[m.productionStatus] || m.productionStatus || '')}</span>
+        <span class="chip">${x.vs.length} variant${x.vs.length === 1 ? '' : 's'}: ${esc(x.vs.map(v => v.code).join(', '))}</span>${svc ? `<span class="chip ok">${svc} in service</span>` : ''}${m.origin === 'original' ? '<span class="chip acc">Original</span>' : ''}`,
+      note: hidden ? `${hidden} variant${hidden === 1 ? ' is' : 's are'} hidden from players` : (m.availability !== 'public' ? 'Hidden from players' : '')
+    });
+  };
+  return `<div class="page-head"><div><h1>TSF Database</h1><p>Master records for every model and variant. Restricted and GM-only frames are hidden from players. Select a pane to edit the model, its variants and artwork.</p></div>
+    <button class="btn primary" data-act="open-drawer" data-type="model-new">New model</button></div>
+    ${tsfFilterBar('ui/tdb', f, 'tdb', { gens: usedGens(models.map(x => x.m)), extra })}
+    <p class="small muted">${shown.length} of ${models.length} models · ${models.filter(x => !variantArtId(x.ev)).length} without artwork (upload it on the Artwork and BETA Fronts page or in the model record).</p>
+    ${shown.length ? tsfGroupedGrid(shown, card) : '<div class="empty">No models match these filters.</div>'}
+    <div style="margin-top:18px">${framePanel()}</div>`;
+};
+
+/* ---------- TSF catalogue as art cards (players and GM) */
+const _catalogueViewCards = catalogueView;
+catalogueView = function (mode) {
+  if (mode !== 'models') return _catalogueViewCards(mode);
+  const f = S.ui.tcat || (S.ui.tcat = { q: '', gen: '', cls: '' });
+  const all = list('variants').map(v => effVariant(v.id)).filter(variantVisible).sort(byGenThenName);
+  const shown = all.filter(v => tsfMatches(v, f));
+  const canAsk = !S.isGm && S.pilotId && !S.readOnly;
+  const card = v => tsfCardHtml(v, {
+    attrs: `data-act="open-drawer" data-type="variant" data-id="${v.id}"`, ref: esc(REF.model ? REF.model(v.model) : ''),
+    badge: ownsVariant(v.id) ? 'In your hangar' : '',
+    chips: `${S.isGm || v.availability !== 'public' ? chip(v.availability, AVAIL_LABEL[v.availability]) : ''}<span class="chip ${v.productionStatus === 'out_of_production' ? '' : v.productionStatus === 'prototype' ? 'warn' : ''}">${esc(PROD_TEXT[v.productionStatus] || '')}</span>`
+  });
+  return `<div class="page-head"><div><h1>Equipment Catalogue</h1><p>TSF models and variants cleared for your organisation. Select a frame for its specification.</p></div>
+    ${canAsk ? `<button class="btn primary" data-act="open-drawer" data-type="acquire">Request TSF allocation</button>` : ''}</div>
+    ${tsfFilterBar('ui/tcat', f, 'tcat', { gens: usedGens(all) })}
+    ${shown.length ? tsfGroupedGrid(shown, card) : '<div class="empty">No frames match these filters.</div>'}`;
+};
+
+/* ---------- specification drawer: sibling art fallback; only requestable frames offer a request */
+const _variantDrawerCards = DRAWERS.variant;
+DRAWERS_REG('variant', d => {
+  let html = _variantDrawerCards(d);
+  const v = effVariant(d.id);
+  if (!v) return html;
+  if (!v.artAssetId) { const a = variantArtId(v); if (a) html = html.replace('<div class="body">', '<div class="body">' + artHtml(a, v.modelName)); }
+  if (!S.isGm && !variantRequestable(v)) {
+    const why = v.productionStatus === 'out_of_production' ? 'Out of production: cannot be requested' : 'Allocated by Command Authority only';
+    html = html.replace(/<footer><button class="btn primary" data-act="open-drawer" data-type="acquire"[^>]*>Request allocation<\/button><\/footer>/, `<footer><span class="chip">${why}</span></footer>`);
+  }
+  return html;
+});
+
+/* ---------- the request window */
+DRAWERS_REG('acquire', function (d) {
+  const f = S.ui.form.acquire || (S.ui.form.acquire = { variantId: '', note: '', q: '', gen: '', cls: '' });
+  if (d.variant && !d._applied) { d._applied = true; f.variantId = d.variant; }
+  const pool = list('variants').map(v => effVariant(v.id)).filter(v => v && v.publishStatus === 'published' && v.availability === 'public').sort(byGenThenName);
+  const oopCount = pool.filter(v => v.productionStatus === 'out_of_production').length;
+  const shown = pool.filter(v => tsfMatches(v, f) && (f.oop || v.productionStatus !== 'out_of_production'));
+  const sel = pool.find(v => v.id === f.variantId && variantRequestable(v)) || null;
+  const pending = list('approvals').filter(a => a.type === 'acquisition' && a.pilotId === S.pilotId && (a.status === 'pending' || a.status === 'on_hold')).map(a => a.variantId);
+  const card = v => {
+    const oop = v.productionStatus === 'out_of_production';
+    return tsfCardHtml(v, {
+      attrs: oop ? '' : `data-act="acq-pick" data-id="${v.id}"`, disabled: oop, selected: sel && sel.id === v.id,
+      badge: sel && sel.id === v.id ? 'Selected' : ownsVariant(v.id) ? 'In your hangar' : '',
+      chips: `<span class="chip ${v.productionStatus === 'prototype' ? 'warn' : ''}">${esc(PROD_TEXT[v.productionStatus] || '')}</span>${pending.indexOf(v.id) !== -1 ? '<span class="chip warn">Request pending</span>' : ''}`,
+      note: oop ? 'Out of production: cannot be requested' : v.productionStatus === 'prototype' ? 'Experimental airframe: needs Command Authority approval' : ''
+    });
+  };
+  const summary = sel ? `<div class="tsf-choice"><span class="tsf-art">${tsfArtHtml(sel, sel.modelName)}</span>
+      <div class="tsf-choice-body"><p class="kicker">SELECTED FRAME</p><h3>${esc(sel.designation + ' ' + sel.modelName)}${sel.code !== 'STD' ? ` <span class="muted small">${esc(sel.name)}</span>` : ''}</h3>
+      <p class="small muted">${esc([genName(sel.generationId), className(sel.classificationId), mfrName(sel.primeManufacturerId)].join(' · '))}</p>${tsfStatBars(sel.stats)}
+      ${sel.lore ? `<p class="small tsf-lore">${esc(sel.lore)}</p>` : ''}</div>
+      <label class="field tsf-reason">Reason for the request<textarea id="acq-note" data-bind="ui/form/acquire/note" placeholder="Why this frame, and what you will use it for">${esc(f.note || '')}</textarea></label></div>`
+    : `<p class="small muted" style="margin:0">Select a frame card to continue.</p>`;
+  return `<div class="tsf-window"></div><header><div><p class="kicker">ENGINEERING DIVISION · ALLOCATION REQUEST</p><h2>Request TSF allocation</h2>
+      <p>Choose a frame. Command Authority reviews every request; prototypes need its approval.</p></div><button class="btn ghost" data-act="close-drawer">Close</button></header>
+    <div class="body">${tsfFilterBar('ui/form/acquire', f, 'acq', { gens: usedGens(pool) })}
+      <p class="small muted">${shown.length} of ${pool.length} frames shown. Restricted and GM-only frames are allocated by Command Authority directly.${oopCount ? ` <button class="btn ghost" data-act="set-path" data-path="ui/form/acquire/oop" data-value="${f.oop ? '' : '1'}">${f.oop ? 'Hide' : 'Show'} ${oopCount} out-of-production frame${oopCount === 1 ? '' : 's'}</button>` : ''}</p>
+      ${shown.length ? tsfGroupedGrid(shown, card) : '<div class="empty">No frames match these filters.</div>'}</div>
+    <footer class="tsf-foot">${summary}<div class="btn-row">${sel ? `<button class="btn" data-act="open-drawer" data-type="variant" data-id="${sel.id}">View specification</button>` : ''}
+      <button class="btn primary" data-act="acquire-submit" ${sel ? '' : 'disabled'}>Submit allocation request</button></div></footer>`;
+});
+ACTIONS['acq-pick'] = d => { const f = S.ui.form.acquire; if (!f) return; f.variantId = f.variantId === d.id ? '' : d.id; render(); };
+const _acquireSubmitCards = ACTIONS['acquire-submit'];
+ACTIONS['acquire-submit'] = d => {
+  const f = S.ui.form.acquire, v = f && f.variantId ? effVariant(f.variantId) : null;
+  if (v && !S.isGm && !variantRequestable(v)) { toast(v.productionStatus === 'out_of_production' ? `${v.designation} ${v.modelName} is out of production and cannot be requested.` : 'That frame is allocated by Command Authority only.', true); return; }
+  return _acquireSubmitCards(d);
+};
 ;
 /* start-up: every module has registered its routes, drawers and actions */
 'use strict';
