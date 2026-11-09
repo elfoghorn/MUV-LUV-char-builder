@@ -1259,15 +1259,25 @@ h3.dd-sh { display: flex; align-items: baseline; gap: 8px; margin: 14px 0 8px; p
   .tsf-choice { grid-template-columns: 1fr; } .tsf-choice > .tsf-art { max-height: 140px; }
 }
 @media (prefers-reduced-motion: reduce) { .tsf-card:hover:not(:disabled) { transform: none; } }
+
+/* ---------- naval fleets on the map */
+.zone.z-fleet .pin { fill: var(--accent); stroke: var(--sea); }
+.zone.z-fleet.fl-engaged .pin { fill: var(--bad); } .zone.z-fleet.fl-refit .pin { fill: var(--warn); } .zone.z-fleet.fl-underway .pin { fill: var(--nav-active); }
+.zone.z-fleet .area { stroke-dasharray: 2 4; fill-opacity: .08; }
+.zone .fl-bg { fill: var(--sea); opacity: .85; } .zone .fl-str { fill: var(--ok); }
+.zone.z-fleet.fl-engaged .fl-str { fill: var(--bad); } .zone.z-fleet.fl-refit .fl-str { fill: var(--warn); }
+.campaign-map.hide-fleets .zone.z-fleet { display: none; }
+.fleet-info { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 8px; }
+.fleet-list { display: grid; gap: 6px; } .fleet-row { display: grid; gap: 2px; width: 100%; text-align: left; }
 </style>
 </head>
 <body>
 <div id="auth-root"><div class="boot"><div class="plate boot-card"><h1>UNTSF-COMM</h1><p>Loading…</p></div></div></div>
 <div id="app"></div>
-<script>window.UNTSF_BUILD = 'd0db38e811';</script>
+<script>window.UNTSF_BUILD = 'fe5038eddb';</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
-<script src="config.js?v=d0db38e811"></script>
-<script src="bridge.js?v=d0db38e811"></script>
+<script src="config.js?v=fe5038eddb"></script>
+<script src="bridge.js?v=fe5038eddb"></script>
 <noscript>UNTSF-COMM needs JavaScript switched on.</noscript>
 </body>
 </html>

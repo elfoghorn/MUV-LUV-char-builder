@@ -1,4 +1,4 @@
-/* UNTSF-COMM d0db38e811: built from the same sources as the claude.ai edition. */
+/* UNTSF-COMM fe5038eddb: built from the same sources as the claude.ai edition. */
 /* =====================================================================
    TSF COMMAND engine — statistics, validation and change classification.
    Pure functions, no I/O. The SQL functions tsf_calculate_configuration
@@ -2870,7 +2870,7 @@ S.ui.map = { vb: MAP_VIEWS.world.slice(), px: 900, sel: null, placing: false, dr
 const proj = (lon, lat) => [(lon + 180) / 360 * MAP_W, (90 - lat) / 180 * MAP_H];
 const unproj = (x, y) => [x / MAP_W * 360 - 180, 90 - y / MAP_H * 180];
 const THREAT_NAMES = ['', 'Minimal', 'Low', 'Moderate', 'High', 'Extreme'];
-const ZONE_TYPES = [['hive', 'BETA hive'], ['front', 'Front line'], ['base', 'Base'], ['patrol', 'Patrol sector'], ['other', 'Other']];
+const ZONE_TYPES = [['hive', 'BETA hive'], ['front', 'Front line'], ['base', 'Base'], ['patrol', 'Patrol sector'], ['fleet', 'Naval fleet'], ['other', 'Other']];
 const MISSION_TYPES = [['assault', 'Assault'], ['defence', 'Defence'], ['reconnaissance', 'Reconnaissance'], ['escort', 'Escort'], ['interception', 'Interception'], ['patrol', 'Patrol'], ['training', 'Training'], ['support', 'Support']];
 const MISSION_CHIP = { planning: 'acc', briefed: 'warn', active: 'bad', complete: 'ok', aborted: '' };
 
@@ -2925,8 +2925,8 @@ function missionThumb(m) {
 /* Map readability: detail grows with zoom; labels never overlap. */
 const MAP_REGIONS = [['BETA-CONTROLLED EURASIA', 80, 55, 26], ['BRITISH ISLES', -22, 55, 12], ['AFRICAN UNION', 18, 8, 22], ['JAPAN', 153, 31, 12], ['NORTH AMERICA', -102, 45, 22],
   ['SOUTH AMERICA', -60, -14, 20], ['AUSTRALIA', 134, -25, 18], ['PACIFIC OCEAN', -150, 8, 18], ['ATLANTIC OCEAN', -38, 22, 18], ['INDIAN OCEAN', 78, -22, 18], ['ARCTIC OCEAN', 0, 82, 14]];
-const ZONE_TIER = z => z.status === 'cleared' ? 3 : z.type === 'front' || z.type === 'hive' ? 1 : z.type === 'base' ? 2 : 3;
-const TYPE_ORDER = { front: 0, hive: 1, base: 2, patrol: 3, other: 4 };
+const ZONE_TIER = z => z.status === 'cleared' ? 3 : z.type === 'front' || z.type === 'hive' || z.type === 'fleet' ? 1 : z.type === 'base' ? 2 : 3;
+const TYPE_ORDER = { front: 0, hive: 1, fleet: 2, base: 2, patrol: 3, other: 4 };
 function mapZoom(vb) { return MAP_W / vb[2]; }
 /* Greedy label placement: highest priority first; each label tries right, left, above, below. */
 function placeLabels(items, k, view) {
@@ -2976,14 +2976,17 @@ function mapHtml(mode) {
     const pin = z.type === 'hive' ? `M${cx} ${cy - s * 1.3}L${cx + s * 1.3} ${cy}L${cx} ${cy + s * 1.3}L${cx - s * 1.3} ${cy}Z`
       : z.type === 'base' ? `M${cx - s} ${cy - s}h${2 * s}v${2 * s}h${-2 * s}Z`
       : z.type === 'patrol' ? `M${cx} ${cy - s * 1.2}L${cx + s * 1.1} ${cy + s * .8}L${cx - s * 1.1} ${cy + s * .8}Z`
+      : z.type === 'fleet' ? `M${cx - s * 1.7} ${cy - s * .2}L${cx + s * 1.7} ${cy - s * .2}L${cx + s * 1.15} ${cy + s * .8}L${cx - s * 1.15} ${cy + s * .8}Z M${cx - s * .55} ${cy - s * .2}V${cy - s * 1.05}H${cx + s * .55}V${cy - s * .2}Z`
       : `M${cx - s} ${cy}a${s} ${s} 0 1 0 ${2 * s} 0a${s} ${s} 0 1 0 ${-2 * s} 0`;
     const isSel = m.sel === z.id, lb = placed[z.id];
-    return `<g class="zone t${z.threat} z-${z.type} ${isSel ? 'sel' : ''} ${mine.has(z.id) ? 'mine' : ''} ${z.status}" data-act="map-zone" data-id="${z.id}" role="button" tabindex="0"
+    const fl = z.type === 'fleet' ? (z.fleet || {}) : null, flStr = fl ? Math.max(0, Math.min(100, Number(fl.strength) || 0)) : 0;
+    return `<g class="zone t${z.threat} z-${z.type} ${fl ? 'fl-' + (fl.readiness || 'ready') : ''} ${isSel ? 'sel' : ''} ${mine.has(z.id) ? 'mine' : ''} ${z.status}" data-act="map-zone" data-id="${z.id}" role="button" tabindex="0"
       aria-label="${esc(z.name)}, ${esc(THREAT_NAMES[z.threat])} threat${active ? ', ' + plural(active, 'active mission') : ''}">
-      <title>${esc(z.name)} · ${esc(THREAT_NAMES[z.threat])} threat</title>
+      <title>${esc(z.name)} · ${fl ? `strength ${flStr} · ${esc(FLEET_READY[fl.readiness || 'ready'] || '')}` : esc(THREAT_NAMES[z.threat]) + ' threat'}</title>
       ${showArea ? `<ellipse class="area" cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" vector-effect="non-scaling-stroke"/>` : ''}
       ${isSel ? `<ellipse class="ring" cx="${cx}" cy="${cy}" rx="${rx + 4 * k}" ry="${ry + 4 * k}" vector-effect="non-scaling-stroke"/>` : ''}
       <path class="pin" d="${pin}" vector-effect="non-scaling-stroke"/>
+      ${fl ? `<rect class="fl-bg" x="${cx - s * 1.7}" y="${cy + s * 1.15}" width="${s * 3.4}" height="${s * .55}"/><rect class="fl-str" x="${cx - s * 1.7}" y="${cy + s * 1.15}" width="${s * 3.4 * flStr / 100}" height="${s * .55}"/>` : ''}
       ${active ? `<circle class="badge" cx="${cx + s * 1.4}" cy="${cy - s * 1.4}" r="${s * .9}"/><text class="badge-t" x="${cx + s * 1.4}" y="${cy - s * 1.4 + s * .38}" font-size="${s * 1.1}" text-anchor="middle">${active}</text>` : ''}
       ${lb ? `<text class="lbl" x="${lb.x}" y="${lb.y}" text-anchor="${lb.anchor}" font-size="${fs}" stroke-width="${3 * k}">${esc(z.name)}</text>` : `<text class="lbl peek" x="${cx + s * 1.8}" y="${cy + s * .5}" font-size="${fs}" stroke-width="${3 * k}" aria-hidden="true">${esc(z.name)}</text>`}</g>`;
   }).join('');
@@ -3005,7 +3008,7 @@ function mapHtml(mode) {
         <button class="btn" data-act="front-undo" ${m.drawing.points.length ? '' : 'disabled'}>Undo point</button><button class="btn ghost" data-act="front-cancel">Cancel</button>` : ''}</div>
     <div class="map-legend"><span><i class="lg t5"></i>Extreme</span><span><i class="lg t4"></i>High</span><span><i class="lg t3"></i>Moderate</span><span><i class="lg t1"></i>Low</span>
       <span><i class="k-zone"></i>BETA territory</span><span><i class="k-front"></i>Front line</span>
-      ${[['hive', '◆ Hives'], ['front', '● Combat zones'], ['base', '■ Bases'], ['patrol', '▲ Patrols']].map(([t, l]) => `<button class="lg-toggle ${hide[t] ? 'off' : ''}" data-act="map-type" data-t="${t}" aria-pressed="${!hide[t]}">${l}</button>`).join('')}
+      ${[['hive', '◆ Hives'], ['front', '● Combat zones'], ['base', '■ Bases'], ['patrol', '▲ Patrols'], ['fleet', '⛴ Fleets']].map(([t, l]) => `<button class="lg-toggle ${hide[t] ? 'off' : ''}" data-act="map-type" data-t="${t}" aria-pressed="${!hide[t]}">${l}</button>`).join('')}
       ${scaleBarHtml(vb, k)}</div></div>`;
 }
 
@@ -3289,7 +3292,7 @@ route('missions', 'Missions', function () {
   const z = get('zones', S.ui.map.sel);
   return `<div class="page-head"><div><h1>Missions</h1><p>Briefings for the operations you’re assigned to, and the theatre they’re in.</p></div></div>
     <div class="plate ops">${mapHtml('player')}
-      ${z ? `<div class="zone-info"><b>${esc(z.name)}</b> · ${esc(THREAT_NAMES[z.threat])} threat${z.factionId ? ' · held by ' + esc(facName(z.factionId)) : ''}<div class="small muted">${esc(z.description || '')}</div></div>` : '<p class="small muted" style="margin:8px 0 0">Select a zone for details. Zones with your missions are outlined.</p>'}</div>
+      ${z ? `<div class="zone-info"><b>${esc(z.name)}</b> · ${esc(THREAT_NAMES[z.threat])} threat${z.factionId ? ' · held by ' + esc(facName(z.factionId)) : ''}<div class="small muted">${esc(z.description || '')}</div>${fleetInfoHtml(z)}</div>` : '<p class="small muted" style="margin:8px 0 0">Select a zone for details. Zones with your missions are outlined.</p>'}</div>
     <h2 class="section-h">Current</h2>${open.length ? `<div class="grid g2">${open.map(m => missionCard(m, true)).join('')}</div>` : '<div class="empty">No missions assigned right now.</div>'}
     ${done.length ? `<h2 class="section-h">Previous</h2><div class="grid g2">${done.map(m => missionCard(m, true)).join('')}</div>` : ''}`;
 });
@@ -11119,6 +11122,85 @@ ACTIONS['acquire-submit'] = d => {
   const f = S.ui.form.acquire, v = f && f.variantId ? effVariant(f.variantId) : null;
   if (v && !S.isGm && !variantRequestable(v)) { toast(v.productionStatus === 'out_of_production' ? `${v.designation} ${v.modelName} is out of production and cannot be requested.` : 'That frame is allocated by Command Authority only.', true); return; }
   return _acquireSubmitCards(d);
+};
+
+/* ---------------------------------------------------------------- naval fleets on the war map
+   A fleet is a zone of type "fleet" carrying a `fleet` record: flagship, home port, readiness,
+   strength (0-100), embarked TSFs, task and ship groups. Zones need no new database table. */
+const FLEET_READY = { ready: 'Ready', underway: 'Underway', engaged: 'Engaged', refit: 'In refit' };
+const FLEET_READY_CHIP = { ready: 'ok', underway: 'acc', engaged: 'bad', refit: 'warn' };
+function fleetGroupsText(groups) { return (groups || []).map(g => `${g.n} × ${g.cls}`).join('\n'); }
+function parseFleetGroups(text) {
+  return String(text || '').split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+    const m = l.match(/^(\d+)\s*[×x*]?\s*(.+)$/i);
+    return m ? { n: Number(m[1]), cls: m[2].trim() } : { n: 1, cls: l };
+  });
+}
+function fleetShips(f) { return (f.groups || []).reduce((n, g) => n + (Number(g.n) || 0), 0); }
+function fleetInfoHtml(z) {
+  if (!z || z.type !== 'fleet' || !z.fleet) return '';
+  const f = z.fleet, home = get('zones', f.homeZoneId), str = Math.max(0, Math.min(100, Number(f.strength) || 0));
+  return `<div class="fleet-info">${barRow('Fleet strength', str, 100, '', str >= 70 ? 'p-open' : str >= 45 ? 'p-threatened' : 'p-severed')}
+    <p class="small" style="margin:4px 0">${chip(FLEET_READY_CHIP[f.readiness] || '', FLEET_READY[f.readiness] || f.readiness || 'Ready')}
+      ${f.flagship ? ` Flagship <b>${esc(f.flagship)}</b>` : ''}${home ? ` · home port ${esc(home.name)}` : ''}</p>
+    <p class="small" style="margin:4px 0">${plural(fleetShips(f), 'ship')}${f.tsfs ? ` · ${f.tsfs} TSFs embarked` : ''}${(f.groups || []).length ? ': ' + esc(f.groups.map(g => `${g.n} ${g.cls}`).join(', ')) : ''}</p>
+    ${f.task ? `<p class="small muted" style="margin:4px 0">${esc(f.task)}</p>` : ''}</div>`;
+}
+function fleetZones() { return list('zones').filter(z => z.type === 'fleet' && z.status !== 'archived' && z.fleet); }
+
+/* GM zone editor: fleet fields when the type is "fleet"; changing the type redraws the form. */
+const _zoneEditFleet = DRAWERS['zone-edit'];
+DRAWERS_REG('zone-edit', function (d) {
+  const e = S.ui.edit, z = e && e.zone;
+  if (z && z.type === 'fleet') {
+    z.fleet = z.fleet || { flagship: '', homeZoneId: '', readiness: 'ready', strength: 60, tsfs: 0, task: '', groups: [] };
+    if (z.fleet.groupsText == null) z.fleet.groupsText = fleetGroupsText(z.fleet.groups);
+  }
+  let html = _zoneEditFleet(d).replace('id="z-type" data-bind=', 'id="z-type" data-rerender="1" data-bind=');
+  if (!z || z.type !== 'fleet') return html;
+  const f = z.fleet, p = 'ui/edit/zone/fleet';
+  const bases = list('zones').filter(x => x.type === 'base' && x.status !== 'archived').sort((a, b) => a.name.localeCompare(b.name)).map(x => [x.id, x.name]);
+  const fields = `<label class="field">Flagship${txt('z-fl-flag', p + '/flagship', f.flagship, 'e.g. Shinano')}</label>
+    <label class="field">Home port${sel('z-fl-home', p + '/homeZoneId', f.homeZoneId || '', bases, 'None')}</label>
+    <label class="field">Readiness${sel('z-fl-ready', p + '/readiness', f.readiness || 'ready', Object.keys(FLEET_READY).map(k => [k, FLEET_READY[k]]))}</label>
+    <label class="field">Strength (0–100)${num('z-fl-str', p + '/strength', f.strength)}</label>
+    <label class="field">TSFs embarked${num('z-fl-tsf', p + '/tsfs', f.tsfs)}</label>
+    <label class="field wide">Task${txt('z-fl-task', p + '/task', f.task, 'What the fleet is doing')}</label>
+    <label class="field wide">Ships, one group per line<textarea id="z-fl-groups" data-bind="${p}/groupsText" placeholder="2 × TSF carrier&#10;4 × Destroyer">${esc(f.groupsText || '')}</textarea></label>
+    <p class="small muted wide" style="margin:0">Position is the latitude and longitude above; the radius is the fleet's operating area. The threat level is the danger where it is.</p>`;
+  return html.replace('<label class="field wide">Description', fields + '<label class="field wide">Description');
+});
+const _zoneSaveFleet = ACTIONS['zone-save'];
+ACTIONS['zone-save'] = d => {
+  const z = S.ui.edit && S.ui.edit.zone;
+  if (z && z.type === 'fleet' && z.fleet) {
+    const f = z.fleet;
+    if (f.groupsText != null) { f.groups = parseFleetGroups(f.groupsText); delete f.groupsText; }
+    f.strength = Math.max(0, Math.min(100, Number(f.strength) || 0)); f.tsfs = Math.max(0, Number(f.tsfs) || 0); f.homeZoneId = f.homeZoneId || null;
+  }
+  const r = _zoneSaveFleet(d);
+  if (z && z.fleet && z.fleet.groupsText == null) z.fleet.groupsText = fleetGroupsText(z.fleet.groups);
+  return r;
+};
+
+/* Campaign map: a Fleets layer and a naval order of battle. */
+MAP_LAYERS.push(['fleets', 'Fleets']);
+const _campaignViewFleets = ROUTES.campaign.view;
+ROUTES.campaign.view = function () {
+  S.ui.layers = Object.assign({ fronts: true, zones: true, supply: true, units: true, fleets: true }, S.ui.layers || {});
+  if (S.ui.layers.fleets === undefined) S.ui.layers.fleets = true;
+  const html = _campaignViewFleets();
+  const fl = fleetZones().sort((a, b) => (Number(b.fleet.strength) || 0) - (Number(a.fleet.strength) || 0));
+  if (!fl.length) return html;
+  const ships = fl.reduce((n, z) => n + fleetShips(z.fleet), 0), tsfs = fl.reduce((n, z) => n + (Number(z.fleet.tsfs) || 0), 0);
+  const rows = fl.map(z => { const f = z.fleet, str = Number(f.strength) || 0;
+    return `<button class="link-row fleet-row" data-act="zone-focus" data-id="${z.id}">${barRow(z.name, str, 100, '', str >= 70 ? 'p-open' : str >= 45 ? 'p-threatened' : 'p-severed')}
+      <span class="small muted">${chip(FLEET_READY_CHIP[f.readiness] || '', FLEET_READY[f.readiness] || 'Ready')} ${esc(facName(z.factionId))} · ${plural(fleetShips(f), 'ship')}${f.tsfs ? ` · ${f.tsfs} TSFs` : ''}${f.task ? ' · ' + esc(f.task) : ''}</span></button>`; }).join('');
+  const sel = get('zones', S.ui.map.sel);
+  const panel = `<section class="plate" style="margin-top:12px"><h2>Naval order of battle <span class="sub">${plural(fl.length, 'fleet')} · ${plural(ships, 'ship')} · ${tsfs} TSFs embarked</span></h2>
+    ${sel && sel.type === 'fleet' ? `<div class="zone-info" style="margin-bottom:10px"><b>${esc(sel.name)}</b><div class="small muted">${esc(sel.description || '')}</div>${fleetInfoHtml(sel)}</div>` : ''}
+    <div class="fleet-list">${rows}</div></section>`;
+  return html + panel;
 };
 ;
 /* start-up: every module has registered its routes, drawers and actions */
