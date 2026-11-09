@@ -1,4 +1,4 @@
-/* UNTSF-COMM fe5038eddb: built from the same sources as the claude.ai edition. */
+/* UNTSF-COMM d801d3ae80: built from the same sources as the claude.ai edition. */
 /* =====================================================================
    TSF COMMAND engine — statistics, validation and change classification.
    Pure functions, no I/O. The SQL functions tsf_calculate_configuration
@@ -11201,6 +11201,77 @@ ROUTES.campaign.view = function () {
     ${sel && sel.type === 'fleet' ? `<div class="zone-info" style="margin-bottom:10px"><b>${esc(sel.name)}</b><div class="small muted">${esc(sel.description || '')}</div>${fleetInfoHtml(sel)}</div>` : ''}
     <div class="fleet-list">${rows}</div></section>`;
   return html + panel;
+};
+
+/* ---------------------------------------------------------------- export data for editing (Administrator)
+   Download chosen parts of the database as a backup-format JSON file. Edit it, then load it back with
+   "Restore from backup"; the file asks for "Update only the fields in this file" by default. */
+const EXPORT_BUNDLES = [
+  ['characters', 'Characters', 'Personnel files and their experience log', ['pilots', 'xplog']],
+  ['tsfs', 'Characters’ TSFs and loadouts', 'Machines, saved configurations and service history', ['tsfs', 'configs', 'service']],
+  ['units', 'Units and crews', 'Battalions, squadrons, flights and ground crews', ['units', 'crews', 'unitlog']],
+  ['map', 'War map', 'Zones, bases, fleets, BETA fronts and supply lines', ['zones', 'fronts', 'supplylines']],
+  ['ops', 'Missions and reports', 'Missions, engagements and situation reports', ['missions', 'engagements', 'sitreps']],
+  ['catalogue', 'TSF catalogue', 'Models, variants and equipment', ['models', 'variants', 'equipment']],
+  ['world', 'Factions and manufacturers', '', ['factions', 'manufacturers']],
+  ['rules', 'Rules, vocabulary and settings', '', ['rules', 'vocab', 'settings']]
+];
+const PILOT_LINKED = { pilots: r => r.id, xplog: r => r.pilotId, tsfs: r => r.ownerPilotId, configs: r => { const t = get('tsfs', r.tsfId); return r.pilotId || (t && t.ownerPilotId); }, service: r => { const t = get('tsfs', r.tsfId); return t && t.ownerPilotId; } };
+function exportState() { return S.ui.exp || (S.ui.exp = { bundles: { characters: true }, cols: {}, advanced: false, onlyPilots: false, pilots: {} }); }
+function exportCollections() {
+  const x = exportState(), set = new Set();
+  EXPORT_BUNDLES.forEach(([k, , , cols]) => { if (x.bundles[k]) cols.forEach(c => set.add(c)); });
+  if (x.advanced) Object.keys(x.cols).forEach(c => { if (x.cols[c]) set.add(c); });
+  return COLLECTIONS.filter(c => set.has(c) && c !== 'audit');
+}
+function exportRecords(c) {
+  const x = exportState(), recs = S.store[c] || {}, pick = PILOT_LINKED[c];
+  const ids = Object.keys(recs).filter(id => {
+    if (!x.onlyPilots || !pick) return true;
+    const pid = pick(Object.assign({ id }, recs[id]));
+    return !!pid && !!x.pilots[pid];
+  });
+  const out = {}; ids.forEach(id => { out[id] = recs[id]; });
+  return out;
+}
+function exportPanel() {
+  const x = exportState(), cols = exportCollections();
+  const counts = cols.map(c => [c, Object.keys(exportRecords(c)).length]), total = counts.reduce((s, r) => s + r[1], 0);
+  const pilots = list('pilots').sort((a, b) => String(a.fullName || a.callsign || '').localeCompare(String(b.fullName || b.callsign || '')));
+  const linked = cols.some(c => PILOT_LINKED[c]);
+  return `<div class="plate"><h2>Export data for editing</h2>
+    <p class="small muted" style="margin-top:0">Download part of the database as JSON, edit it in any text editor, then load it back below with “Restore from backup”. The file is set to “Update only the fields in this file”, so fields you remove are left alone, not deleted.</p>
+    <div class="checks export-checks">${EXPORT_BUNDLES.map(([k, l, hint, cs]) => `<label><input type="checkbox" id="exp-${k}" data-act="exp-bundle" data-k="${k}" ${x.bundles[k] ? 'checked' : ''}>
+      <span><b>${esc(l)}</b>${hint ? ` <span class="small muted">· ${esc(hint)}</span>` : ''}<span class="small muted ref" style="display:block">${cs.join(', ')}</span></span></label>`).join('')}</div>
+    ${linked ? `<div class="checks" style="margin-top:8px"><label><input type="checkbox" id="exp-only" data-act="exp-only" ${x.onlyPilots ? 'checked' : ''}> Only chosen characters (and the TSFs, configurations and logs that belong to them)</label></div>
+      ${x.onlyPilots ? `<div class="checks export-pilots">${pilots.map(p => `<label><input type="checkbox" id="exp-p-${p.id}" data-act="exp-pilot" data-id="${p.id}" ${x.pilots[p.id] ? 'checked' : ''}> ${esc(p.fullName || 'Unnamed')}${p.callsign ? ` <span class="muted">“${esc(p.callsign)}”</span>` : ''}</label>`).join('') || '<span class="small muted">No characters yet.</span>'}</div>` : ''}` : ''}
+    <details style="margin-top:8px" ${x.advanced ? 'open' : ''}><summary class="small">Other collections</summary>
+      <div class="checks export-cols">${COLLECTIONS.filter(c => c !== 'audit').map(c => `<label><input type="checkbox" id="exp-c-${c}" data-act="exp-col" data-c="${c}" ${x.advanced && x.cols[c] ? 'checked' : ''}> <span class="ref">${esc(c)}</span></label>`).join('')}</div></details>
+    <p class="small" style="margin:10px 0 6px">${cols.length ? `<b>${total.toLocaleString('en-GB')}</b> records from ${counts.map(([c, n]) => `<span class="ref">${esc(c)}</span> ${n}`).join(' · ')}` : 'Choose something to export.'}</p>
+    <div class="btn-row">${S.downloads ? `<button class="btn primary" data-act="exp-run" ${total ? '' : 'disabled'}>${icon('download', 16)} Download JSON for editing</button>` : '<span class="small muted">Downloads are not available in this view.</span>'}</div></div>`;
+}
+ACTIONS['exp-bundle'] = (d, el) => { exportState().bundles[d.k] = el.checked; render(); };
+ACTIONS['exp-col'] = (d, el) => { const x = exportState(); x.cols[d.c] = el.checked; x.advanced = Object.keys(x.cols).some(c => x.cols[c]); render(); };
+ACTIONS['exp-only'] = (d, el) => { exportState().onlyPilots = el.checked; render(); };
+ACTIONS['exp-pilot'] = (d, el) => { exportState().pilots[d.id] = el.checked; render(); };
+ACTIONS['exp-run'] = () => {
+  const x = exportState(), cols = exportCollections();
+  if (!S.downloads || !cols.length) return;
+  const collections = {}; cols.forEach(c => { const r = exportRecords(c); if (Object.keys(r).length) collections[c] = r; });
+  const parts = EXPORT_BUNDLES.filter(([k]) => x.bundles[k]).map(([k]) => k).concat(x.advanced ? Object.keys(x.cols).filter(c => x.cols[c]) : []);
+  const n = Object.keys(collections).reduce((s, c) => s + Object.keys(collections[c]).length, 0);
+  const data = JSON.stringify({ system: BRAND.code, exportedAt: nowIso(), importMode: 'merge',
+    note: 'Exported for editing. Change values, keep each record\u2019s id (the key) the same, then load this file with Restore from backup. Removing a record or field here does not delete it.',
+    collections }, null, 2);
+  const name = `untsf-comm-${parts.slice(0, 3).join('-') || 'export'}${parts.length > 3 ? '-etc' : ''}${x.onlyPilots ? '-selected' : ''}-${nowIso().slice(0, 10)}.json`;
+  S.downloads.save({ filename: name, data })
+    .then(() => { toast(`Exported ${plural(n, 'record')}.`); Data.audit('system.export', 'system', 'export', `Exported ${n} records for editing (${Object.keys(collections).join(', ')})`); })
+    .catch(err => { if (!err || err.code !== 'declined') toast('The export could not be saved: ' + ((err && err.message) || 'unknown error'), true); });
+};
+const _adminExportView = ROUTES.admin.view;
+ROUTES.admin.view = function () {
+  const html = _adminExportView.apply(this, arguments), at = '<div class="plate"><h2>Restore from backup</h2>';
+  return html.indexOf(at) === -1 ? html + exportPanel() : html.replace(at, exportPanel() + at);
 };
 ;
 /* start-up: every module has registered its routes, drawers and actions */
