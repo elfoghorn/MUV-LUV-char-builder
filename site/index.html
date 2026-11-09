@@ -1274,15 +1274,24 @@ h3.dd-sh { display: flex; align-items: baseline; gap: 8px; margin: 14px 0 8px; p
 .export-checks { display: grid; gap: 6px; } .export-checks label { display: flex; gap: 8px; align-items: flex-start; }
 .export-pilots, .export-cols { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 4px 12px; max-height: 220px; overflow: auto;
   padding: 8px; border: 1px solid var(--line); border-radius: var(--radius-control); margin-top: 6px; }
+
+/* ---------- record export picker */
+.drawer:has(.xp-list) { width: min(860px, 100vw); }
+.xp-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.xp-list { display: grid; gap: 2px; border: 1px solid var(--line); border-radius: var(--radius-control); padding: 4px; }
+.xp-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 5px 8px; border-radius: 4px; cursor: pointer; }
+.xp-row:hover { background: var(--inset); } .xp-row .ref { opacity: .7; }
+.xp-head { align-self: flex-start; } .xp-headrow { justify-content: flex-end; margin-bottom: 8px; }
+@media (max-width: 767px) { .xp-row { grid-template-columns: auto minmax(0, 1fr); } .xp-row .ref { display: none; } }
 </style>
 </head>
 <body>
 <div id="auth-root"><div class="boot"><div class="plate boot-card"><h1>UNTSF-COMM</h1><p>Loading…</p></div></div></div>
 <div id="app"></div>
-<script>window.UNTSF_BUILD = 'd801d3ae80';</script>
+<script>window.UNTSF_BUILD = '98e9bdac6d';</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
-<script src="config.js?v=d801d3ae80"></script>
-<script src="bridge.js?v=d801d3ae80"></script>
+<script src="config.js?v=98e9bdac6d"></script>
+<script src="bridge.js?v=98e9bdac6d"></script>
 <noscript>UNTSF-COMM needs JavaScript switched on.</noscript>
 </body>
 </html>

@@ -1,4 +1,4 @@
-/* UNTSF-COMM d801d3ae80: built from the same sources as the claude.ai edition. */
+/* UNTSF-COMM 98e9bdac6d: built from the same sources as the claude.ai edition. */
 /* =====================================================================
    TSF COMMAND engine — statistics, validation and change classification.
    Pure functions, no I/O. The SQL functions tsf_calculate_configuration
@@ -11272,6 +11272,137 @@ const _adminExportView = ROUTES.admin.view;
 ROUTES.admin.view = function () {
   const html = _adminExportView.apply(this, arguments), at = '<div class="plate"><h2>Restore from backup</h2>';
   return html.indexOf(at) === -1 ? html + exportPanel() : html.replace(at, exportPanel() + at);
+};
+
+/* ---------------------------------------------------------------- record-level export: a picker window shared by
+   System Administration and every GM section. Sections open it with their current filters already applied. */
+const _pagedXp = paged;
+paged = function (items, key, size) { (S.ui.lastList || (S.ui.lastList = {}))[key] = items; return _pagedXp(items, key, size); };
+const xpIds = arr => (arr || []).map(r => r.id);
+function xpRecLabel(c, r) {
+  if (c === 'pilots') return `${r.fullName || 'Unnamed'}${r.callsign ? ` “${r.callsign}”` : ''}`;
+  if (c === 'tsfs') { let l = ''; try { l = tsfLabel(r); } catch (e) {} return `${r.serial || r.id}${l ? ' · ' + l : ''}`; }
+  if (c === 'variants') { const m = get('models', r.modelId) || {}; return `${m.designation || ''} ${m.name || ''} · ${r.name && r.name !== m.name ? r.name : (r.code || r.name || '')}`.trim(); }
+  if (c === 'models') return `${r.designation || ''} ${r.name || ''}`.trim();
+  if (c === 'equipment') return `${r.code ? r.code + ' · ' : ''}${r.name || r.id}`;
+  if (c === 'configs') { const t = get('tsfs', r.tsfId); return `${r.name || 'Configuration'}${t ? ' · ' + t.serial : ''}`; }
+  if (c === 'xplog') { const p = get('pilots', r.pilotId); return `${p ? p.fullName : 'Unknown'} · ${r.amount > 0 ? '+' : ''}${r.amount} XP${r.reason ? ' · ' + r.reason : ''}`; }
+  if (c === 'approvals') { const p = get('pilots', r.pilotId); return `${r.type || 'request'}${p ? ' · ' + p.fullName : ''}${r.submittedAt ? ' · ' + String(r.submittedAt).slice(0, 10) : ''}`; }
+  return r.name || r.title || r.label || r.code || r.serial || r.summary || r.id;
+}
+function xpRecMeta(c, r) {
+  return [r.type, r.status, r.category, r.kind, r.availability].filter(v => v && typeof v === 'string').slice(0, 2).join(' · ');
+}
+const zoneShown = z => z.status !== 'archived' && !((S.ui.map && S.ui.map.hideTypes) || {})[z.type];
+const SECTION_EXPORTS = {
+  gm: { title: 'GM Command Centre', cols: ['zones', 'fronts', 'missions'],
+    pick: { zones: () => xpIds(list('zones').filter(zoneShown)), fronts: () => xpIds(list('fronts').filter(f => f.status !== 'archived')),
+            missions: () => xpIds(list('missions').filter(m => m.status !== 'complete' && m.status !== 'aborted')) } },
+  'tsf-db': { title: 'TSF Database', cols: ['models', 'variants'],
+    pick: { models: () => { const f = S.ui.tdb; if (!f || f.view === 'table') return xpIds(list('models'));
+              return xpIds(list('models').filter(m => { const vs = list('variants').filter(v => v.modelId === m.id), dv = vs.find(v => v.isDefault) || vs[0], ev = dv ? effVariant(dv.id) : null;
+                return ev && tsfMatches(Object.assign({}, ev, { generationId: m.generationId, classificationId: m.classificationId, name: vs.map(v => v.name).join(' ') }), f)
+                  && (!f.av || m.availability === f.av || vs.some(v => v.availability === f.av)) && (!f.src || m.origin === f.src); })); },
+            variants: sel => xpIds(list('variants').filter(v => (sel.models || {})[v.modelId])) } },
+  'equipment-admin': { title: 'Equipment Database', cols: ['equipment'], pick: { equipment: () => S.ui.lastList && S.ui.lastList.eqa ? xpIds(S.ui.lastList.eqa) : xpIds(list('equipment')) } },
+  orgs: { title: 'Manufacturer Registry', cols: ['manufacturers', 'factions'] },
+  personnel: { title: 'Personnel Administration', cols: ['pilots', 'tsfs', 'configs', 'xplog'],
+    pick: { pilots: () => S.ui.lastList && S.ui.lastList.pers ? xpIds(S.ui.lastList.pers) : xpIds(list('pilots')),
+            tsfs: sel => xpIds(list('tsfs').filter(t => (sel.pilots || {})[t.ownerPilotId])),
+            configs: sel => xpIds(list('configs').filter(c => { const t = get('tsfs', c.tsfId); return t && (sel.pilots || {})[t.ownerPilotId]; })),
+            xplog: sel => xpIds(list('xplog').filter(x => (sel.pilots || {})[x.pilotId])) } },
+  approvals: { title: 'Approvals', cols: ['approvals'], pick: { approvals: () => S.ui.lastList && S.ui.lastList.apr ? xpIds(S.ui.lastList.apr) : xpIds(list('approvals')) } },
+  maintenance: { title: 'Maintenance Control', cols: ['maintenance', 'incidents'] },
+  units: { title: 'Unit Management', cols: ['units', 'crews', 'unitlog'], pick: { units: () => xpIds(list('units').filter(u => u.status !== 'disbanded')), crews: () => xpIds(list('crews')), unitlog: () => [] } },
+  campaign: { title: 'Campaign Map', cols: ['zones', 'fronts', 'supplylines'],
+    pick: { zones: () => { const L = S.ui.layers || {}; return L.zones === false ? [] : xpIds(list('zones').filter(z => zoneShown(z) && (z.type !== 'fleet' || L.fleets !== false))); },
+            fronts: () => (S.ui.layers || {}).fronts === false ? [] : xpIds(list('fronts').filter(f => f.status !== 'archived')),
+            supplylines: () => (S.ui.layers || {}).supply === false ? [] : xpIds(list('supplylines'))} },
+  operations: { title: 'Operations Record', cols: ['missions', 'engagements', 'sitreps'] },
+  research: { title: 'Research and Development', cols: ['research', 'researchlog', 'trials'] },
+  evaluation: { title: 'Evaluation and Training', cols: ['evaluations', 'doctrines', 'courses'] },
+  production: { title: 'Production', cols: ['prodlines'] },
+  rules: { title: 'Rules and Balancing', cols: ['rules', 'vocab', 'settings'] }
+};
+function xpInitialSelection(cfg) {
+  const sel = {};
+  cfg.cols.forEach(c => {
+    const fn = cfg.pick && cfg.pick[c], ids = fn ? fn(sel) : xpIds(list(c));
+    sel[c] = {}; ids.forEach(id => { sel[c][id] = true; });
+  });
+  return sel;
+}
+function openExportPicker(title, cols, sel, source) {
+  cols = cols.filter(c => COLLECTIONS.indexOf(c) !== -1 && c !== 'audit');
+  S.ui.xp = { title, source, cols, tab: cols.find(c => Object.keys(sel[c] || {}).length) || cols[0], q: '', sel, start: JSON.parse(JSON.stringify(sel)) };
+  openDrawer('export-pick');
+}
+ACTIONS['xp-open'] = d => { const cfg = SECTION_EXPORTS[d.s]; if (cfg) openExportPicker(cfg.title, cfg.cols, xpInitialSelection(cfg), d.s); };
+ACTIONS['xp-admin'] = () => {
+  const cols = exportCollections(), sel = {};
+  cols.forEach(c => { sel[c] = {}; Object.keys(exportRecords(c)).forEach(id => { sel[c][id] = true; }); });
+  openExportPicker('System export', cols, sel, 'admin');
+};
+const xpCount = (x, c) => Object.keys(x.sel[c] || {}).filter(id => x.sel[c][id]).length;
+function xpShown(x) {
+  const q = String(x.q || '').toLowerCase().trim();
+  return list(x.tab).map(r => ({ r, l: xpRecLabel(x.tab, r), m: xpRecMeta(x.tab, r) }))
+    .filter(o => !q || `${o.l} ${o.m} ${o.r.id}`.toLowerCase().indexOf(q) !== -1)
+    .sort((a, b) => String(a.l).localeCompare(String(b.l), undefined, { numeric: true }));
+}
+DRAWERS_REG('export-pick', function () {
+  const x = S.ui.xp; if (!x) return '';
+  const shown = xpShown(x), cap = 400, sel = x.sel[x.tab] || {}, total = x.cols.reduce((n, c) => n + xpCount(x, c), 0);
+  return `<header><div><p class="kicker">EXPORT FOR EDITING</p><h2>${esc(x.title)}</h2><p>Tick the records to export. ${x.source === 'admin' ? 'Started from your choices in System Administration.' : 'Started from what the page shows with its current filters.'}</p></div>
+      <button class="btn ghost" data-act="close-drawer">Close</button></header>
+    <div class="body"><div class="xp-tabs" role="tablist">${x.cols.map(c => `<button class="btn ${c === x.tab ? 'primary' : 'ghost'}" role="tab" aria-selected="${c === x.tab}" data-act="set-path" data-path="ui/xp/tab" data-value="${c}"><span class="ref">${esc(c)}</span> ${xpCount(x, c)}/${Object.keys(S.store[c] || {}).length}</button>`).join('')}</div>
+      <div class="filters"><label class="field">Search ${esc(x.tab)}<input type="text" id="xp-q" data-bind="ui/xp/q" data-rerender="1" value="${esc(x.q || '')}" placeholder="Name, type, status or ID"></label>
+        <div class="btn-row" style="align-self:flex-end"><button class="btn" data-act="xp-all" data-v="1">Tick ${x.q ? 'shown' : 'all'} (${shown.length})</button><button class="btn" data-act="xp-all" data-v="">Untick ${x.q ? 'shown' : 'all'}</button><button class="btn ghost" data-act="xp-reset">Reset</button></div></div>
+      <div class="xp-list">${shown.slice(0, cap).map(o => `<label class="xp-row"><input type="checkbox" id="xp-${esc(x.tab)}-${esc(o.r.id)}" data-act="xp-rec" data-id="${esc(o.r.id)}" ${sel[o.r.id] ? 'checked' : ''}>
+        <span><b>${esc(o.l)}</b>${o.m ? ` <span class="small muted">${esc(o.m)}</span>` : ''}</span><span class="ref small">${esc(o.r.id)}</span></label>`).join('') || '<div class="empty">No records match.</div>'}
+        ${shown.length > cap ? `<p class="small muted">Showing the first ${cap} of ${shown.length}; search to narrow the list. “Tick all” still covers every match.</p>` : ''}</div></div>
+    <footer><span class="small"><b>${total}</b> record${total === 1 ? '' : 's'} selected · ${x.cols.filter(c => xpCount(x, c)).map(c => `${esc(c)} ${xpCount(x, c)}`).join(' · ') || 'none'}</span>
+      <div class="btn-row">${S.downloads ? `<button class="btn primary" data-act="xp-run" ${total ? '' : 'disabled'}>${icon('download', 16)} Download JSON</button>` : '<span class="small muted">Downloads are not available in this view.</span>'}</div></footer>`;
+});
+ACTIONS['xp-rec'] = (d, el) => { const x = S.ui.xp; (x.sel[x.tab] || (x.sel[x.tab] = {}))[d.id] = el.checked; render(); };
+ACTIONS['xp-all'] = d => { const x = S.ui.xp, s = x.sel[x.tab] || (x.sel[x.tab] = {}); xpShown(x).forEach(o => { s[o.r.id] = !!d.v; }); render(); };
+ACTIONS['xp-reset'] = () => { const x = S.ui.xp; x.sel = JSON.parse(JSON.stringify(x.start)); x.q = ''; render(); };
+ACTIONS['xp-run'] = () => {
+  const x = S.ui.xp; if (!x || !S.downloads) return;
+  const collections = {};
+  x.cols.forEach(c => { const ids = Object.keys(x.sel[c] || {}).filter(id => x.sel[c][id] && S.store[c] && S.store[c][id]); if (ids.length) { collections[c] = {}; ids.forEach(id => { collections[c][id] = S.store[c][id]; }); } });
+  const n = Object.keys(collections).reduce((s, c) => s + Object.keys(collections[c]).length, 0);
+  if (!n) return;
+  const data = JSON.stringify({ system: BRAND.code, exportedAt: nowIso(), importMode: 'merge', source: x.title,
+    note: 'Exported for editing. Change values, keep each record\u2019s id (the key) the same, then load this file with Restore from backup in System Administration. Removing a record or field here does not delete it.', collections }, null, 2);
+  const slug = String(x.title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  S.downloads.save({ filename: `untsf-comm-${slug}-${nowIso().slice(0, 10)}.json`, data })
+    .then(() => { toast(`Exported ${plural(n, 'record')}.`); Data.audit('system.export', 'system', 'export', `Exported ${n} records for editing from ${x.title} (${Object.keys(collections).join(', ')})`); })
+    .catch(err => { if (!err || err.code !== 'declined') toast('The export could not be saved: ' + ((err && err.message) || 'unknown error'), true); });
+};
+/* An Export button in the page header of each GM section. */
+function injectHeadButton(html, btn) {
+  const i = html.indexOf('<div class="page-head">');
+  if (i === -1) return `<div class="btn-row xp-headrow">${btn}</div>` + html;
+  const re = /<div\b|<\/div>/g; re.lastIndex = i; let depth = 0, m;
+  while ((m = re.exec(html))) { depth += m[0] === '</div>' ? -1 : 1; if (depth === 0) return html.slice(0, m.index) + `<div class="btn-row xp-head">${btn}</div>` + html.slice(m.index); }
+  return html;
+}
+Object.keys(SECTION_EXPORTS).forEach(r => {
+  if (!ROUTES[r]) return;
+  const orig = ROUTES[r].view;
+  ROUTES[r].view = function () {
+    const html = orig.apply(this, arguments);
+    if (!S.isGm || !S.downloads || typeof html !== 'string' || html.indexOf('<div class="empty">This screen') === 0) return html;
+    return injectHeadButton(html, `<button class="btn" data-act="xp-open" data-s="${r}" title="Export these records as JSON for editing">${icon('download', 16)} Export…</button>`);
+  };
+});
+/* System Administration: pick individual records from the chosen groups. */
+const _exportPanelRecords = exportPanel;
+exportPanel = function () {
+  const html = _exportPanelRecords();
+  return html.replace('<div class="btn-row">' + (S.downloads ? '<button class="btn primary" data-act="exp-run"' : ''),
+    '<div class="btn-row">' + (S.downloads ? '<button class="btn" data-act="xp-admin">Choose individual records…</button><button class="btn primary" data-act="exp-run"' : ''));
 };
 ;
 /* start-up: every module has registered its routes, drawers and actions */
