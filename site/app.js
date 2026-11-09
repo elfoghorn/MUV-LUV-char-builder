@@ -1,4 +1,4 @@
-/* UNTSF-COMM 8788c34fba: built from the same sources as the claude.ai edition. */
+/* UNTSF-COMM 98e9bdac6d: built from the same sources as the claude.ai edition. */
 /* =====================================================================
    TSF COMMAND engine — statistics, validation and change classification.
    Pure functions, no I/O. The SQL functions tsf_calculate_configuration
@@ -2878,7 +2878,7 @@ S.ui.map = { vb: MAP_VIEWS.world.slice(), px: 900, sel: null, placing: false, dr
 const proj = (lon, lat) => [(lon + 180) / 360 * MAP_W, (90 - lat) / 180 * MAP_H];
 const unproj = (x, y) => [x / MAP_W * 360 - 180, 90 - y / MAP_H * 180];
 const THREAT_NAMES = ['', 'Minimal', 'Low', 'Moderate', 'High', 'Extreme'];
-const ZONE_TYPES = [['hive', 'BETA hive'], ['front', 'Front line'], ['base', 'Base'], ['patrol', 'Patrol sector'], ['other', 'Other']];
+const ZONE_TYPES = [['hive', 'BETA hive'], ['front', 'Front line'], ['base', 'Base'], ['patrol', 'Patrol sector'], ['fleet', 'Naval fleet'], ['other', 'Other']];
 const MISSION_TYPES = [['assault', 'Assault'], ['defence', 'Defence'], ['reconnaissance', 'Reconnaissance'], ['escort', 'Escort'], ['interception', 'Interception'], ['patrol', 'Patrol'], ['training', 'Training'], ['support', 'Support']];
 const MISSION_CHIP = { planning: 'acc', briefed: 'warn', active: 'bad', complete: 'ok', aborted: '' };
 
@@ -2933,8 +2933,8 @@ function missionThumb(m) {
 /* Map readability: detail grows with zoom; labels never overlap. */
 const MAP_REGIONS = [['BETA-CONTROLLED EURASIA', 80, 55, 26], ['BRITISH ISLES', -22, 55, 12], ['AFRICAN UNION', 18, 8, 22], ['JAPAN', 153, 31, 12], ['NORTH AMERICA', -102, 45, 22],
   ['SOUTH AMERICA', -60, -14, 20], ['AUSTRALIA', 134, -25, 18], ['PACIFIC OCEAN', -150, 8, 18], ['ATLANTIC OCEAN', -38, 22, 18], ['INDIAN OCEAN', 78, -22, 18], ['ARCTIC OCEAN', 0, 82, 14]];
-const ZONE_TIER = z => z.status === 'cleared' ? 3 : z.type === 'front' || z.type === 'hive' ? 1 : z.type === 'base' ? 2 : 3;
-const TYPE_ORDER = { front: 0, hive: 1, base: 2, patrol: 3, other: 4 };
+const ZONE_TIER = z => z.status === 'cleared' ? 3 : z.type === 'front' || z.type === 'hive' || z.type === 'fleet' ? 1 : z.type === 'base' ? 2 : 3;
+const TYPE_ORDER = { front: 0, hive: 1, fleet: 2, base: 2, patrol: 3, other: 4 };
 function mapZoom(vb) { return MAP_W / vb[2]; }
 /* Greedy label placement: highest priority first; each label tries right, left, above, below. */
 function placeLabels(items, k, view) {
@@ -2984,14 +2984,17 @@ function mapHtml(mode) {
     const pin = z.type === 'hive' ? `M${cx} ${cy - s * 1.3}L${cx + s * 1.3} ${cy}L${cx} ${cy + s * 1.3}L${cx - s * 1.3} ${cy}Z`
       : z.type === 'base' ? `M${cx - s} ${cy - s}h${2 * s}v${2 * s}h${-2 * s}Z`
       : z.type === 'patrol' ? `M${cx} ${cy - s * 1.2}L${cx + s * 1.1} ${cy + s * .8}L${cx - s * 1.1} ${cy + s * .8}Z`
+      : z.type === 'fleet' ? `M${cx - s * 1.7} ${cy - s * .2}L${cx + s * 1.7} ${cy - s * .2}L${cx + s * 1.15} ${cy + s * .8}L${cx - s * 1.15} ${cy + s * .8}Z M${cx - s * .55} ${cy - s * .2}V${cy - s * 1.05}H${cx + s * .55}V${cy - s * .2}Z`
       : `M${cx - s} ${cy}a${s} ${s} 0 1 0 ${2 * s} 0a${s} ${s} 0 1 0 ${-2 * s} 0`;
     const isSel = m.sel === z.id, lb = placed[z.id];
-    return `<g class="zone t${z.threat} z-${z.type} ${isSel ? 'sel' : ''} ${mine.has(z.id) ? 'mine' : ''} ${z.status}" data-act="map-zone" data-id="${z.id}" role="button" tabindex="0"
+    const fl = z.type === 'fleet' ? (z.fleet || {}) : null, flStr = fl ? Math.max(0, Math.min(100, Number(fl.strength) || 0)) : 0;
+    return `<g class="zone t${z.threat} z-${z.type} ${fl ? 'fl-' + (fl.readiness || 'ready') : ''} ${isSel ? 'sel' : ''} ${mine.has(z.id) ? 'mine' : ''} ${z.status}" data-act="map-zone" data-id="${z.id}" role="button" tabindex="0"
       aria-label="${esc(z.name)}, ${esc(THREAT_NAMES[z.threat])} threat${active ? ', ' + plural(active, 'active mission') : ''}">
-      <title>${esc(z.name)} · ${esc(THREAT_NAMES[z.threat])} threat</title>
+      <title>${esc(z.name)} · ${fl ? `strength ${flStr} · ${esc(FLEET_READY[fl.readiness || 'ready'] || '')}` : esc(THREAT_NAMES[z.threat]) + ' threat'}</title>
       ${showArea ? `<ellipse class="area" cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" vector-effect="non-scaling-stroke"/>` : ''}
       ${isSel ? `<ellipse class="ring" cx="${cx}" cy="${cy}" rx="${rx + 4 * k}" ry="${ry + 4 * k}" vector-effect="non-scaling-stroke"/>` : ''}
       <path class="pin" d="${pin}" vector-effect="non-scaling-stroke"/>
+      ${fl ? `<rect class="fl-bg" x="${cx - s * 1.7}" y="${cy + s * 1.15}" width="${s * 3.4}" height="${s * .55}"/><rect class="fl-str" x="${cx - s * 1.7}" y="${cy + s * 1.15}" width="${s * 3.4 * flStr / 100}" height="${s * .55}"/>` : ''}
       ${active ? `<circle class="badge" cx="${cx + s * 1.4}" cy="${cy - s * 1.4}" r="${s * .9}"/><text class="badge-t" x="${cx + s * 1.4}" y="${cy - s * 1.4 + s * .38}" font-size="${s * 1.1}" text-anchor="middle">${active}</text>` : ''}
       ${lb ? `<text class="lbl" x="${lb.x}" y="${lb.y}" text-anchor="${lb.anchor}" font-size="${fs}" stroke-width="${3 * k}">${esc(z.name)}</text>` : `<text class="lbl peek" x="${cx + s * 1.8}" y="${cy + s * .5}" font-size="${fs}" stroke-width="${3 * k}" aria-hidden="true">${esc(z.name)}</text>`}</g>`;
   }).join('');
@@ -3013,7 +3016,7 @@ function mapHtml(mode) {
         <button class="btn" data-act="front-undo" ${m.drawing.points.length ? '' : 'disabled'}>Undo point</button><button class="btn ghost" data-act="front-cancel">Cancel</button>` : ''}</div>
     <div class="map-legend"><span><i class="lg t5"></i>Extreme</span><span><i class="lg t4"></i>High</span><span><i class="lg t3"></i>Moderate</span><span><i class="lg t1"></i>Low</span>
       <span><i class="k-zone"></i>BETA territory</span><span><i class="k-front"></i>Front line</span>
-      ${[['hive', '◆ Hives'], ['front', '● Combat zones'], ['base', '■ Bases'], ['patrol', '▲ Patrols']].map(([t, l]) => `<button class="lg-toggle ${hide[t] ? 'off' : ''}" data-act="map-type" data-t="${t}" aria-pressed="${!hide[t]}">${l}</button>`).join('')}
+      ${[['hive', '◆ Hives'], ['front', '● Combat zones'], ['base', '■ Bases'], ['patrol', '▲ Patrols'], ['fleet', '⛴ Fleets']].map(([t, l]) => `<button class="lg-toggle ${hide[t] ? 'off' : ''}" data-act="map-type" data-t="${t}" aria-pressed="${!hide[t]}">${l}</button>`).join('')}
       ${scaleBarHtml(vb, k)}</div></div>`;
 }
 
@@ -3297,7 +3300,7 @@ route('missions', 'Missions', function () {
   const z = get('zones', S.ui.map.sel);
   return `<div class="page-head"><div><h1>Missions</h1><p>Briefings for the operations you’re assigned to, and the theatre they’re in.</p></div></div>
     <div class="plate ops">${mapHtml('player')}
-      ${z ? `<div class="zone-info"><b>${esc(z.name)}</b> · ${esc(THREAT_NAMES[z.threat])} threat${z.factionId ? ' · held by ' + esc(facName(z.factionId)) : ''}<div class="small muted">${esc(z.description || '')}</div></div>` : '<p class="small muted" style="margin:8px 0 0">Select a zone for details. Zones with your missions are outlined.</p>'}</div>
+      ${z ? `<div class="zone-info"><b>${esc(z.name)}</b> · ${esc(THREAT_NAMES[z.threat])} threat${z.factionId ? ' · held by ' + esc(facName(z.factionId)) : ''}<div class="small muted">${esc(z.description || '')}</div>${fleetInfoHtml(z)}</div>` : '<p class="small muted" style="margin:8px 0 0">Select a zone for details. Zones with your missions are outlined.</p>'}</div>
     <h2 class="section-h">Current</h2>${open.length ? `<div class="grid g2">${open.map(m => missionCard(m, true)).join('')}</div>` : '<div class="empty">No missions assigned right now.</div>'}
     ${done.length ? `<h2 class="section-h">Previous</h2><div class="grid g2">${done.map(m => missionCard(m, true)).join('')}</div>` : ''}`;
 });
@@ -10935,6 +10938,480 @@ AFTER_RENDER.push(() => {
   shell.classList.toggle('has-bottomnav', !!html);
 });
 
+
+/* ---------------------------------------------------------------- TSF art panes, player visibility and the request window
+   GM TSF Database and the TSF catalogue show frames as art cards grouped by generation.
+   Players never see restricted or GM-only frames, except ones they already own.
+   "Request TSF allocation" opens a window of frame cards instead of a drop-down. */
+Object.assign(GEN_SHORT, { q4: 'Quasi-4th gen', '4': '4th gen', q5: 'Quasi-5th gen', '5': '5th gen' });
+
+function ownsVariant(vid) { return !!S.pilotId && list('tsfs').some(t => t.ownerPilotId === S.pilotId && t.variantId === vid); }
+variantVisible = function (v) {
+  if (!v) return false;
+  if (S.isGm) return v.publishStatus === 'published';
+  if (v.publishStatus !== 'published') return false;
+  if (v.availability === 'gm_only' || v.availability === 'restricted') return ownsVariant(v.id);
+  return true;
+};
+/* What a player may put in an allocation request: published, public, still in production. */
+function variantRequestable(v) {
+  return !!v && v.publishStatus === 'published' && v.availability === 'public' && v.productionStatus !== 'out_of_production';
+}
+
+const genSortOf = id => ((vocab('generations').find(g => g.id === id) || {}).sort) || 0;
+const byGenThenName = (a, b) => (genSortOf(a.generationId) - genSortOf(b.generationId)) || String(a.designation + a.code).localeCompare(String(b.designation + b.code), undefined, { numeric: true });
+
+/* Artwork: the variant's own, else any published sibling's, else the workshop frame drawing, else a placeholder. */
+function variantArtId(v) {
+  if (!v) return null;
+  if (v.artAssetId) return v.artAssetId;
+  const sib = list('variants').filter(x => x.modelId === v.modelId && x.artAssetId && (S.isGm || x.publishStatus === 'published'))
+    .sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0))[0];
+  return sib ? sib.artAssetId : null;
+}
+function tsfArtHtml(v, alt) {
+  const a = variantArtId(v), frame = get('settings', 'frame');
+  if (a) return `<img src="${ASSET_BASE}${esc(a)}" alt="${esc(alt || '')}" data-fallback="1" loading="lazy">`;
+  if (frame && frame.assetId) return `<img class="frame-art" src="${ASSET_BASE}${esc(frame.assetId)}" alt="" data-fallback="1" loading="lazy">`;
+  return `<span class="tsf-noart">${insignia(56, true)}<span class="small muted">No artwork yet</span></span>`;
+}
+
+const TSF_STAT_ABBR = { 'tsf.mobility': 'MOB', 'tsf.firepower': 'FPW', 'tsf.defence': 'DEF', 'tsf.accuracy': 'ACC', 'tsf.handling': 'HDL', 'tsf.durability': 'DUR' };
+function tsfStatBars(stats) {
+  return `<span class="tsf-stats">${statDefs('tsf').map(s => {
+    const n = Number((stats || {})[s.code]) || 0;
+    return `<span class="tsf-stat" title="${esc(s.name)}: ${n}"><b>${esc(TSF_STAT_ABBR[s.code] || s.name.slice(0, 3).toUpperCase())}</b><i><em style="width:${Math.max(0, Math.min(100, n))}%"></em></i><span>${n}</span></span>`;
+  }).join('')}</span>`;
+}
+const PROD_TEXT = { prototype: 'Prototype', limited: 'Limited production', production: 'In production', out_of_production: 'Out of production' };
+const AVAIL_LABEL = { public: 'Public', restricted: 'Restricted', gm_only: 'GM only' };
+
+/* One frame card. attrs: the button's data-* string; extra: chips/notes under the title. */
+function tsfCardHtml(v, o) {
+  o = o || {};
+  const title = `${v.designation || ''} ${v.modelName || ''}`.trim();
+  const sub = [v.code && v.code !== 'STD' ? v.name : null, genShort(v.generationId), className(v.classificationId)].filter(Boolean).join(' · ');
+  return `<button type="button" class="tsf-card${o.selected ? ' on' : ''}" ${o.attrs || ''} ${o.disabled ? 'disabled' : ''} ${o.selected ? 'aria-pressed="true"' : ''}>
+    <span class="tsf-art">${tsfArtHtml(v, title)}${o.badge ? `<span class="tsf-badge">${o.badge}</span>` : ''}</span>
+    <span class="tsf-body"><span class="tsf-title"><b>${esc(title)}</b>${o.ref ? `<span class="ref">${o.ref}</span>` : ''}</span>
+      <span class="small muted">${esc(sub)}</span><span class="small muted">${esc(mfrName(v.primeManufacturerId))}</span>
+      ${o.stats === false ? '' : tsfStatBars(v.stats)}
+      <span class="tsf-chips">${o.chips || ''}</span>${o.note ? `<span class="small why-inline">${esc(o.note)}</span>` : ''}</span></button>`;
+}
+function tsfGroupedGrid(items, cardFn) {
+  const groups = [];
+  items.forEach(v => { const g = v.generationId || '–'; let grp = groups.find(x => x.g === g); if (!grp) groups.push(grp = { g, rows: [] }); grp.rows.push(v); });
+  return groups.map(grp => `<section class="tsf-gen"><h2 class="tsf-gen-head">${esc(genName(grp.g))} <span class="count">${grp.rows.length}</span></h2>
+    <div class="tsf-grid">${grp.rows.map(cardFn).join('')}</div></section>`).join('');
+}
+function tsfFilterBar(base, f, idp, opts) {
+  const s = (key, label, list_) => `<label class="field">${label}<select id="${idp}-${key}" data-bind="${base}/${key}" data-rerender="1"><option value="">Any</option>${list_.map(([v, l]) => `<option value="${esc(v)}" ${f[key] === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>`;
+  return `<div class="filters"><label class="field">Search<input type="text" id="${idp}-q" data-bind="${base}/q" data-rerender="1" value="${esc(f.q || '')}" placeholder="Designation, name or maker"></label>
+    ${s('gen', 'Generation', (opts.gens || vocab('generations')).map(g => [g.id, g.name]))}
+    ${s('cls', 'Role', vocab('classifications').map(c => [c.id, c.name]))}${opts.extra || ''}</div>`;
+}
+const tsfMatches = (v, f) => {
+  const q = String(f.q || '').toLowerCase().trim();
+  return (!q || `${v.designation} ${v.modelName} ${v.name} ${v.code} ${mfrName(v.primeManufacturerId)}`.toLowerCase().indexOf(q) !== -1)
+    && (!f.gen || v.generationId === f.gen) && (!f.cls || v.classificationId === f.cls);
+};
+const usedGens = vs => vocab('generations').filter(g => vs.some(v => v.generationId === g.id));
+
+/* ---------- GM: TSF Database as art panes (table view kept as a toggle) */
+const _tsfDbView = ROUTES['tsf-db'].view;
+ROUTES['tsf-db'].view = function () {
+  const f = S.ui.tdb || (S.ui.tdb = { view: 'cards', q: '', gen: '', cls: '', av: '', src: '' });
+  const toggle = `<div class="seg" role="group" aria-label="Layout"><button class="btn ${f.view === 'cards' ? 'primary' : 'ghost'}" data-act="set-path" data-path="ui/tdb/view" data-value="cards">Art panes</button><button class="btn ${f.view === 'table' ? 'primary' : 'ghost'}" data-act="set-path" data-path="ui/tdb/view" data-value="table">Table</button></div>`;
+  if (f.view === 'table') {
+    const html = _tsfDbView();
+    const at = html.indexOf('<div class="scroll-x"><table class="data"><thead><tr><th>Model</th>');
+    return at === -1 ? html : html.slice(0, at) + `<div class="filters">${toggle}</div>` + html.slice(at);
+  }
+  const inService = vid => list('tsfs').filter(t => t.variantId === vid).length;
+  const models = list('models').map(m => {
+    const vs = list('variants').filter(v => v.modelId === m.id);
+    const dv = vs.find(v => v.isDefault) || vs[0];
+    const ev = dv ? effVariant(dv.id) : null;
+    return { m, vs, ev, generationId: m.generationId, classificationId: m.classificationId, designation: m.designation, code: '' };
+  }).filter(x => x.ev);
+  const shown = models.filter(x => tsfMatches(Object.assign({}, x.ev, { generationId: x.m.generationId, classificationId: x.m.classificationId, name: x.vs.map(v => v.name).join(' ') }), f)
+      && (!f.av || x.m.availability === f.av || x.vs.some(v => v.availability === f.av)) && (!f.src || x.m.origin === f.src))
+    .sort(byGenThenName);
+  const extra = `<label class="field">Availability<select id="tdb-av" data-bind="ui/tdb/av" data-rerender="1"><option value="">Any</option>${AVAIL_OPTS.map(([v, l]) => `<option value="${v}" ${f.av === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    <label class="field">Source<select id="tdb-src" data-bind="ui/tdb/src" data-rerender="1"><option value="">Any</option><option value="canon" ${f.src === 'canon' ? 'selected' : ''}>Canon</option><option value="original" ${f.src === 'original' ? 'selected' : ''}>Original</option></select></label>${toggle}`;
+  const card = x => {
+    const m = x.m, svc = x.vs.reduce((n, v) => n + inService(v.id), 0);
+    const hidden = m.availability !== 'public' ? '' : x.vs.filter(v => v.availability && v.availability !== 'public').length;
+    const ev = Object.assign({}, x.ev, { code: 'STD', name: '', generationId: m.generationId, classificationId: m.classificationId });
+    return tsfCardHtml(ev, {
+      attrs: `data-act="open-drawer" data-type="model-edit" data-id="${m.id}"`, ref: esc(REF.model ? REF.model(m) : ''),
+      badge: m.availability !== 'public' ? esc(AVAIL_LABEL[m.availability] || m.availability) : '',
+      chips: `${chip(m.availability, AVAIL_LABEL[m.availability])} ${m.publishStatus !== 'published' ? chip(m.publishStatus) : ''} <span class="chip">${esc(PROD_TEXT[m.productionStatus] || m.productionStatus || '')}</span>
+        <span class="chip">${x.vs.length} variant${x.vs.length === 1 ? '' : 's'}: ${esc(x.vs.map(v => v.code).join(', '))}</span>${svc ? `<span class="chip ok">${svc} in service</span>` : ''}${m.origin === 'original' ? '<span class="chip acc">Original</span>' : ''}`,
+      note: hidden ? `${hidden} variant${hidden === 1 ? ' is' : 's are'} hidden from players` : (m.availability !== 'public' ? 'Hidden from players' : '')
+    });
+  };
+  return `<div class="page-head"><div><h1>TSF Database</h1><p>Master records for every model and variant. Restricted and GM-only frames are hidden from players. Select a pane to edit the model, its variants and artwork.</p></div>
+    <button class="btn primary" data-act="open-drawer" data-type="model-new">New model</button></div>
+    ${tsfFilterBar('ui/tdb', f, 'tdb', { gens: usedGens(models.map(x => x.m)), extra })}
+    <p class="small muted">${shown.length} of ${models.length} models · ${models.filter(x => !variantArtId(x.ev)).length} without artwork (upload it on the Artwork and BETA Fronts page or in the model record).</p>
+    ${shown.length ? tsfGroupedGrid(shown, card) : '<div class="empty">No models match these filters.</div>'}
+    <div style="margin-top:18px">${framePanel()}</div>`;
+};
+
+/* ---------- TSF catalogue as art cards (players and GM) */
+const _catalogueViewCards = catalogueView;
+catalogueView = function (mode) {
+  if (mode !== 'models') return _catalogueViewCards(mode);
+  const f = S.ui.tcat || (S.ui.tcat = { q: '', gen: '', cls: '' });
+  const all = list('variants').map(v => effVariant(v.id)).filter(variantVisible).sort(byGenThenName);
+  const shown = all.filter(v => tsfMatches(v, f));
+  const canAsk = !S.isGm && S.pilotId && !S.readOnly;
+  const card = v => tsfCardHtml(v, {
+    attrs: `data-act="open-drawer" data-type="variant" data-id="${v.id}"`, ref: esc(REF.model ? REF.model(v.model) : ''),
+    badge: ownsVariant(v.id) ? 'In your hangar' : '',
+    chips: `${S.isGm || v.availability !== 'public' ? chip(v.availability, AVAIL_LABEL[v.availability]) : ''}<span class="chip ${v.productionStatus === 'out_of_production' ? '' : v.productionStatus === 'prototype' ? 'warn' : ''}">${esc(PROD_TEXT[v.productionStatus] || '')}</span>`
+  });
+  return `<div class="page-head"><div><h1>Equipment Catalogue</h1><p>TSF models and variants cleared for your organisation. Select a frame for its specification.</p></div>
+    ${canAsk ? `<button class="btn primary" data-act="open-drawer" data-type="acquire">Request TSF allocation</button>` : ''}</div>
+    ${tsfFilterBar('ui/tcat', f, 'tcat', { gens: usedGens(all) })}
+    ${shown.length ? tsfGroupedGrid(shown, card) : '<div class="empty">No frames match these filters.</div>'}`;
+};
+
+/* ---------- specification drawer: sibling art fallback; only requestable frames offer a request */
+const _variantDrawerCards = DRAWERS.variant;
+DRAWERS_REG('variant', d => {
+  let html = _variantDrawerCards(d);
+  const v = effVariant(d.id);
+  if (!v) return html;
+  if (!v.artAssetId) { const a = variantArtId(v); if (a) html = html.replace('<div class="body">', '<div class="body">' + artHtml(a, v.modelName)); }
+  if (!S.isGm && !variantRequestable(v)) {
+    const why = v.productionStatus === 'out_of_production' ? 'Out of production: cannot be requested' : 'Allocated by Command Authority only';
+    html = html.replace(/<footer><button class="btn primary" data-act="open-drawer" data-type="acquire"[^>]*>Request allocation<\/button><\/footer>/, `<footer><span class="chip">${why}</span></footer>`);
+  }
+  return html;
+});
+
+/* ---------- the request window */
+DRAWERS_REG('acquire', function (d) {
+  const f = S.ui.form.acquire || (S.ui.form.acquire = { variantId: '', note: '', q: '', gen: '', cls: '' });
+  if (d.variant && !d._applied) { d._applied = true; f.variantId = d.variant; }
+  const pool = list('variants').map(v => effVariant(v.id)).filter(v => v && v.publishStatus === 'published' && v.availability === 'public').sort(byGenThenName);
+  const oopCount = pool.filter(v => v.productionStatus === 'out_of_production').length;
+  const shown = pool.filter(v => tsfMatches(v, f) && (f.oop || v.productionStatus !== 'out_of_production'));
+  const sel = pool.find(v => v.id === f.variantId && variantRequestable(v)) || null;
+  const pending = list('approvals').filter(a => a.type === 'acquisition' && a.pilotId === S.pilotId && (a.status === 'pending' || a.status === 'on_hold')).map(a => a.variantId);
+  const card = v => {
+    const oop = v.productionStatus === 'out_of_production';
+    return tsfCardHtml(v, {
+      attrs: oop ? '' : `data-act="acq-pick" data-id="${v.id}"`, disabled: oop, selected: sel && sel.id === v.id,
+      badge: sel && sel.id === v.id ? 'Selected' : ownsVariant(v.id) ? 'In your hangar' : '',
+      chips: `<span class="chip ${v.productionStatus === 'prototype' ? 'warn' : ''}">${esc(PROD_TEXT[v.productionStatus] || '')}</span>${pending.indexOf(v.id) !== -1 ? '<span class="chip warn">Request pending</span>' : ''}`,
+      note: oop ? 'Out of production: cannot be requested' : v.productionStatus === 'prototype' ? 'Experimental airframe: needs Command Authority approval' : ''
+    });
+  };
+  const summary = sel ? `<div class="tsf-choice"><span class="tsf-art">${tsfArtHtml(sel, sel.modelName)}</span>
+      <div class="tsf-choice-body"><p class="kicker">SELECTED FRAME</p><h3>${esc(sel.designation + ' ' + sel.modelName)}${sel.code !== 'STD' ? ` <span class="muted small">${esc(sel.name)}</span>` : ''}</h3>
+      <p class="small muted">${esc([genName(sel.generationId), className(sel.classificationId), mfrName(sel.primeManufacturerId)].join(' · '))}</p>${tsfStatBars(sel.stats)}
+      ${sel.lore ? `<p class="small tsf-lore">${esc(sel.lore)}</p>` : ''}</div>
+      <label class="field tsf-reason">Reason for the request<textarea id="acq-note" data-bind="ui/form/acquire/note" placeholder="Why this frame, and what you will use it for">${esc(f.note || '')}</textarea></label></div>`
+    : `<p class="small muted" style="margin:0">Select a frame card to continue.</p>`;
+  return `<div class="tsf-window"></div><header><div><p class="kicker">ENGINEERING DIVISION · ALLOCATION REQUEST</p><h2>Request TSF allocation</h2>
+      <p>Choose a frame. Command Authority reviews every request; prototypes need its approval.</p></div><button class="btn ghost" data-act="close-drawer">Close</button></header>
+    <div class="body">${tsfFilterBar('ui/form/acquire', f, 'acq', { gens: usedGens(pool) })}
+      <p class="small muted">${shown.length} of ${pool.length} frames shown. Restricted and GM-only frames are allocated by Command Authority directly.${oopCount ? ` <button class="btn ghost" data-act="set-path" data-path="ui/form/acquire/oop" data-value="${f.oop ? '' : '1'}">${f.oop ? 'Hide' : 'Show'} ${oopCount} out-of-production frame${oopCount === 1 ? '' : 's'}</button>` : ''}</p>
+      ${shown.length ? tsfGroupedGrid(shown, card) : '<div class="empty">No frames match these filters.</div>'}</div>
+    <footer class="tsf-foot">${summary}<div class="btn-row">${sel ? `<button class="btn" data-act="open-drawer" data-type="variant" data-id="${sel.id}">View specification</button>` : ''}
+      <button class="btn primary" data-act="acquire-submit" ${sel ? '' : 'disabled'}>Submit allocation request</button></div></footer>`;
+});
+ACTIONS['acq-pick'] = d => { const f = S.ui.form.acquire; if (!f) return; f.variantId = f.variantId === d.id ? '' : d.id; render(); };
+const _acquireSubmitCards = ACTIONS['acquire-submit'];
+ACTIONS['acquire-submit'] = d => {
+  const f = S.ui.form.acquire, v = f && f.variantId ? effVariant(f.variantId) : null;
+  if (v && !S.isGm && !variantRequestable(v)) { toast(v.productionStatus === 'out_of_production' ? `${v.designation} ${v.modelName} is out of production and cannot be requested.` : 'That frame is allocated by Command Authority only.', true); return; }
+  return _acquireSubmitCards(d);
+};
+
+/* ---------------------------------------------------------------- naval fleets on the war map
+   A fleet is a zone of type "fleet" carrying a `fleet` record: flagship, home port, readiness,
+   strength (0-100), embarked TSFs, task and ship groups. Zones need no new database table. */
+const FLEET_READY = { ready: 'Ready', underway: 'Underway', engaged: 'Engaged', refit: 'In refit' };
+const FLEET_READY_CHIP = { ready: 'ok', underway: 'acc', engaged: 'bad', refit: 'warn' };
+function fleetGroupsText(groups) { return (groups || []).map(g => `${g.n} × ${g.cls}`).join('\n'); }
+function parseFleetGroups(text) {
+  return String(text || '').split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+    const m = l.match(/^(\d+)\s*[×x*]?\s*(.+)$/i);
+    return m ? { n: Number(m[1]), cls: m[2].trim() } : { n: 1, cls: l };
+  });
+}
+function fleetShips(f) { return (f.groups || []).reduce((n, g) => n + (Number(g.n) || 0), 0); }
+function fleetInfoHtml(z) {
+  if (!z || z.type !== 'fleet' || !z.fleet) return '';
+  const f = z.fleet, home = get('zones', f.homeZoneId), str = Math.max(0, Math.min(100, Number(f.strength) || 0));
+  return `<div class="fleet-info">${barRow('Fleet strength', str, 100, '', str >= 70 ? 'p-open' : str >= 45 ? 'p-threatened' : 'p-severed')}
+    <p class="small" style="margin:4px 0">${chip(FLEET_READY_CHIP[f.readiness] || '', FLEET_READY[f.readiness] || f.readiness || 'Ready')}
+      ${f.flagship ? ` Flagship <b>${esc(f.flagship)}</b>` : ''}${home ? ` · home port ${esc(home.name)}` : ''}</p>
+    <p class="small" style="margin:4px 0">${plural(fleetShips(f), 'ship')}${f.tsfs ? ` · ${f.tsfs} TSFs embarked` : ''}${(f.groups || []).length ? ': ' + esc(f.groups.map(g => `${g.n} ${g.cls}`).join(', ')) : ''}</p>
+    ${f.task ? `<p class="small muted" style="margin:4px 0">${esc(f.task)}</p>` : ''}</div>`;
+}
+function fleetZones() { return list('zones').filter(z => z.type === 'fleet' && z.status !== 'archived' && z.fleet); }
+
+/* GM zone editor: fleet fields when the type is "fleet"; changing the type redraws the form. */
+const _zoneEditFleet = DRAWERS['zone-edit'];
+DRAWERS_REG('zone-edit', function (d) {
+  const e = S.ui.edit, z = e && e.zone;
+  if (z && z.type === 'fleet') {
+    z.fleet = z.fleet || { flagship: '', homeZoneId: '', readiness: 'ready', strength: 60, tsfs: 0, task: '', groups: [] };
+    if (z.fleet.groupsText == null) z.fleet.groupsText = fleetGroupsText(z.fleet.groups);
+  }
+  let html = _zoneEditFleet(d).replace('id="z-type" data-bind=', 'id="z-type" data-rerender="1" data-bind=');
+  if (!z || z.type !== 'fleet') return html;
+  const f = z.fleet, p = 'ui/edit/zone/fleet';
+  const bases = list('zones').filter(x => x.type === 'base' && x.status !== 'archived').sort((a, b) => a.name.localeCompare(b.name)).map(x => [x.id, x.name]);
+  const fields = `<label class="field">Flagship${txt('z-fl-flag', p + '/flagship', f.flagship, 'e.g. Shinano')}</label>
+    <label class="field">Home port${sel('z-fl-home', p + '/homeZoneId', f.homeZoneId || '', bases, 'None')}</label>
+    <label class="field">Readiness${sel('z-fl-ready', p + '/readiness', f.readiness || 'ready', Object.keys(FLEET_READY).map(k => [k, FLEET_READY[k]]))}</label>
+    <label class="field">Strength (0–100)${num('z-fl-str', p + '/strength', f.strength)}</label>
+    <label class="field">TSFs embarked${num('z-fl-tsf', p + '/tsfs', f.tsfs)}</label>
+    <label class="field wide">Task${txt('z-fl-task', p + '/task', f.task, 'What the fleet is doing')}</label>
+    <label class="field wide">Ships, one group per line<textarea id="z-fl-groups" data-bind="${p}/groupsText" placeholder="2 × TSF carrier&#10;4 × Destroyer">${esc(f.groupsText || '')}</textarea></label>
+    <p class="small muted wide" style="margin:0">Position is the latitude and longitude above; the radius is the fleet's operating area. The threat level is the danger where it is.</p>`;
+  return html.replace('<label class="field wide">Description', fields + '<label class="field wide">Description');
+});
+const _zoneSaveFleet = ACTIONS['zone-save'];
+ACTIONS['zone-save'] = d => {
+  const z = S.ui.edit && S.ui.edit.zone;
+  if (z && z.type === 'fleet' && z.fleet) {
+    const f = z.fleet;
+    if (f.groupsText != null) { f.groups = parseFleetGroups(f.groupsText); delete f.groupsText; }
+    f.strength = Math.max(0, Math.min(100, Number(f.strength) || 0)); f.tsfs = Math.max(0, Number(f.tsfs) || 0); f.homeZoneId = f.homeZoneId || null;
+  }
+  const r = _zoneSaveFleet(d);
+  if (z && z.fleet && z.fleet.groupsText == null) z.fleet.groupsText = fleetGroupsText(z.fleet.groups);
+  return r;
+};
+
+/* Campaign map: a Fleets layer and a naval order of battle. */
+MAP_LAYERS.push(['fleets', 'Fleets']);
+const _campaignViewFleets = ROUTES.campaign.view;
+ROUTES.campaign.view = function () {
+  S.ui.layers = Object.assign({ fronts: true, zones: true, supply: true, units: true, fleets: true }, S.ui.layers || {});
+  if (S.ui.layers.fleets === undefined) S.ui.layers.fleets = true;
+  const html = _campaignViewFleets();
+  const fl = fleetZones().sort((a, b) => (Number(b.fleet.strength) || 0) - (Number(a.fleet.strength) || 0));
+  if (!fl.length) return html;
+  const ships = fl.reduce((n, z) => n + fleetShips(z.fleet), 0), tsfs = fl.reduce((n, z) => n + (Number(z.fleet.tsfs) || 0), 0);
+  const rows = fl.map(z => { const f = z.fleet, str = Number(f.strength) || 0;
+    return `<button class="link-row fleet-row" data-act="zone-focus" data-id="${z.id}">${barRow(z.name, str, 100, '', str >= 70 ? 'p-open' : str >= 45 ? 'p-threatened' : 'p-severed')}
+      <span class="small muted">${chip(FLEET_READY_CHIP[f.readiness] || '', FLEET_READY[f.readiness] || 'Ready')} ${esc(facName(z.factionId))} · ${plural(fleetShips(f), 'ship')}${f.tsfs ? ` · ${f.tsfs} TSFs` : ''}${f.task ? ' · ' + esc(f.task) : ''}</span></button>`; }).join('');
+  const sel = get('zones', S.ui.map.sel);
+  const panel = `<section class="plate" style="margin-top:12px"><h2>Naval order of battle <span class="sub">${plural(fl.length, 'fleet')} · ${plural(ships, 'ship')} · ${tsfs} TSFs embarked</span></h2>
+    ${sel && sel.type === 'fleet' ? `<div class="zone-info" style="margin-bottom:10px"><b>${esc(sel.name)}</b><div class="small muted">${esc(sel.description || '')}</div>${fleetInfoHtml(sel)}</div>` : ''}
+    <div class="fleet-list">${rows}</div></section>`;
+  return html + panel;
+};
+
+/* ---------------------------------------------------------------- export data for editing (Administrator)
+   Download chosen parts of the database as a backup-format JSON file. Edit it, then load it back with
+   "Restore from backup"; the file asks for "Update only the fields in this file" by default. */
+const EXPORT_BUNDLES = [
+  ['characters', 'Characters', 'Personnel files and their experience log', ['pilots', 'xplog']],
+  ['tsfs', 'Characters’ TSFs and loadouts', 'Machines, saved configurations and service history', ['tsfs', 'configs', 'service']],
+  ['units', 'Units and crews', 'Battalions, squadrons, flights and ground crews', ['units', 'crews', 'unitlog']],
+  ['map', 'War map', 'Zones, bases, fleets, BETA fronts and supply lines', ['zones', 'fronts', 'supplylines']],
+  ['ops', 'Missions and reports', 'Missions, engagements and situation reports', ['missions', 'engagements', 'sitreps']],
+  ['catalogue', 'TSF catalogue', 'Models, variants and equipment', ['models', 'variants', 'equipment']],
+  ['world', 'Factions and manufacturers', '', ['factions', 'manufacturers']],
+  ['rules', 'Rules, vocabulary and settings', '', ['rules', 'vocab', 'settings']]
+];
+const PILOT_LINKED = { pilots: r => r.id, xplog: r => r.pilotId, tsfs: r => r.ownerPilotId, configs: r => { const t = get('tsfs', r.tsfId); return r.pilotId || (t && t.ownerPilotId); }, service: r => { const t = get('tsfs', r.tsfId); return t && t.ownerPilotId; } };
+function exportState() { return S.ui.exp || (S.ui.exp = { bundles: { characters: true }, cols: {}, advanced: false, onlyPilots: false, pilots: {} }); }
+function exportCollections() {
+  const x = exportState(), set = new Set();
+  EXPORT_BUNDLES.forEach(([k, , , cols]) => { if (x.bundles[k]) cols.forEach(c => set.add(c)); });
+  if (x.advanced) Object.keys(x.cols).forEach(c => { if (x.cols[c]) set.add(c); });
+  return COLLECTIONS.filter(c => set.has(c) && c !== 'audit');
+}
+function exportRecords(c) {
+  const x = exportState(), recs = S.store[c] || {}, pick = PILOT_LINKED[c];
+  const ids = Object.keys(recs).filter(id => {
+    if (!x.onlyPilots || !pick) return true;
+    const pid = pick(Object.assign({ id }, recs[id]));
+    return !!pid && !!x.pilots[pid];
+  });
+  const out = {}; ids.forEach(id => { out[id] = recs[id]; });
+  return out;
+}
+function exportPanel() {
+  const x = exportState(), cols = exportCollections();
+  const counts = cols.map(c => [c, Object.keys(exportRecords(c)).length]), total = counts.reduce((s, r) => s + r[1], 0);
+  const pilots = list('pilots').sort((a, b) => String(a.fullName || a.callsign || '').localeCompare(String(b.fullName || b.callsign || '')));
+  const linked = cols.some(c => PILOT_LINKED[c]);
+  return `<div class="plate"><h2>Export data for editing</h2>
+    <p class="small muted" style="margin-top:0">Download part of the database as JSON, edit it in any text editor, then load it back below with “Restore from backup”. The file is set to “Update only the fields in this file”, so fields you remove are left alone, not deleted.</p>
+    <div class="checks export-checks">${EXPORT_BUNDLES.map(([k, l, hint, cs]) => `<label><input type="checkbox" id="exp-${k}" data-act="exp-bundle" data-k="${k}" ${x.bundles[k] ? 'checked' : ''}>
+      <span><b>${esc(l)}</b>${hint ? ` <span class="small muted">· ${esc(hint)}</span>` : ''}<span class="small muted ref" style="display:block">${cs.join(', ')}</span></span></label>`).join('')}</div>
+    ${linked ? `<div class="checks" style="margin-top:8px"><label><input type="checkbox" id="exp-only" data-act="exp-only" ${x.onlyPilots ? 'checked' : ''}> Only chosen characters (and the TSFs, configurations and logs that belong to them)</label></div>
+      ${x.onlyPilots ? `<div class="checks export-pilots">${pilots.map(p => `<label><input type="checkbox" id="exp-p-${p.id}" data-act="exp-pilot" data-id="${p.id}" ${x.pilots[p.id] ? 'checked' : ''}> ${esc(p.fullName || 'Unnamed')}${p.callsign ? ` <span class="muted">“${esc(p.callsign)}”</span>` : ''}</label>`).join('') || '<span class="small muted">No characters yet.</span>'}</div>` : ''}` : ''}
+    <details style="margin-top:8px" ${x.advanced ? 'open' : ''}><summary class="small">Other collections</summary>
+      <div class="checks export-cols">${COLLECTIONS.filter(c => c !== 'audit').map(c => `<label><input type="checkbox" id="exp-c-${c}" data-act="exp-col" data-c="${c}" ${x.advanced && x.cols[c] ? 'checked' : ''}> <span class="ref">${esc(c)}</span></label>`).join('')}</div></details>
+    <p class="small" style="margin:10px 0 6px">${cols.length ? `<b>${total.toLocaleString('en-GB')}</b> records from ${counts.map(([c, n]) => `<span class="ref">${esc(c)}</span> ${n}`).join(' · ')}` : 'Choose something to export.'}</p>
+    <div class="btn-row">${S.downloads ? `<button class="btn primary" data-act="exp-run" ${total ? '' : 'disabled'}>${icon('download', 16)} Download JSON for editing</button>` : '<span class="small muted">Downloads are not available in this view.</span>'}</div></div>`;
+}
+ACTIONS['exp-bundle'] = (d, el) => { exportState().bundles[d.k] = el.checked; render(); };
+ACTIONS['exp-col'] = (d, el) => { const x = exportState(); x.cols[d.c] = el.checked; x.advanced = Object.keys(x.cols).some(c => x.cols[c]); render(); };
+ACTIONS['exp-only'] = (d, el) => { exportState().onlyPilots = el.checked; render(); };
+ACTIONS['exp-pilot'] = (d, el) => { exportState().pilots[d.id] = el.checked; render(); };
+ACTIONS['exp-run'] = () => {
+  const x = exportState(), cols = exportCollections();
+  if (!S.downloads || !cols.length) return;
+  const collections = {}; cols.forEach(c => { const r = exportRecords(c); if (Object.keys(r).length) collections[c] = r; });
+  const parts = EXPORT_BUNDLES.filter(([k]) => x.bundles[k]).map(([k]) => k).concat(x.advanced ? Object.keys(x.cols).filter(c => x.cols[c]) : []);
+  const n = Object.keys(collections).reduce((s, c) => s + Object.keys(collections[c]).length, 0);
+  const data = JSON.stringify({ system: BRAND.code, exportedAt: nowIso(), importMode: 'merge',
+    note: 'Exported for editing. Change values, keep each record\u2019s id (the key) the same, then load this file with Restore from backup. Removing a record or field here does not delete it.',
+    collections }, null, 2);
+  const name = `untsf-comm-${parts.slice(0, 3).join('-') || 'export'}${parts.length > 3 ? '-etc' : ''}${x.onlyPilots ? '-selected' : ''}-${nowIso().slice(0, 10)}.json`;
+  S.downloads.save({ filename: name, data })
+    .then(() => { toast(`Exported ${plural(n, 'record')}.`); Data.audit('system.export', 'system', 'export', `Exported ${n} records for editing (${Object.keys(collections).join(', ')})`); })
+    .catch(err => { if (!err || err.code !== 'declined') toast('The export could not be saved: ' + ((err && err.message) || 'unknown error'), true); });
+};
+const _adminExportView = ROUTES.admin.view;
+ROUTES.admin.view = function () {
+  const html = _adminExportView.apply(this, arguments), at = '<div class="plate"><h2>Restore from backup</h2>';
+  return html.indexOf(at) === -1 ? html + exportPanel() : html.replace(at, exportPanel() + at);
+};
+
+/* ---------------------------------------------------------------- record-level export: a picker window shared by
+   System Administration and every GM section. Sections open it with their current filters already applied. */
+const _pagedXp = paged;
+paged = function (items, key, size) { (S.ui.lastList || (S.ui.lastList = {}))[key] = items; return _pagedXp(items, key, size); };
+const xpIds = arr => (arr || []).map(r => r.id);
+function xpRecLabel(c, r) {
+  if (c === 'pilots') return `${r.fullName || 'Unnamed'}${r.callsign ? ` “${r.callsign}”` : ''}`;
+  if (c === 'tsfs') { let l = ''; try { l = tsfLabel(r); } catch (e) {} return `${r.serial || r.id}${l ? ' · ' + l : ''}`; }
+  if (c === 'variants') { const m = get('models', r.modelId) || {}; return `${m.designation || ''} ${m.name || ''} · ${r.name && r.name !== m.name ? r.name : (r.code || r.name || '')}`.trim(); }
+  if (c === 'models') return `${r.designation || ''} ${r.name || ''}`.trim();
+  if (c === 'equipment') return `${r.code ? r.code + ' · ' : ''}${r.name || r.id}`;
+  if (c === 'configs') { const t = get('tsfs', r.tsfId); return `${r.name || 'Configuration'}${t ? ' · ' + t.serial : ''}`; }
+  if (c === 'xplog') { const p = get('pilots', r.pilotId); return `${p ? p.fullName : 'Unknown'} · ${r.amount > 0 ? '+' : ''}${r.amount} XP${r.reason ? ' · ' + r.reason : ''}`; }
+  if (c === 'approvals') { const p = get('pilots', r.pilotId); return `${r.type || 'request'}${p ? ' · ' + p.fullName : ''}${r.submittedAt ? ' · ' + String(r.submittedAt).slice(0, 10) : ''}`; }
+  return r.name || r.title || r.label || r.code || r.serial || r.summary || r.id;
+}
+function xpRecMeta(c, r) {
+  return [r.type, r.status, r.category, r.kind, r.availability].filter(v => v && typeof v === 'string').slice(0, 2).join(' · ');
+}
+const zoneShown = z => z.status !== 'archived' && !((S.ui.map && S.ui.map.hideTypes) || {})[z.type];
+const SECTION_EXPORTS = {
+  gm: { title: 'GM Command Centre', cols: ['zones', 'fronts', 'missions'],
+    pick: { zones: () => xpIds(list('zones').filter(zoneShown)), fronts: () => xpIds(list('fronts').filter(f => f.status !== 'archived')),
+            missions: () => xpIds(list('missions').filter(m => m.status !== 'complete' && m.status !== 'aborted')) } },
+  'tsf-db': { title: 'TSF Database', cols: ['models', 'variants'],
+    pick: { models: () => { const f = S.ui.tdb; if (!f || f.view === 'table') return xpIds(list('models'));
+              return xpIds(list('models').filter(m => { const vs = list('variants').filter(v => v.modelId === m.id), dv = vs.find(v => v.isDefault) || vs[0], ev = dv ? effVariant(dv.id) : null;
+                return ev && tsfMatches(Object.assign({}, ev, { generationId: m.generationId, classificationId: m.classificationId, name: vs.map(v => v.name).join(' ') }), f)
+                  && (!f.av || m.availability === f.av || vs.some(v => v.availability === f.av)) && (!f.src || m.origin === f.src); })); },
+            variants: sel => xpIds(list('variants').filter(v => (sel.models || {})[v.modelId])) } },
+  'equipment-admin': { title: 'Equipment Database', cols: ['equipment'], pick: { equipment: () => S.ui.lastList && S.ui.lastList.eqa ? xpIds(S.ui.lastList.eqa) : xpIds(list('equipment')) } },
+  orgs: { title: 'Manufacturer Registry', cols: ['manufacturers', 'factions'] },
+  personnel: { title: 'Personnel Administration', cols: ['pilots', 'tsfs', 'configs', 'xplog'],
+    pick: { pilots: () => S.ui.lastList && S.ui.lastList.pers ? xpIds(S.ui.lastList.pers) : xpIds(list('pilots')),
+            tsfs: sel => xpIds(list('tsfs').filter(t => (sel.pilots || {})[t.ownerPilotId])),
+            configs: sel => xpIds(list('configs').filter(c => { const t = get('tsfs', c.tsfId); return t && (sel.pilots || {})[t.ownerPilotId]; })),
+            xplog: sel => xpIds(list('xplog').filter(x => (sel.pilots || {})[x.pilotId])) } },
+  approvals: { title: 'Approvals', cols: ['approvals'], pick: { approvals: () => S.ui.lastList && S.ui.lastList.apr ? xpIds(S.ui.lastList.apr) : xpIds(list('approvals')) } },
+  maintenance: { title: 'Maintenance Control', cols: ['maintenance', 'incidents'] },
+  units: { title: 'Unit Management', cols: ['units', 'crews', 'unitlog'], pick: { units: () => xpIds(list('units').filter(u => u.status !== 'disbanded')), crews: () => xpIds(list('crews')), unitlog: () => [] } },
+  campaign: { title: 'Campaign Map', cols: ['zones', 'fronts', 'supplylines'],
+    pick: { zones: () => { const L = S.ui.layers || {}; return L.zones === false ? [] : xpIds(list('zones').filter(z => zoneShown(z) && (z.type !== 'fleet' || L.fleets !== false))); },
+            fronts: () => (S.ui.layers || {}).fronts === false ? [] : xpIds(list('fronts').filter(f => f.status !== 'archived')),
+            supplylines: () => (S.ui.layers || {}).supply === false ? [] : xpIds(list('supplylines'))} },
+  operations: { title: 'Operations Record', cols: ['missions', 'engagements', 'sitreps'] },
+  research: { title: 'Research and Development', cols: ['research', 'researchlog', 'trials'] },
+  evaluation: { title: 'Evaluation and Training', cols: ['evaluations', 'doctrines', 'courses'] },
+  production: { title: 'Production', cols: ['prodlines'] },
+  rules: { title: 'Rules and Balancing', cols: ['rules', 'vocab', 'settings'] }
+};
+function xpInitialSelection(cfg) {
+  const sel = {};
+  cfg.cols.forEach(c => {
+    const fn = cfg.pick && cfg.pick[c], ids = fn ? fn(sel) : xpIds(list(c));
+    sel[c] = {}; ids.forEach(id => { sel[c][id] = true; });
+  });
+  return sel;
+}
+function openExportPicker(title, cols, sel, source) {
+  cols = cols.filter(c => COLLECTIONS.indexOf(c) !== -1 && c !== 'audit');
+  S.ui.xp = { title, source, cols, tab: cols.find(c => Object.keys(sel[c] || {}).length) || cols[0], q: '', sel, start: JSON.parse(JSON.stringify(sel)) };
+  openDrawer('export-pick');
+}
+ACTIONS['xp-open'] = d => { const cfg = SECTION_EXPORTS[d.s]; if (cfg) openExportPicker(cfg.title, cfg.cols, xpInitialSelection(cfg), d.s); };
+ACTIONS['xp-admin'] = () => {
+  const cols = exportCollections(), sel = {};
+  cols.forEach(c => { sel[c] = {}; Object.keys(exportRecords(c)).forEach(id => { sel[c][id] = true; }); });
+  openExportPicker('System export', cols, sel, 'admin');
+};
+const xpCount = (x, c) => Object.keys(x.sel[c] || {}).filter(id => x.sel[c][id]).length;
+function xpShown(x) {
+  const q = String(x.q || '').toLowerCase().trim();
+  return list(x.tab).map(r => ({ r, l: xpRecLabel(x.tab, r), m: xpRecMeta(x.tab, r) }))
+    .filter(o => !q || `${o.l} ${o.m} ${o.r.id}`.toLowerCase().indexOf(q) !== -1)
+    .sort((a, b) => String(a.l).localeCompare(String(b.l), undefined, { numeric: true }));
+}
+DRAWERS_REG('export-pick', function () {
+  const x = S.ui.xp; if (!x) return '';
+  const shown = xpShown(x), cap = 400, sel = x.sel[x.tab] || {}, total = x.cols.reduce((n, c) => n + xpCount(x, c), 0);
+  return `<header><div><p class="kicker">EXPORT FOR EDITING</p><h2>${esc(x.title)}</h2><p>Tick the records to export. ${x.source === 'admin' ? 'Started from your choices in System Administration.' : 'Started from what the page shows with its current filters.'}</p></div>
+      <button class="btn ghost" data-act="close-drawer">Close</button></header>
+    <div class="body"><div class="xp-tabs" role="tablist">${x.cols.map(c => `<button class="btn ${c === x.tab ? 'primary' : 'ghost'}" role="tab" aria-selected="${c === x.tab}" data-act="set-path" data-path="ui/xp/tab" data-value="${c}"><span class="ref">${esc(c)}</span> ${xpCount(x, c)}/${Object.keys(S.store[c] || {}).length}</button>`).join('')}</div>
+      <div class="filters"><label class="field">Search ${esc(x.tab)}<input type="text" id="xp-q" data-bind="ui/xp/q" data-rerender="1" value="${esc(x.q || '')}" placeholder="Name, type, status or ID"></label>
+        <div class="btn-row" style="align-self:flex-end"><button class="btn" data-act="xp-all" data-v="1">Tick ${x.q ? 'shown' : 'all'} (${shown.length})</button><button class="btn" data-act="xp-all" data-v="">Untick ${x.q ? 'shown' : 'all'}</button><button class="btn ghost" data-act="xp-reset">Reset</button></div></div>
+      <div class="xp-list">${shown.slice(0, cap).map(o => `<label class="xp-row"><input type="checkbox" id="xp-${esc(x.tab)}-${esc(o.r.id)}" data-act="xp-rec" data-id="${esc(o.r.id)}" ${sel[o.r.id] ? 'checked' : ''}>
+        <span><b>${esc(o.l)}</b>${o.m ? ` <span class="small muted">${esc(o.m)}</span>` : ''}</span><span class="ref small">${esc(o.r.id)}</span></label>`).join('') || '<div class="empty">No records match.</div>'}
+        ${shown.length > cap ? `<p class="small muted">Showing the first ${cap} of ${shown.length}; search to narrow the list. “Tick all” still covers every match.</p>` : ''}</div></div>
+    <footer><span class="small"><b>${total}</b> record${total === 1 ? '' : 's'} selected · ${x.cols.filter(c => xpCount(x, c)).map(c => `${esc(c)} ${xpCount(x, c)}`).join(' · ') || 'none'}</span>
+      <div class="btn-row">${S.downloads ? `<button class="btn primary" data-act="xp-run" ${total ? '' : 'disabled'}>${icon('download', 16)} Download JSON</button>` : '<span class="small muted">Downloads are not available in this view.</span>'}</div></footer>`;
+});
+ACTIONS['xp-rec'] = (d, el) => { const x = S.ui.xp; (x.sel[x.tab] || (x.sel[x.tab] = {}))[d.id] = el.checked; render(); };
+ACTIONS['xp-all'] = d => { const x = S.ui.xp, s = x.sel[x.tab] || (x.sel[x.tab] = {}); xpShown(x).forEach(o => { s[o.r.id] = !!d.v; }); render(); };
+ACTIONS['xp-reset'] = () => { const x = S.ui.xp; x.sel = JSON.parse(JSON.stringify(x.start)); x.q = ''; render(); };
+ACTIONS['xp-run'] = () => {
+  const x = S.ui.xp; if (!x || !S.downloads) return;
+  const collections = {};
+  x.cols.forEach(c => { const ids = Object.keys(x.sel[c] || {}).filter(id => x.sel[c][id] && S.store[c] && S.store[c][id]); if (ids.length) { collections[c] = {}; ids.forEach(id => { collections[c][id] = S.store[c][id]; }); } });
+  const n = Object.keys(collections).reduce((s, c) => s + Object.keys(collections[c]).length, 0);
+  if (!n) return;
+  const data = JSON.stringify({ system: BRAND.code, exportedAt: nowIso(), importMode: 'merge', source: x.title,
+    note: 'Exported for editing. Change values, keep each record\u2019s id (the key) the same, then load this file with Restore from backup in System Administration. Removing a record or field here does not delete it.', collections }, null, 2);
+  const slug = String(x.title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  S.downloads.save({ filename: `untsf-comm-${slug}-${nowIso().slice(0, 10)}.json`, data })
+    .then(() => { toast(`Exported ${plural(n, 'record')}.`); Data.audit('system.export', 'system', 'export', `Exported ${n} records for editing from ${x.title} (${Object.keys(collections).join(', ')})`); })
+    .catch(err => { if (!err || err.code !== 'declined') toast('The export could not be saved: ' + ((err && err.message) || 'unknown error'), true); });
+};
+/* An Export button in the page header of each GM section. */
+function injectHeadButton(html, btn) {
+  const i = html.indexOf('<div class="page-head">');
+  if (i === -1) return `<div class="btn-row xp-headrow">${btn}</div>` + html;
+  const re = /<div\b|<\/div>/g; re.lastIndex = i; let depth = 0, m;
+  while ((m = re.exec(html))) { depth += m[0] === '</div>' ? -1 : 1; if (depth === 0) return html.slice(0, m.index) + `<div class="btn-row xp-head">${btn}</div>` + html.slice(m.index); }
+  return html;
+}
+Object.keys(SECTION_EXPORTS).forEach(r => {
+  if (!ROUTES[r]) return;
+  const orig = ROUTES[r].view;
+  ROUTES[r].view = function () {
+    const html = orig.apply(this, arguments);
+    if (!S.isGm || !S.downloads || typeof html !== 'string' || html.indexOf('<div class="empty">This screen') === 0) return html;
+    return injectHeadButton(html, `<button class="btn" data-act="xp-open" data-s="${r}" title="Export these records as JSON for editing">${icon('download', 16)} Export…</button>`);
+  };
+});
+/* System Administration: pick individual records from the chosen groups. */
+const _exportPanelRecords = exportPanel;
+exportPanel = function () {
+  const html = _exportPanelRecords();
+  return html.replace('<div class="btn-row">' + (S.downloads ? '<button class="btn primary" data-act="exp-run"' : ''),
+    '<div class="btn-row">' + (S.downloads ? '<button class="btn" data-act="xp-admin">Choose individual records…</button><button class="btn primary" data-act="exp-run"' : ''));
+};
 ;
 /* start-up: every module has registered its routes, drawers and actions */
 'use strict';
