@@ -2640,6 +2640,7 @@ async function downscaleImage(file, max) {
     downscaleImage.last = [c.width, c.height];
     const webp = await new Promise(r => c.toBlob(r, 'image/webp', 0.86));
     if (webp && webp.type === 'image/webp') return webp;
+    if (file.type === 'image/png' || file.type === 'image/gif') return (await new Promise(r => c.toBlob(r, 'image/png'))) || file;
     return (await new Promise(r => c.toBlob(r, 'image/jpeg', 0.88))) || file;
   } catch (e) { return file; }
 }
@@ -4793,7 +4794,7 @@ function unitReadiness(id) {
   const tsfs = unitPersonnel(id, true).map(p => list('tsfs').filter(t => t.ownerPilotId === p.id && t.status !== 'retired' && t.status !== 'destroyed')).flat();
   return tsfs.length ? Math.round(tsfs.filter(t => t.status === 'operational' || t.status === 'standby').length / tsfs.length * 100) : null;
 }
-const unitInsignia = (u, size) => u.insignia ? insigniaSvg(u.insignia, u.callsignPrefix || u.designation || u.name, size) : `<span class="unit-badge" style="width:${size}px;height:${size}px">${icon('shield', Math.round(size * .6))}</span>`;
+const unitInsignia = (u, size) => u.insigniaAssetId ? `<img class="unit-img" src="${ASSET_BASE}${esc(u.insigniaAssetId)}" alt="" data-fallback="1" style="width:${size}px;height:${size}px;object-fit:contain">` : u.insignia ? insigniaSvg(u.insignia, u.callsignPrefix || u.designation || u.name, size) : `<span class="unit-badge" style="width:${size}px;height:${size}px">${icon('shield', Math.round(size * .6))}</span>`;
 
 /* Shared roster table: callsign, rank, role and primary machine. */
 function rosterHtml(unitId, editable) {
@@ -4871,7 +4872,10 @@ DRAWERS_REG('unit-edit', function () {
       <label class="field">Established<input type="date" id="un-est" data-bind="${P}/establishedOn" value="${esc(u.establishedOn || '')}"></label>
       <label class="field wide">Description<textarea id="un-desc" data-bind="${P}/description">${esc(u.description || '')}</textarea></label></div>
       <section style="margin-top:12px"><h3>Unit insignia</h3>${u.insignia ? insigniaEditor(P + '/insignia', u.insignia, u.callsignPrefix || u.name) + `<button class="btn ghost" data-act="set-path" data-path="${P}/insignia" data-value="">Remove insignia</button>`
-        : `<button class="btn" data-act="unit-insignia-add">Design an insignia</button>`}</section>
+        : `<button class="btn" data-act="unit-insignia-add">Design an insignia</button>`}
+        <div class="art-row" style="margin-top:10px">${u.insigniaAssetId ? `<img src="${ASSET_BASE}${esc(u.insigniaAssetId)}" alt="${esc(u.name)} insignia" style="max-height:140px;max-width:140px;object-fit:contain">` : ''}
+          <div class="btn-row">${uploadButton('unit-art', u.insigniaAssetId ? 'Replace insignia image' : 'Upload an insignia image', { max: 1600 })}${u.insigniaAssetId ? `<button class="btn ghost" data-act="set-path" data-path="${P}/insigniaAssetId" data-value="">Remove image</button>` : ''}</div></div>
+        <p class="small muted">An uploaded image (a patch or tab, ideally a PNG with a transparent background) is shown instead of the designed insignia, and appears on eishi posters.</p></section>
       ${parents.length || !u.parentId ? '' : '<p class="small warn-text">The current parent is not a larger formation. Choose another.</p>'}</div>
     <footer><button class="btn primary" data-act="unit-save">Save unit</button></footer>`;
 });
@@ -11977,11 +11981,18 @@ async function drawPoster(p, f) {
     const hh = 1240, ww = aw * hh / ah, x = Math.min(350, POSTER_W - ww * 0.75);
     g.save(); g.globalAlpha = f.tsfAlpha; g.drawImage(art, x, 70, ww, hh); g.restore();
   }
+  /* Or the unit's insignia, large and faint, standing in for the TSF. */
+  if (f.emblemImg) {
+    const ew = f.emblemImg.naturalWidth || f.emblemImg.width, eh = f.emblemImg.naturalHeight || f.emblemImg.height, k = Math.min(820 / ew, 820 / eh);
+    g.save(); g.globalAlpha = f.emblemAlpha || 0.4; g.drawImage(f.emblemImg, 660 - ew * k / 2, 550 - eh * k / 2, ew * k, eh * k); g.restore();
+  }
   /* The eishi. */
   if (f.picImg) g.drawImage(gradedPortrait(f.picImg, 660, POSTER_H, f.picIsInsignia), 0, 0);
   let gr = g.createLinearGradient(0, 0, 0, 220); gr.addColorStop(0, 'rgba(11,18,32,0.92)'); gr.addColorStop(1, 'rgba(11,18,32,0)'); g.fillStyle = gr; g.fillRect(0, 0, POSTER_W, 220);
   gr = g.createLinearGradient(0, POSTER_H, 0, POSTER_H - 720); gr.addColorStop(0, POSTER_BG); gr.addColorStop(0.46, POSTER_BG); gr.addColorStop(0.68, 'rgba(11,18,32,0.85)'); gr.addColorStop(1, 'rgba(11,18,32,0)');
   g.fillStyle = gr; g.fillRect(0, POSTER_H - 720, POSTER_W, 720);
+  /* Their flight's tab, small, on the right. */
+  if (f.tabImg) { const tw = f.tabImg.naturalWidth || f.tabImg.width, th = f.tabImg.naturalHeight || f.tabImg.height, k = 150 / th; g.drawImage(f.tabImg, POSTER_W - 56 - tw * k, 596, tw * k, 150); }
   /* Header. */
   if (f.logoImg) g.drawImage(f.logoImg, 56, 48, 64, 72);
   g.fillStyle = POSTER_INK; g.font = '600 15px "IBM Plex Mono", monospace'; spacedText(g, BRAND.code, 138, 78, 3);
@@ -12048,8 +12059,10 @@ async function posterRedraw() {
     if (f.pic === 'portrait' && p.portraitAssetId) opt.picImg = await posterImg(ASSET_BASE + p.portraitAssetId).catch(() => null);
     else if (f.pic === 'local' && f.localUrl) opt.picImg = await posterImg(f.localUrl).catch(() => null);
     if (!opt.picImg) { opt.picImg = await svgImg(insigniaSvg(p.insignia, p.callsign, 560), 560, 560).catch(() => null); opt.picIsInsignia = true; }
-    const v = f.vid ? effVariant(f.vid) : null, art = v ? variantArtId(v) : null;
+    const v = f.vid && f.vid !== '__emblem' ? effVariant(f.vid) : null, art = v ? variantArtId(v) : null;
     if (art) { opt.tsfImg = await posterImg(ASSET_BASE + art).catch(() => null); opt.tsfKey = art; }
+    if (f.vid === '__emblem') { opt.emblemImg = await posterEmblemImg(p); opt.emblemAlpha = Math.min(1, (Number(f.tsfAlpha) || 0.85) * 0.5); }
+    opt.tabImg = await posterTabImg(p);
     const blob = await drawPoster(p, opt);
     if (seq !== f.seq || S.ui.form.poster !== f) return;
     if (f.url) URL.revokeObjectURL(f.url);
@@ -12122,7 +12135,7 @@ DRAWERS_REG('poster', function () {
         <label class="field" style="margin-top:10px">TSF strength<input type="range" id="pst-alpha" min="0.2" max="1" step="0.05" value="${f.tsfAlpha}" data-change="poster-alpha"></label>
         <label class="small" style="display:block;margin-top:8px"><input type="checkbox" data-act="poster-cutout" ${f.cutout ? 'checked' : ''}> Cut the TSF out of its artwork background</label></div></div>
       <section><h3>TSF behind ${esc(p.callsign || p.fullName)}</h3>
-        <div class="btn-row" style="margin-bottom:8px"><button class="btn ${f.vid ? '' : 'primary'}" data-act="poster-tsf" data-id="">No TSF</button></div>
+        <div class="btn-row" style="margin-bottom:8px"><button class="btn ${!f.vid ? 'primary' : ''}" data-act="poster-tsf" data-id="">No TSF</button><button class="btn ${f.vid === '__emblem' ? 'primary' : ''}" data-act="poster-tsf" data-id="__emblem">Battalion insignia instead</button></div>
         ${ch.held.length ? `<p class="small muted" style="margin:0 0 6px">In the hangar</p><div class="tsf-grid">${ch.held.map(v => card(v, true)).join('')}</div>` : ''}
         ${ch.avail.length ? `<p class="small muted" style="margin:12px 0 6px">Available to request</p><div class="tsf-grid">${ch.avail.map(v => card(v, false)).join('')}</div>` : ''}</section>
       ${S.isGm ? `<section><h3>Discord</h3>${discord}</section>` : ''}</div>
@@ -12136,6 +12149,21 @@ ROUTES.pilot.view = function () {
   if (!p) return html;
   return html.replace(/(<div class="dossier-band">[\s\S]*?)(<\/div>)/, `$1<button class="btn ghost" data-act="poster-open" data-id="${esc(p.id)}">${icon('star', 16)} Poster</button>$2`);
 };
+
+/* The battalion's insignia for poster backgrounds: the top of the eishi's chain of command first (Lantern), then the
+   nearest unit below it with an insignia (an uploaded patch or a designed one), then the UNTSF crest. */
+function posterEmblemUnit(p) { return (p && p.unitId ? unitChain(p.unitId) : []).find(x => x.insigniaAssetId || x.insignia) || null; }
+async function posterEmblemImg(p) {
+  const u = posterEmblemUnit(p);
+  if (u && u.insigniaAssetId) { const im = await posterImg(ASSET_BASE + u.insigniaAssetId).catch(() => null); if (im) return im; }
+  if (u && u.insignia) return svgImg(insigniaSvg(u.insignia, u.callsignPrefix || u.designation || u.name, 860), 860, 860).catch(() => null);
+  return svgImg(insignia(860).replace(/currentColor/g, POSTER_INK).replace(/Rajdhani, Arial Narrow, sans-serif/, 'Arial Narrow, Arial, sans-serif'), 860, 968).catch(() => null);
+}
+/* The eishi's own flight (or nearest unit) patch, if it has an uploaded image other than the battalion's. */
+async function posterTabImg(p) {
+  const top = posterEmblemUnit(p), u = (p && p.unitId ? unitChain(p.unitId) : []).slice().reverse().find(x => x.insigniaAssetId && (!top || x.id !== top.id));
+  return u ? posterImg(ASSET_BASE + u.insigniaAssetId).catch(() => null) : null;
+}
 
 /* ---------------------------------------------------------------- Discord: acceptance announcements
    When Command Authority approves an enlistment, the new eishi is announced on Discord with their poster and a
@@ -12180,7 +12208,7 @@ async function acceptPosterBlob(p) {
   opt.logoImg = await svgImg(insignia(64).replace(/currentColor/g, POSTER_INK).replace(/Rajdhani, Arial Narrow, sans-serif/, 'Arial Narrow, Arial, sans-serif'), 64, 72).catch(() => null);
   if (p.portraitAssetId) opt.picImg = await posterImg(ASSET_BASE + p.portraitAssetId).catch(() => null);
   if (!opt.picImg) { opt.picImg = await svgImg(insigniaSvg(p.insignia, p.callsign, 560), 560, 560).catch(() => null); opt.picIsInsignia = true; }
-  if (art) { opt.tsfImg = await posterImg(ASSET_BASE + art).catch(() => null); opt.tsfKey = art; }
+  opt.emblemImg = await posterEmblemImg(p); opt.tabImg = await posterTabImg(p);
   return drawPoster(p, opt);
 }
 function acceptChannelFor(ds) {
@@ -12285,6 +12313,7 @@ stepProblems = function (step, d) {
   return out;
 };
 
+UPLOAD_TARGETS['unit-art'] = id => { S.ui.edit.u.insigniaAssetId = id; };
 ;
 /* start-up: every module has registered its routes, drawers and actions */
 'use strict';
