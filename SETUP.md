@@ -121,6 +121,8 @@ Command Authority can post a styled **mission plan** (open a mission from the Co
 
 Discord doesn't accept posts straight from a web page, so the site uses a small relay, `functions/api/discord.js`, which Cloudflare runs alongside the site automatically. The relay holds the Discord webhook as an encrypted Cloudflare secret, so it's never in the code, the database or anyone's browser, and it checks with Supabase that whoever is posting is Command Authority.
 
+**Pages or Workers?** If your site's Cloudflare address ends in `.pages.dev`, Cloudflare runs the relay from the `functions` folder. If it ends in `.workers.dev`, it runs it from `worker/index.js`, set up by `wrangler.jsonc` (the `name` there must match your Worker's name in Cloudflare). Both are in the repository; nothing to choose. On Workers, secrets live under **your Worker → Settings → Variables and Secrets**, and custom domains under **Settings → Domains & Routes**.
+
 1. **Make the webhook in Discord.** You need *Manage Webhooks* on the server. Open **Server Settings → Integrations → Webhooks → New Webhook**, choose the channel, name it `UNTSF-COMM` (add an avatar if you like), and click **Copy Webhook URL**.
 2. **Give it to Cloudflare.** In the Cloudflare dashboard open **Workers & Pages → your project → Settings → Variables and Secrets → Add**:
    - **Type:** Secret

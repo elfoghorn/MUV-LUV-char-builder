@@ -259,10 +259,12 @@
         var ses = (await sb.auth.getSession()).data.session;
         if (!ses) throw { code: 'signed_out', message: 'You’re signed out. Sign in again.' };
         var r;
-        try { r = await fetch('api/discord', { method: method, headers: { Authorization: 'Bearer ' + ses.access_token }, body: body || undefined }); }
+        try { r = await fetch('/api/discord', { method: method, headers: { Authorization: 'Bearer ' + ses.access_token }, body: body || undefined }); }
         catch (e) { throw { code: 'network', message: 'Couldn’t reach the site’s Discord relay. Check your connection.' }; }
-        var j = null; try { j = await r.json(); } catch (e) { j = null; }
-        if (!j) throw { code: 'not_setup', message: 'The Discord relay isn’t deployed on this site yet (SETUP.md, Discord).' };
+        var type = r.headers.get('Content-Type') || '', j = null;
+        if (type.indexOf('application/json') !== -1) { try { j = await r.json(); } catch (e) { j = null; } }
+        if (!j && type.indexOf('text/html') !== -1 && r.ok) throw { code: 'not_setup', message: 'The Discord relay isn’t deployed: /api/discord returns the website instead. Check the functions folder is at the top of the repository (next to site), then redeploy (SETUP.md, Discord).' };
+        if (!j) throw { code: 'failed', message: 'The Discord relay failed (' + r.status + '). In Cloudflare, open the latest deployment’s Functions logs to see why.' };
         if (!r.ok) throw { code: r.status === 503 ? 'not_setup' : 'failed', message: j.error || ('Discord relay error ' + r.status) };
         return j;
       },

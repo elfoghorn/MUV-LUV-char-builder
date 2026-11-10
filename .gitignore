@@ -7,3 +7,5 @@ untsf-comm-personnel-records-*.docx
 Thumbs.db
 supabase/.temp/
 supabase/.branches/
+
+.wrangler/
