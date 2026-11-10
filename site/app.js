@@ -4227,7 +4227,7 @@ route('personnel', 'Personnel Administration', function () {
       ${filterSel('pf-st', 'ui/pf/status', f.status, 'Status', ['pending', 'active', 'inactive', 'kia', 'mia', 'retired', 'archived'].map(x => [x, x.toUpperCase()]))}</div>
     <div class="scroll-x"><table class="data"><thead><tr><th>Reference</th><th>Personnel</th><th>Rank</th><th>Organisation</th><th>Unit / squadron</th><th>Assigned TSF</th><th>Account</th><th>Status</th></tr></thead><tbody>
     ${pg.rows.map(p => `<tr class="click" data-act="pilot-open" data-id="${p.id}"><td>${ref('pers', p)}</td><td><span class="who">${avatarHtml(p, 28)}<span><b>${esc(p.callsign || '')}</b> ${esc(p.fullName)}</span></span></td>
-      <td>${esc((rankById(p.rankId) || {}).name || '–')}</td><td>${esc(facName(p.factionId))}</td><td class="small">${esc(unitPathText(p) || '–')}${p.unitId ? `<br><span class="muted">${esc(roleName(p.unitRole))}</span>` : ''}</td>
+      <td>${esc((rankById(p.rankId) || {}).name || '–')}</td><td>${esc(facName(p.factionId))}</td><td class="small">${unitBadges(p, 18, true)}${esc(unitPathText(p) || '–')}${p.unitId ? `<br><span class="muted">${esc(roleName(p.unitRole))}</span>` : ''}</td>
       <td class="small">${tsfs.filter(t => t.ownerPilotId === p.id).map(t => esc(t.serial)).join(', ') || '–'}</td><td>${p.npc ? `<span class="chip ${p.npcOpen ? 'ok' : ''}">${p.npcOpen ? 'NPC · OPEN' : 'NPC'}</span> ` : ''}${p.userId ? chip('approved', accountName(p.userId) || 'Linked') : '<span class="small muted">Not linked</span>'}</td>
       <td>${chip(p.status === 'active' ? 'operational' : p.status === 'pending' ? 'pending' : 'retired', p.status)}</td></tr>`).join('')}</tbody></table></div>${pg.bar}${rows.length ? '' : '<div class="empty">No personnel match these filters.</div>'}`;
 });
@@ -8322,7 +8322,7 @@ ROUTE_DEPT.structure = 'CMD'; ROUTES.structure.dept = 'CMD';
 function structureUnitHtml(u, depth) {
   const slots = slotsOf(u.id), kids = structureChildren(u.id), t = unitType(u.type);
   return `<section class="plate st-unit depth-${Math.min(depth, 3)}" aria-label="${esc(u.name)}">
-    <div class="record-head"><div><p class="kicker">${esc(t.name.toUpperCase())}${u.designation ? ' · ' + esc(u.designation) : ''}${u.callsignPrefix ? ' · CALLSIGN ' + esc(u.callsignPrefix.toUpperCase()) : ''}</p><h2>${esc(u.name)}</h2>${slots.length ? unitFillGauge(slots) : ''}${u.description ? `<p class="small muted" style="margin:2px 0 0">${esc(u.description)}</p>` : ''}</div>
+    <div class="record-head"><div style="display:flex;gap:14px;align-items:flex-start">${u.insigniaAssetId || u.insignia ? `<span style="flex:none">${unitInsignia(u, 60)}</span>` : ''}<div><p class="kicker">${esc(t.name.toUpperCase())}${u.designation ? ' · ' + esc(u.designation) : ''}${u.callsignPrefix ? ' · CALLSIGN ' + esc(u.callsignPrefix.toUpperCase()) : ''}</p><h2>${esc(u.name)}</h2>${slots.length ? unitFillGauge(slots) : ''}${u.description ? `<p class="small muted" style="margin:2px 0 0">${esc(u.description)}</p>` : ''}</div></div>
       <div class="btn-row">${t.echelon > 10 && !t.support ? `<button class="btn" data-act="st-unit-new" data-type="flight" data-parent="${u.id}">Add flight</button>` : ''}${supportTypeUnder(t) ? `<button class="btn" data-act="st-unit-new" data-type="${supportTypeUnder(t).code}" data-parent="${u.id}">${icon('tool', 14)} Add support unit</button>` : ''}
         <button class="btn" data-act="slot-new" data-unit="${u.id}">Add slot</button>
         <select id="st-tpl-${u.id}" data-change="st-template" data-unit="${u.id}" aria-label="Add slots from a template to ${esc(u.name)}"><option value="">Add from template…</option><optgroup label="Eishi">${SLOT_TEMPLATES.filter(x => !x[3]).map(([k, l, xs]) => `<option value="${k}">${esc(l)} (${xs.length})</option>`).join('')}</optgroup><optgroup label="Support staff">${SLOT_TEMPLATES.filter(x => x[3]).map(([k, l, xs]) => `<option value="${k}">${esc(l)} (${xs.length})</option>`).join('')}</optgroup></select>
@@ -8824,7 +8824,7 @@ function eishiHero(p, own) {
   return `<section class="eishi-hero">${avatarHtml(p, 132)}<div class="eishi-id">
       ${own ? `<p class="kicker">${isNewEishi(p) && p.unitId ? `Welcome to the ${esc((get('units', p.unitId) || {}).name || 'unit')}` : 'Welcome back'}, ${esc(p.callsign || p.fullName)} · ${esc(fmtCampaign(campaignDate()))}${station ? ' · ' + esc(station.name) : ''}</p>` : `<p class="kicker">EISHI PROFILE · ${esc(REF.pers(p))}</p>`}
       <h1>${rk ? `<span class="rank">${esc(rk.name)}</span> ` : ''}${esc(p.callsign || p.fullName)}</h1><p class="eishi-name">${esc(p.fullName)}${p.nationality ? ' · ' + esc(p.nationality) : ''}</p>
-      <p class="small">Eishi · ${esc(roleLabel(p.unitRole))} · ${esc(chain)}</p>
+      <p class="small">Eishi · ${esc(roleLabel(p.unitRole))} · ${unitBadges(p, 20)}${esc(chain)}</p>
       <div class="eishi-tags">${p.npc ? '<span class="chip">NPC</span>' : ''}${gradeBadge(p)}${sp ? `<span class="chip acc">${esc(sp.name.toUpperCase())}</span>` : ''}<span class="chip ${cond.cls}">${esc(cond.text.toUpperCase())}</span>${own ? `<span class="chip">${esc(clearanceName((viewer() || { clearance: 4 }).clearance).toUpperCase())}</span>` : ''}</div></div>
     <dl class="eishi-stats"><div><dt>Sorties</dt><dd>${rec.sorties}</dd></div><div><dt>BETA kills</dt><dd>${rec.kills}</dd></div><div><dt>Experience</dt><dd>${pilotXp(p.id).toLocaleString('en-GB')}</dd></div></dl></section>`;
 }
@@ -10765,7 +10765,7 @@ function obUnit(u, depth) {
   const t = unitType(u.type), slots = slotsOf(u.id), kids = obChildren(u.id);
   const attached = obAttached(u, slots), cmdName = obCommanderName(u, slots);
   const filled = slots.filter(x => !slotVacant(x)).length;
-  const emblem = u.insignia ? insigniaSvg(u.insignia, u.callsignPrefix || u.designation, 44) : icon(OB_TYPE_ICON[u.type] || 'shield', 26);
+  const emblem = u.insigniaAssetId || u.insignia ? unitInsignia(u, 44) : icon(OB_TYPE_ICON[u.type] || 'shield', 26);
   const people = slots.map(sl => obPerson(sl, slotHolder(sl), sl.title)).concat(attached.map(p => obPerson(null, p))).join('');
   const small = t.echelon <= 10;
   return `<section class="ob-unit ob-${esc(u.type)} ${t.support ? 'support' : ''} ${small ? 'small' : ''} depth-${Math.min(depth, 3)}" aria-label="${esc(u.name)}">
@@ -10795,7 +10795,7 @@ function obtCrew(u, slots) {
 }
 function obtNode(u, focus) {
   const t = unitType(u.type), slots = slotsOf(u.id), cmd = obCommanderName(u, slots);
-  const emblem = u.insignia ? insigniaSvg(u.insignia, u.callsignPrefix || u.designation, 32) : icon(OB_TYPE_ICON[u.type] || 'shield', 20);
+  const emblem = u.insigniaAssetId || u.insignia ? unitInsignia(u, 32) : icon(OB_TYPE_ICON[u.type] || 'shield', 20);
   return `<div class="obt-node ob-${esc(u.type)} ${t.support ? 'support' : ''} ${focus === u.id ? 'on' : ''}">
     <button class="obt-go" data-act="ob-tree-go" data-id="${u.id}" ${focus === u.id ? 'aria-current="true"' : ''} title="Show ${esc(u.name)}"><span class="obt-emblem">${emblem}</span>
       <span class="obt-text"><span class="obt-type">${esc(t.name)}</span><b>${esc(u.name)}</b>${cmd ? `<span class="obt-cmd">${esc(cmd)}</span>` : ''}</span></button>${obtCrew(u, slots)}</div>`;
@@ -12313,6 +12313,12 @@ stepProblems = function (step, d) {
   return out;
 };
 
+/* Small insignia for the units a person belongs to (all of them, or just the nearest), shown beside unit names. */
+function unitBadges(p, size, nearestOnly) {
+  const chain = p && p.unitId ? unitChain(p.unitId).filter(u => u.insigniaAssetId || u.insignia) : [];
+  const show = nearestOnly ? chain.slice(-1) : chain;
+  return show.map(u => `<span title="${esc(u.name)}" style="display:inline-block;vertical-align:middle;margin-right:4px;line-height:0">${unitInsignia(u, size)}</span>`).join('');
+}
 UPLOAD_TARGETS['unit-art'] = id => { S.ui.edit.u.insigniaAssetId = id; };
 ;
 /* start-up: every module has registered its routes, drawers and actions */
