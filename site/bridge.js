@@ -300,7 +300,7 @@
   }
 
   /* The "where should this go?" window shown for every export while Google Drive is set up. */
-  function chooseSave(blob, filename, ext) {
+  function chooseSave(blob, filename, ext, prefer) {
     return new Promise(function (resolve, reject) {
       var conv = CONVERTS[ext], back = document.activeElement, settled = false, busy = false;
       var scrim = document.createElement('div'); scrim.className = 'gsave-scrim';
@@ -313,7 +313,7 @@
       document.addEventListener('keydown', onKey, true);
       scrim.addEventListener('click', cancel);
       function show(inner) {
-        box.innerHTML = '<p class="kicker">Save export</p><h2 class="gsave-name" id="gsave-name">' + esc(filename) + '</h2>' + inner;
+        box.innerHTML = '<p class="kicker">' + (prefer === 'drive' ? 'Save to Google Drive' : 'Save export') + '</p><h2 class="gsave-name" id="gsave-name">' + esc(filename) + '</h2>' + inner;
         var first = box.querySelector('.btn'); if (first) first.focus();
       }
       function choose(err) {
@@ -324,7 +324,7 @@
           : '<button class="btn primary" data-g="drive">Save to Google Drive</button>';
         show((err ? '<p class="gsave-err" role="alert">' + esc(err) + '</p>' : '')
           + '<p class="gsave-note">Google Drive saves go into the <b>' + esc(DRIVE_FOLDER) + '</b> folder in your own Drive. This site can only see the files it saves there.</p>'
-          + '<div class="gsave-opts">' + opts + '<button class="btn" data-g="local">Download to this device</button></div>'
+          + '<div class="gsave-opts">' + opts + '<button class="btn" data-g="local">Download to this device' + (prefer === 'drive' ? ' instead' : '') + '</button></div>'
           + '<div class="gsave-foot"><button class="btn ghost" data-g="cancel">Cancel</button>'
           + (drive.token ? '<button class="btn ghost" data-g="disconnect">Disconnect Google</button>' : '') + '</div>');
       }
@@ -362,11 +362,13 @@
   }
 
   var downloads = {
+    /* Tells the app whether to show its "Save to Google Drive" buttons. */
+    drive: !!GCLIENT,
     save: async function (req) {
       var filename = req.filename || 'download', ext = String(filename).split('.').pop().toLowerCase(), data = req.data;
       var blob = data instanceof Blob ? data : new Blob([data], { type: MIME[ext] || 'application/octet-stream' });
       if (!GCLIENT) { saveLocal(blob, filename); return { status: 'saved' }; }
-      return chooseSave(blob, filename, ext);
+      return chooseSave(blob, filename, ext, req.prefer);
     }
   };
 

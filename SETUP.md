@@ -119,7 +119,7 @@ Once this is set up, every export (dossiers, personnel records, application temp
 - **Save the original file to Google Drive**, e.g. the `.docx` exactly as exported. Pick this for the styled dossier if the conversion shifts its layout.
 - **Download to this device**, as before.
 
-Files go into an **UNTSF-COMM** folder in the player's own Drive. Each player signs in to their own Google account, and only when they first save to Drive. Dossier pages exported as PNG images still download.
+Files go into an **UNTSF-COMM** folder in the player's own Drive. Each player signs in to their own Google account, and only when they first save to Drive. Character sheets (personnel dossiers) also get their own **Save to Google Drive** button at the top. *Export as PDF* still opens the print window, and *Export as page images* still downloads.
 
 **Use a Google account that doesn't identify you.** The Google sign-in window shows the app name and the support email you choose below.
 
@@ -139,7 +139,7 @@ Files go into an **UNTSF-COMM** folder in the player's own Drive. Each player si
    - **Authorised JavaScript origins → Add URI:** your site address from Part 4, e.g. `https://untsf-comm.pages.dev` (no slash at the end). Leave **Authorised redirect URIs** empty.
    - Click **Create** and copy the **Client ID** (it ends `.apps.googleusercontent.com`). You don't need the client secret: don't put it anywhere.
 7. Open `site/config.js`, paste the Client ID between the quotes after `googleClientId:`, then **Commit to main** and **Push origin**.
-8. Test it: open a personnel dossier, choose **Export as Word → Save to Google Drive as a Google Doc**, allow access in the Google window, then click **Open in Google Drive**. A new client can take a few minutes to start working.
+8. Test it: open a personnel dossier (the character sheet), click **Save to Google Drive** at the top, then **Save to Google Drive as a Google Doc**. Allow access in the Google window, then click **Open in Google Drive**. A new client can take a few minutes to start working.
 
 To switch it off again, empty `googleClientId` and push. Exports go straight back to downloading.
 
@@ -181,7 +181,7 @@ The free plan has no automatic backups. Every few sessions, download one from **
 | Google window: **Access blocked** or *app is being tested* | Publish the app: Google Auth Platform → **Audience → Publish app** (step 5). |
 | *"The Google window was blocked"* when saving to Drive | Allow pop-ups for the site in the browser, then try again. |
 | *"The Google Drive API isn't switched on"* | Enable it: APIs & Services → Library → **Google Drive API → Enable** (step 2). |
-| No Google Drive choice when exporting | `googleClientId` in `site/config.js` is empty, or the browser has the old version: hard-refresh. |
+| No **Save to Google Drive** button on character sheets | `googleClientId` in `site/config.js` is empty (the Administrator still sees the button, and it says so), or the browser has the old version: hard-refresh. |
 
 ## Privacy
 
