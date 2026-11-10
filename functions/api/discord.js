@@ -17,15 +17,34 @@ const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8', 'Cache
 const reply = (status, body) => new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
 const MAX_FILE = 9.5 * 1024 * 1024;
 
-/* The channels set up in Cloudflare, by name. Webhook addresses never leave this function. */
+/* The channels set up in Cloudflare, by name. Webhook addresses never leave this function.
+   Forgiving about how the address was pasted: quotes, spaces, a trailing slash or query, an API version. */
+const HOOK = /^https:\/\/(?:(?:ptb|canary)\.)?discord(?:app)?\.com\/api\/(?:v\d+\/)?webhooks\/(\d+)\/([\w-]+)/;
+function cleanHook(v) {
+  const m = String(v || '').trim().replace(/^["'<]+|["'>]+$/g, '').match(HOOK);
+  return m ? `https://discord.com/api/webhooks/${m[1]}/${m[2]}` : null;
+}
 function channels(env) {
   const out = {};
   for (const [k, v] of Object.entries(env || {})) {
-    if (typeof v !== 'string' || !/^https:\/\/(?:(?:ptb|canary)\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/.test(v.trim())) continue;
-    if (k === 'DISCORD_WEBHOOK') out.default = v.trim();
-    else if (k.startsWith('DISCORD_WEBHOOK_')) out[k.slice(16).toLowerCase().replace(/_/g, '-')] = v.trim();
+    const key = k.trim().toUpperCase();
+    if (typeof v !== 'string' || !key.startsWith('DISCORD_WEBHOOK')) continue;
+    const url = cleanHook(v); if (!url) continue;
+    const name = key === 'DISCORD_WEBHOOK' ? 'default' : key.replace(/^DISCORD_WEBHOOK_?/, '').toLowerCase().replace(/_/g, '-');
+    if (name) out[name] = url;
   }
   return out;
+}
+/* For "nothing set up" answers: which DISCORD settings this Worker can see and why each was skipped. Names only, never values. */
+function diagnose(env) {
+  const seen = Object.keys(env || {}).filter(k => /discord/i.test(k));
+  if (!seen.length) return 'This site can’t see any setting with DISCORD in its name. Check the secret is on this Worker (the one serving this domain), named DISCORD_WEBHOOK, then redeploy.';
+  return 'Settings found: ' + seen.map(k => {
+    const v = env[k];
+    if (typeof v !== 'string') return `${k} (not text)`;
+    if (!/^DISCORD_WEBHOOK/i.test(k.trim())) return `${k} (name must be DISCORD_WEBHOOK)`;
+    return cleanHook(v) ? `${k} (OK)` : `${k} (value isn’t a Discord webhook address: copy it again from Discord)`;
+  }).join('; ') + '.';
 }
 
 /* The site's Supabase address and publishable key, read from the published config.js. */
@@ -51,14 +70,15 @@ async function isCommandAuthority(env, request) {
 export async function onRequestGet({ request, env }) {
   try { if (!(await isCommandAuthority(env, request))) return reply(403, { error: 'Only Command Authority can post to Discord.' }); }
   catch (e) { return reply(500, { error: 'Couldn’t check your access: ' + e.message }); }
-  return reply(200, { channels: Object.keys(channels(env)) });
+  const names = Object.keys(channels(env));
+  return reply(200, names.length ? { channels: names } : { channels: [], hint: diagnose(env) });
 }
 
 export async function onRequestPost({ request, env }) {
   try { if (!(await isCommandAuthority(env, request))) return reply(403, { error: 'Only Command Authority can post to Discord.' }); }
   catch (e) { return reply(500, { error: 'Couldn’t check your access: ' + e.message }); }
   const hooks = channels(env);
-  if (!Object.keys(hooks).length) return reply(503, { error: 'No Discord webhook is set up yet. Add DISCORD_WEBHOOK in Cloudflare (SETUP.md, Discord).' });
+  if (!Object.keys(hooks).length) return reply(503, { error: 'No Discord webhook is set up yet. ' + diagnose(env) });
 
   let form;
   try { form = await request.formData(); } catch (e) { return reply(400, { error: 'The post couldn’t be read.' }); }

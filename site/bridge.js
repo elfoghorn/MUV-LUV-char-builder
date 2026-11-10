@@ -268,7 +268,7 @@
         if (!r.ok) throw { code: r.status === 503 ? 'not_setup' : 'failed', message: j.error || ('Discord relay error ' + r.status) };
         return j;
       },
-      channels: async function () { return (await discord.call('GET')).channels || []; },
+      channels: async function () { var j = await discord.call('GET'); if (!(j.channels || []).length && j.hint) throw { code: 'not_setup', message: 'No Discord webhook is set up yet. ' + j.hint }; return j.channels || []; },
       post: async function (o) {
         var fd = new FormData();
         fd.append('channel', o.channel || 'default');

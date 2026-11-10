@@ -11828,6 +11828,314 @@ DRAWERS_REG('mission-edit', d => {
   return html.replace('<footer><div class="btn-row">', `<footer><div class="btn-row"><button class="btn" data-act="brief-open" data-kind="mission" data-id="${esc(e.m.id)}">${icon('radio', 16)} Mission plan${S.isGm ? ' · Discord' : ''}</button>`);
 });
 
+/* ---------------------------------------------------------------- eishi poster
+   A 1080 × 1350 recruitment-style poster built from the Eishi File: name, native script, callsign, rank,
+   appointment, unit and status over the eishi's portrait, with a chosen TSF standing behind them (its
+   artwork's background is cut out automatically). Drawn on a canvas in the browser; download for everyone,
+   Discord for Command Authority. */
+const POSTER_W = 1080, POSTER_H = 1350, POSTER_BG = '#0B1220', POSTER_INK = '#F3F5F9', POSTER_MUTED = '#9FB0C8';
+const POSTER_ACCENTS = [['#F08A3C', 'Bonfire'], ['#5FD3E0', 'Signal'], ['#E8C15A', 'Brass'], ['#E25555', 'Alert']];
+const POSTER_FONTS = 'https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,800;1,500&family=Noto+Sans+JP:wght@500;900&display=swap';
+const hasCjk = t => /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]/.test(t || '');
+
+async function posterFonts(sample) {
+  if (!document.querySelector('link[data-poster-fonts]')) {
+    const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = POSTER_FONTS; l.setAttribute('data-poster-fonts', '1'); document.head.appendChild(l);
+    await new Promise(ok => { l.onload = ok; l.onerror = ok; setTimeout(ok, 4000); });
+  }
+  if (!document.fonts || !document.fonts.load) return;
+  const jp = (sample || '') + 'アカリ', loads = ['800 100px "Barlow Condensed"', '600 30px "Barlow Condensed"', 'italic 500 30px "Barlow Condensed"', '600 15px "IBM Plex Mono"', '400 13px "IBM Plex Mono"']
+    .map(f => document.fonts.load(f, 'AZaz09')).concat(['900 100px "Noto Sans JP"', '500 26px "Noto Sans JP"'].map(f => document.fonts.load(f, jp)));
+  await Promise.race([Promise.all(loads), new Promise(ok => setTimeout(ok, 5000))]).catch(() => {});
+}
+function posterImg(src) {
+  return new Promise((ok, no) => { const im = new Image(); if (/^https?:/.test(src)) im.crossOrigin = 'anonymous'; im.onload = () => ok(im); im.onerror = () => no(new Error('an image didn’t load')); im.src = src; });
+}
+async function svgImg(svg, w, h) {
+  const open = svg.match(/<svg\b[^>]*>/)[0], fixed = open.replace(/\s(width|height|class|xmlns)="[^"]*"/g, '').replace('<svg', `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"`);
+  const url = URL.createObjectURL(new Blob([svg.replace(open, fixed)], { type: 'image/svg+xml' }));
+  try { return await posterImg(url); } finally { setTimeout(() => URL.revokeObjectURL(url), 1000); }
+}
+/* Text with letter spacing, drawn a character at a time so it works in every browser. */
+function spacedWidth(g, t, sp) { let w = 0; for (const ch of t) w += g.measureText(ch).width + sp; return t ? w - sp : 0; }
+function spacedText(g, t, x, y, sp, align, stroke) {
+  const w = spacedWidth(g, t, sp); let cx = align === 'right' ? x - w : align === 'center' ? x - w / 2 : x;
+  const keep = g.textAlign; g.textAlign = 'left';
+  for (const ch of t) { if (stroke) g.strokeText(ch, cx, y); else g.fillText(ch, cx, y); cx += g.measureText(ch).width + sp; }
+  g.textAlign = keep; return w;
+}
+/* Largest font size (down to a floor) at which the text fits the width. */
+function fitFont(g, t, weightFamily, size, maxW, sp, floor) {
+  let s = size; do { g.font = weightFamily.replace('{s}', s); if (spacedWidth(g, t, sp || 0) <= maxW) break; s -= 2; } while (s > (floor || 10)); return s;
+}
+
+/* Remove a flat background (white studio card, plain colour) by flooding inward from the corners. */
+const _cutCache = {};
+function cutOutBackground(img, key) {
+  if (key && _cutCache[key]) return _cutCache[key];
+  const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight)), w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0, w, h);
+  const id = g.getImageData(0, 0, w, h), d = id.data, N = w * h;
+  const corners = [0, w - 1, (h - 1) * w, h * w - 1];
+  if (corners.every(i => d[i * 4 + 3] < 16)) return (_cutCache[key] = c);      /* already transparent */
+  const bg = new Uint8Array(N), queue = new Int32Array(N), tol = 54;
+  corners.forEach(start => {
+    if (bg[start]) return;
+    const r0 = d[start * 4], g0 = d[start * 4 + 1], b0 = d[start * 4 + 2];
+    let head = 0, tail = 0; queue[tail++] = start; bg[start] = 1;
+    while (head < tail) {
+      const i = queue[head++], x = i % w;
+      const nb = [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, i - w, i + w];
+      for (const j of nb) {
+        if (j < 0 || j >= N || bg[j]) continue;
+        const o = j * 4;
+        if (Math.abs(d[o] - r0) + Math.abs(d[o + 1] - g0) + Math.abs(d[o + 2] - b0) <= tol) { bg[j] = 1; queue[tail++] = j; }
+      }
+    }
+  });
+  let n = 0; for (let i = 0; i < N; i++) n += bg[i];
+  if (n / N < 0.03 || n / N > 0.94) return (_cutCache[key] = c);             /* nothing sensible to remove */
+  for (let i = 0; i < N; i++) {
+    if (bg[i]) { d[i * 4 + 3] = 0; continue; }
+    const x = i % w;
+    if ((x > 0 && bg[i - 1]) || (x < w - 1 && bg[i + 1]) || (i >= w && bg[i - w]) || (i + w < N && bg[i + w])) d[i * 4 + 3] = Math.round(d[i * 4 + 3] * 0.55);
+  }
+  g.putImageData(id, 0, 0);
+  return (_cutCache[key] = c);
+}
+/* The portrait, cropped to the left of the poster, graded cool and faded out to the right. */
+function gradedPortrait(src, w, h, isInsignia) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  if (isInsignia) {
+    const s = Math.min(w * 0.78, 560); g.globalAlpha = 0.92; g.drawImage(src, (w - s) / 2, h * 0.2, s, s); g.globalAlpha = 1;
+  } else {
+    const iw = src.naturalWidth || src.width, ih = src.naturalHeight || src.height, k = Math.max(w / iw, h / ih), cw = w / k, ch = h / k;
+    g.drawImage(src, (iw - cw) * 0.45, (ih - ch) * 0.30, cw, ch, 0, 0, w, h);
+    const id = g.getImageData(0, 0, w, h), d = id.data;
+    for (let i = 0; i < d.length; i += 4) {
+      let r = d[i], gr = d[i + 1], b = d[i + 2]; const m = (r + gr + b) / 3;
+      r = m + (r - m) * 0.55; gr = m + (gr - m) * 0.55; b = m + (b - m) * 0.55;
+      r = (r - 128) * 1.12 + 128; gr = (gr - 128) * 1.12 + 128; b = (b - 128) * 1.12 + 128;
+      const l = Math.max(0, Math.min(1, m / 255));
+      d[i] = r * 0.72 + (22 * (1 - l) + 255 * l) * 0.28; d[i + 1] = gr * 0.72 + (30 * (1 - l) + 236 * l) * 0.28; d[i + 2] = b * 0.72 + (58 * (1 - l) + 222 * l) * 0.28;
+    }
+    g.putImageData(id, 0, 0);
+  }
+  g.globalCompositeOperation = 'destination-in';
+  const fade = g.createLinearGradient(0, 0, w, 0); fade.addColorStop(0, '#000'); fade.addColorStop(0.52, '#000'); fade.addColorStop(0.98, 'rgba(0,0,0,0)');
+  g.fillStyle = fade; g.fillRect(0, 0, w, h);
+  return c;
+}
+
+/* What the poster says, from the record. */
+function posterFacts(p) {
+  const chain = p.unitId ? unitChain(p.unitId) : [], unit = chain[chain.length - 1] || null, root = chain[0] || null;
+  const slot = list('slots').find(s => s.holderPilotId === p.id);
+  const kids = unit ? list('units').filter(u => u.parentId === unit.id) : [];
+  const flightsOf = kids.length ? kids : unit && unit.parentId ? list('units').filter(u => u.parentId === unit.parentId) : [];
+  const zone = chain.slice().reverse().map(u => u.homeZoneId && get('zones', u.homeZoneId)).find(Boolean);
+  const short = t => String(t || '').replace(/\bSquadron\b/i, 'Sqn').replace(/\bBattalion\b/i, 'Bn').replace(/\bCompany\b/i, 'Coy');
+  const rk = rankById(p.rankId);
+  return {
+    name: String(p.fullName || p.callsign || 'Unnamed').trim(), native: String(p.nativeName || '').trim(), callsign: String(p.callsign || '').trim(),
+    support: isSupport(p), rank: rk ? rk.name : '–',
+    appointment: slot ? slot.title : isSupport(p) ? tradeName(p.trade) : p.unitId ? roleLabel(p.unitRole) : 'Unassigned',
+    unit: short(unit ? unit.name : '') || '–', status: String(p.status || 'active').replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase()),
+    top: String(root ? root.name : facName(p.factionId) || BRAND.code).toUpperCase(),
+    station: [zone ? zone.name : '', settingYear()].filter(Boolean).join(' · ').toUpperCase(),
+    side: [facName(p.factionId), root && root !== unit ? root.name : ''].filter(Boolean).join(' · ').toUpperCase(),
+    flights: flightsOf.length > 1 ? flightsOf.map(u => u.name.replace(/\s*Flight$/i, '')).join(' · ').toUpperCase() : ''
+  };
+}
+
+async function drawPoster(p, f) {
+  const F = posterFacts(p), A = f.accent, scale = 2;
+  await posterFonts(F.native + (f.bgText || ''));
+  const c = document.createElement('canvas'); c.width = POSTER_W * scale; c.height = POSTER_H * scale;
+  const g = c.getContext('2d'); g.scale(scale, scale); g.textBaseline = 'alphabetic';
+  g.fillStyle = POSTER_BG; g.fillRect(0, 0, POSTER_W, POSTER_H);
+  /* Large outlined text down the right edge. */
+  const bt = String(f.bgText || '').trim();
+  if (bt) {
+    g.save(); g.strokeStyle = A; g.globalAlpha = 0.28; g.lineWidth = 2;
+    if (hasCjk(bt)) {
+      g.font = '900 420px "Noto Sans JP", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'top';
+      Array.from(bt.replace(/\s+/g, '')).slice(0, 3).forEach((ch, i) => g.strokeText(ch, 900, 40 + i * 410));
+    } else {
+      const t = bt.toUpperCase(), fs = fitFont(g, t, '800 {s}px "Barlow Condensed", sans-serif', 380, POSTER_H - 80, 0, 120);
+      g.translate(POSTER_W - 30 - fs * 0.72, 40); g.rotate(Math.PI / 2); g.textBaseline = 'alphabetic'; g.strokeText(t, 0, 0);
+    }
+    g.restore();
+  }
+  g.fillStyle = 'rgba(159,176,200,0.10)'; g.fillRect(600, 0, 2, POSTER_H); g.fillRect(0, 470, POSTER_W, 1);
+  /* The TSF, standing behind. */
+  if (f.tsfImg) {
+    const art = f.cutout ? cutOutBackground(f.tsfImg, f.tsfKey) : f.tsfImg, aw = art.naturalWidth || art.width, ah = art.naturalHeight || art.height;
+    const hh = 1240, ww = aw * hh / ah, x = Math.min(350, POSTER_W - ww * 0.75);
+    g.save(); g.globalAlpha = f.tsfAlpha; g.drawImage(art, x, 70, ww, hh); g.restore();
+  }
+  /* The eishi. */
+  if (f.picImg) g.drawImage(gradedPortrait(f.picImg, 660, POSTER_H, f.picIsInsignia), 0, 0);
+  let gr = g.createLinearGradient(0, 0, 0, 220); gr.addColorStop(0, 'rgba(11,18,32,0.92)'); gr.addColorStop(1, 'rgba(11,18,32,0)'); g.fillStyle = gr; g.fillRect(0, 0, POSTER_W, 220);
+  gr = g.createLinearGradient(0, POSTER_H, 0, POSTER_H - 720); gr.addColorStop(0, POSTER_BG); gr.addColorStop(0.46, POSTER_BG); gr.addColorStop(0.68, 'rgba(11,18,32,0.85)'); gr.addColorStop(1, 'rgba(11,18,32,0)');
+  g.fillStyle = gr; g.fillRect(0, POSTER_H - 720, POSTER_W, 720);
+  /* Header. */
+  if (f.logoImg) g.drawImage(f.logoImg, 56, 48, 64, 72);
+  g.fillStyle = POSTER_INK; g.font = '600 15px "IBM Plex Mono", monospace'; spacedText(g, BRAND.code, 138, 78, 3);
+  g.fillStyle = POSTER_MUTED; g.font = '400 13px "IBM Plex Mono", monospace'; spacedText(g, F.support ? 'PERSONNEL FILE · SUPPORT STAFF' : 'PERSONNEL FILE · EISHI', 138, 100, 2);
+  g.fillStyle = A; fitFont(g, F.top, '600 {s}px "IBM Plex Mono", monospace', 15, 520, 3, 10); spacedText(g, F.top, POSTER_W - 56, 78, 3, 'right');
+  if (F.station) { g.fillStyle = POSTER_MUTED; g.font = '400 13px "IBM Plex Mono", monospace'; spacedText(g, F.station, POSTER_W - 56, 100, 2, 'right'); }
+  if (F.side) {
+    g.save(); g.fillStyle = POSTER_MUTED; fitFont(g, F.side, '400 {s}px "IBM Plex Mono", monospace', 12, 760, 4, 9);
+    const sw = spacedWidth(g, F.side, 4); g.translate(38, 300 + sw); g.rotate(-Math.PI / 2); spacedText(g, F.side, 0, 0, 4); g.restore();
+  }
+  g.strokeStyle = 'rgba(240,138,60,0.7)'; g.strokeStyle = A; g.globalAlpha = 0.7; g.lineWidth = 2;
+  g.beginPath(); g.moveTo(POSTER_W - 80, 151); g.lineTo(POSTER_W - 41, 151); g.lineTo(POSTER_W - 41, 190); g.stroke(); g.globalAlpha = 1;
+  if (F.flights) { g.fillStyle = POSTER_MUTED; fitFont(g, F.flights, '400 {s}px "IBM Plex Mono", monospace', 12, 420, 3, 9); spacedText(g, F.flights, POSTER_W - 40, 772, 3, 'right'); }
+  /* Name block, built up from the bottom. */
+  const L = 56, R = POSTER_W - 56, colW = (R - L - 72) / 4;
+  const stats = [['RANK', F.rank], [F.support ? 'TRADE' : 'APPOINTMENT', F.appointment], ['UNIT', F.unit], ['STATUS', F.status]];
+  stats.forEach(([lab, val], i) => {
+    const x = L + i * (colW + 24);
+    g.fillStyle = POSTER_MUTED; g.font = '400 12px "IBM Plex Mono", monospace'; spacedText(g, lab, x, POSTER_H - 92, 3);
+    g.fillStyle = i === 3 ? A : POSTER_INK; fitFont(g, String(val), '600 {s}px "Barlow Condensed", sans-serif', 30, colW, 1, 16); spacedText(g, String(val), x, POSTER_H - 56, 1);
+  });
+  g.fillStyle = 'rgba(159,176,200,0.35)'; g.fillRect(L, POSTER_H - 136, R - L, 1);
+  const rowY = POSTER_H - 166;
+  if (F.native) { g.fillStyle = '#C9D3E2'; fitFont(g, F.native, '500 {s}px "Noto Sans JP", sans-serif', 26, 520, 10, 14); spacedText(g, F.native, L, rowY, 10); }
+  if (f.tagline && f.tagline.trim()) { g.fillStyle = A; fitFont(g, f.tagline.trim(), 'italic 500 {s}px "Barlow Condensed", sans-serif', 30, F.native ? 420 : R - L, 1, 16); spacedText(g, f.tagline.trim(), R, rowY, 1, 'right'); }
+  const words = F.name.toUpperCase().split(/\s+/).filter(Boolean), lines = words.length > 1 ? [words[0], words.slice(1).join(' ')] : [words[0] || ''];
+  g.fillStyle = POSTER_INK;
+  let size = 210; lines.forEach(t => { size = Math.min(size, fitFont(g, t, '800 {s}px "Barlow Condensed", sans-serif', 210, R - L, -2, 80)); });
+  g.font = `800 ${size}px "Barlow Condensed", sans-serif`;
+  const lh = size * 0.82, base2 = rowY - 46, base1 = lines.length > 1 ? base2 - lh : base2;
+  lines.forEach((t, i) => spacedText(g, t, L - 4, i ? base2 : base1, -2));
+  const csY = base1 - size * 0.84 - 20;
+  g.fillStyle = A; g.fillRect(L, csY - 6, 48, 3);
+  g.font = '600 16px "IBM Plex Mono", monospace'; spacedText(g, `CALLSIGN · ${(F.callsign || '–').toUpperCase()}`, L + 64, csY, 5);
+  return await new Promise((ok, no) => c.toBlob(b => b ? ok(b) : no(new Error('the poster couldn’t be saved')), 'image/png'));
+}
+
+/* ---------------------------------------------------------------- the poster drawer */
+function posterChoices(p) {
+  const held = list('tsfs').filter(t => t.ownerPilotId === p.id && t.status !== 'destroyed').map(t => effVariant(t.variantId)).filter(Boolean);
+  const heldIds = new Set(held.map(v => v.id));
+  const avail = list('variants').map(v => effVariant(v.id)).filter(v => v && variantRequestable(v) && !heldIds.has(v.id)).sort(byGenThenName);
+  return { held: Array.from(new Map(held.map(v => [v.id, v])).values()), avail };
+}
+ACTIONS['poster-open'] = d => {
+  const p = get('pilots', d.id || S.pilotId); if (!p) return;
+  const old = S.ui.form.poster; if (old && old.url) URL.revokeObjectURL(old.url);
+  const prim = list('tsfs').find(t => t.ownerPilotId === p.id && t.isPrimary) || list('tsfs').find(t => t.ownerPilotId === p.id);
+  S.ui.form.poster = { pid: p.id, vid: prim ? prim.variantId : '', accent: POSTER_ACCENTS[0][0], tagline: '', bgText: p.nativeName ? String(p.nativeName).split(/\s+/)[0] : (p.callsign || ''),
+    pic: p.portraitAssetId ? 'portrait' : 'insignia', localUrl: null, tsfAlpha: 0.85, cutout: true, url: null, blob: null, drawing: false, error: null, seq: 0,
+    message: `🎖️ **${p.callsign || p.fullName}** reporting.`, channel: '', posting: false };
+  openDrawer('poster');
+  ensureDiscord();
+  posterRedraw();
+};
+async function posterRedraw() {
+  const f = S.ui.form.poster; if (!f) return;
+  const seq = ++f.seq, p = get('pilots', f.pid);
+  f.drawing = true; f.error = null; render();
+  try {
+    const opt = { accent: f.accent, tagline: f.tagline, bgText: f.bgText, cutout: f.cutout, tsfAlpha: Number(f.tsfAlpha) || 0.85 };
+    const ink = POSTER_INK;
+    opt.logoImg = await svgImg(insignia(64).replace(/currentColor/g, ink).replace(/Rajdhani, Arial Narrow, sans-serif/, 'Arial Narrow, Arial, sans-serif'), 64, 72).catch(() => null);
+    if (f.pic === 'portrait' && p.portraitAssetId) opt.picImg = await posterImg(ASSET_BASE + p.portraitAssetId).catch(() => null);
+    else if (f.pic === 'local' && f.localUrl) opt.picImg = await posterImg(f.localUrl).catch(() => null);
+    if (!opt.picImg) { opt.picImg = await svgImg(insigniaSvg(p.insignia, p.callsign, 560), 560, 560).catch(() => null); opt.picIsInsignia = true; }
+    const v = f.vid ? effVariant(f.vid) : null, art = v ? variantArtId(v) : null;
+    if (art) { opt.tsfImg = await posterImg(ASSET_BASE + art).catch(() => null); opt.tsfKey = art; }
+    const blob = await drawPoster(p, opt);
+    if (seq !== f.seq || S.ui.form.poster !== f) return;
+    if (f.url) URL.revokeObjectURL(f.url);
+    f.blob = blob; f.url = URL.createObjectURL(blob);
+    f.note = v && !art ? `${tsfLabelFromVariant(v.id)} has no artwork yet, so no TSF is shown. Command Authority can upload it on the model record.` : null;
+  } catch (e) { if (seq === f.seq) f.error = 'Couldn’t draw the poster: ' + ((e && e.message) || e); }
+  if (seq === f.seq) { f.drawing = false; render(); }
+}
+ACTIONS['poster-set'] = d => { const f = S.ui.form.poster; if (!f) return; f[d.k] = d.v; if (d.k === 'pic' && d.v === 'local' && !f.localUrl) { const el = document.getElementById('poster-file'); if (el) el.click(); return; } posterRedraw(); };
+ACTIONS['poster-tsf'] = d => { const f = S.ui.form.poster; if (!f) return; f.vid = d.id || ''; posterRedraw(); };
+ACTIONS['poster-cutout'] = (d, el) => { const f = S.ui.form.poster; if (!f) return; f.cutout = !!el.checked; posterRedraw(); };
+CHANGES['poster-text'] = (v, d) => { const f = S.ui.form.poster; if (!f) return; f[d.k] = v; posterRedraw(); };
+CHANGES['poster-alpha'] = v => { const f = S.ui.form.poster; if (!f) return; f.tsfAlpha = Number(v); posterRedraw(); };
+CHANGES['poster-file'] = (v, d, el) => {
+  const f = S.ui.form.poster, file = el.files && el.files[0]; if (!f || !file) return;
+  if (!/^image\//.test(file.type)) { toast('Choose an image file.', true); return; }
+  if (f.localUrl) URL.revokeObjectURL(f.localUrl);
+  f.localUrl = URL.createObjectURL(file); f.pic = 'local'; el.value = ''; posterRedraw();
+};
+function posterFilename(f) { const p = get('pilots', f.pid) || {}; return `${slugOf(p.callsign || p.fullName)}-poster.png`; }
+ACTIONS['poster-download'] = async () => {
+  const f = S.ui.form.poster; if (!f || !f.blob) return;
+  const name = posterFilename(f);
+  try {
+    if (S.downloads) await S.downloads.save({ filename: name, data: f.blob });
+    else { const a = document.createElement('a'); a.href = f.url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
+    toast(`${name} saved.`);
+  } catch (e) { if (!e || e.code !== 'declined') toast('Couldn’t save the poster.', true); }
+};
+CHANGES['poster-channel'] = v => { S.ui.form.poster.channel = v; };
+ACTIONS['poster-post'] = async () => {
+  const f = S.ui.form.poster, ds = S.discordState, p = f && get('pilots', f.pid);
+  if (!f || !f.blob || !ds || ds.status !== 'ready' || f.posting || !p) return;
+  const channel = f.channel || ds.channels[0], name = posterFilename(f), F = posterFacts(p);
+  const embed = { title: `${F.callsign ? F.callsign + ' · ' : ''}${F.name}`, description: [F.rank, F.appointment, F.unit].filter(x => x && x !== '–').join(' · ') || undefined,
+    color: colourInt(f.accent), image: { url: 'attachment://' + name }, footer: { text: `${BRAND.code} · ${REF.pers(p)}` } };
+  f.posting = true; render();
+  try {
+    await S.discordApi.post({ channel, payload: { content: (f.message || '').trim(), username: BRAND.code, embeds: [embed] }, file: { blob: f.blob, name } });
+    await Data.audit('discord.post', 'pilot', p.id, `${p.callsign || p.fullName} poster posted to Discord (${channel})`).catch(() => {});
+    toast(`Posted to Discord${ds.channels.length > 1 ? ' (' + channel + ')' : ''}.`);
+  } catch (e) { toast((e && e.message) || 'Discord didn’t accept the post.', true); }
+  f.posting = false; render();
+};
+DRAWERS_REG('poster', function () {
+  const f = S.ui.form.poster; if (!f) return '';
+  const p = get('pilots', f.pid); if (!p) return '';
+  const ch = posterChoices(p), ds = S.discordState || {};
+  const card = (v, held) => tsfCardHtml(v, { attrs: `data-act="poster-tsf" data-id="${v.id}"`, selected: f.vid === v.id, badge: f.vid === v.id ? 'On the poster' : held ? 'In the hangar' : '',
+    chips: `${held && v.availability !== 'public' ? chip(v.availability, AVAIL_LABEL[v.availability]) : ''}${variantArtId(v) ? '' : '<span class="chip">No artwork</span>'}` });
+  const preview = f.url ? `<img src="${f.url}" alt="Poster preview" style="width:100%;display:block;border-radius:4px;border:1px solid var(--line);${f.drawing ? 'opacity:.55' : ''}">`
+    : f.error ? `<div class="validation bad">${esc(f.error)}</div>` : '<div class="empty">Drawing the poster…</div>';
+  const discord = !S.isGm ? '' : ds.status === 'loading' ? '<p class="small muted">Checking Discord…</p>'
+    : ds.status !== 'ready' ? `<p class="small muted">${esc(ds.error || 'Discord isn’t set up.')} <button class="btn ghost" data-act="brief-recheck">Check again</button></p>`
+    : `${ds.channels.length > 1 ? `<label class="field">Channel<select id="pst-ch" data-change="poster-channel">${ds.channels.map(c => `<option value="${esc(c)}" ${f.channel === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>` : ''}
+      <label class="field" style="margin-top:8px">Message with the poster<textarea id="pst-msg" data-bind="ui/form/poster/message">${esc(f.message)}</textarea></label>`;
+  return `<div class="wide-drawer"></div><header><div><p class="kicker">PERSONNEL DIVISION · EISHI POSTER · ${esc(REF.pers(p))}</p><h2>${esc(p.callsign ? p.callsign + ' · ' : '')}${esc(p.fullName)}</h2>
+      <p>Built from the Eishi File. Change the record to change the poster.</p></div><button class="btn ghost" data-act="close-drawer" aria-label="Close">${icon('x')}</button></header>
+    <div class="body"><div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+      <div style="flex:1 1 300px;max-width:520px">${preview}${f.note ? `<p class="small muted">${esc(f.note)}</p>` : ''}</div>
+      <div style="flex:1 1 260px"><div class="field"><span>Accent</span><div class="btn-row">${POSTER_ACCENTS.map(([c, l]) => `<button class="btn ${f.accent === c ? 'primary' : ''}" data-act="poster-set" data-k="accent" data-v="${c}" aria-pressed="${f.accent === c}"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${c}"></span> ${l}</button>`).join('')}</div></div>
+        <div class="field" style="margin-top:10px"><span>Picture</span><div class="btn-row">
+          ${p.portraitAssetId ? `<button class="btn ${f.pic === 'portrait' ? 'primary' : ''}" data-act="poster-set" data-k="pic" data-v="portrait">Portrait</button>` : ''}
+          <button class="btn ${f.pic === 'local' ? 'primary' : ''}" data-act="poster-set" data-k="pic" data-v="local">${f.localUrl ? 'Picture from this device' : 'Use a picture from this device…'}</button>
+          <button class="btn ${f.pic === 'insignia' ? 'primary' : ''}" data-act="poster-set" data-k="pic" data-v="insignia">Insignia</button></div>
+          <input type="file" id="poster-file" accept="image/*" data-change="poster-file" hidden>
+          <span class="small muted">A picture from this device (a face claim, say) is used for this poster only and isn’t uploaded.</span></div>
+        <label class="field" style="margin-top:10px">Tagline (optional)<input type="text" id="pst-tag" data-change="poster-text" data-k="tagline" value="${esc(f.tagline)}" placeholder="e.g. The Long Way Round"></label>
+        <label class="field" style="margin-top:10px">Large background text<input type="text" id="pst-bg" data-change="poster-text" data-k="bgText" value="${esc(f.bgText)}" placeholder="e.g. 篝火"></label>
+        <label class="field" style="margin-top:10px">TSF strength<input type="range" id="pst-alpha" min="0.2" max="1" step="0.05" value="${f.tsfAlpha}" data-change="poster-alpha"></label>
+        <label class="small" style="display:block;margin-top:8px"><input type="checkbox" data-act="poster-cutout" ${f.cutout ? 'checked' : ''}> Cut the TSF out of its artwork background</label></div></div>
+      <section><h3>TSF behind ${esc(p.callsign || p.fullName)}</h3>
+        <div class="btn-row" style="margin-bottom:8px"><button class="btn ${f.vid ? '' : 'primary'}" data-act="poster-tsf" data-id="">No TSF</button></div>
+        ${ch.held.length ? `<p class="small muted" style="margin:0 0 6px">In the hangar</p><div class="tsf-grid">${ch.held.map(v => card(v, true)).join('')}</div>` : ''}
+        ${ch.avail.length ? `<p class="small muted" style="margin:12px 0 6px">Available to request</p><div class="tsf-grid">${ch.avail.map(v => card(v, false)).join('')}</div>` : ''}</section>
+      ${S.isGm ? `<section><h3>Discord</h3>${discord}</section>` : ''}</div>
+    <footer><div class="btn-row">${S.isGm && ds.status === 'ready' ? `<button class="btn primary" data-act="poster-post" ${f.blob && !f.posting && !f.drawing ? '' : 'disabled'}>${f.posting ? 'Posting…' : 'Post to Discord'}</button>` : ''}
+      <button class="btn ${S.isGm && ds.status === 'ready' ? '' : 'primary'}" data-act="poster-download" ${f.blob && !f.drawing ? '' : 'disabled'}>${icon('download', 16)} Download PNG</button></div></footer>`;
+});
+/* The Poster button on the Eishi File, beside Personnel record. */
+const _pilotViewPoster = ROUTES.pilot.view;
+ROUTES.pilot.view = function () {
+  const html = _pilotViewPoster.apply(this, arguments), p = currentPilot();
+  if (!p) return html;
+  return html.replace(/(<div class="dossier-band">[\s\S]*?)(<\/div>)/, `$1<button class="btn ghost" data-act="poster-open" data-id="${esc(p.id)}">${icon('star', 16)} Poster</button>$2`);
+};
+
 ;
 /* start-up: every module has registered its routes, drawers and actions */
 'use strict';
