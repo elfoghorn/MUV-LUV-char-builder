@@ -12398,6 +12398,35 @@ DRAWERS_REG('draft-view', function () {
       <section><h3>Progress · ${x.done} of ${x.total} sections complete</h3><ul class="small" style="margin:6px 0 0;padding-left:18px">${x.steps.map(s => `<li>${s.pr.length ? '○' : '✓'} <b>${esc(s.l)}</b>${s.pr.length ? ` · <span class="muted">${esc(s.pr[0])}</span>` : ''}</li>`).join('')}</ul></section>
       ${text('Motivation', d.motivation)}${text('Biography', d.biography)}${text('Personality', d.personality)}</div>`;
 });
+/* ---------------------------------------------------------------- TSF Directory (applicants)
+   Anyone applying (writing an application, or waiting on a decision) can browse the TSF line-up to see the variety
+   on offer: the same frames and specifications players see, with nothing to request or change. */
+function tsfDirectoryView() {
+  const html = catalogueView('models').replace(/<button class="btn primary" data-act="open-drawer" data-type="acquire">[\s\S]*?<\/button>/, '');
+  const back = S.isGm ? '' : `<button class="btn" data-act="nav" data-route="dashboard">${S.ui.enlisting ? 'Back to my application' : S.pilotId ? 'Back' : 'Back to applying'}</button>`;
+  return html.replace(/<div class="page-head"><div><h1>Equipment Catalogue<\/h1><p>[\s\S]*?<\/p><\/div>/,
+    `<div class="page-head"><div><p class="kicker">UNTSF-COMM · TSF DIRECTORY</p><h1>TSF Directory</h1><p>The frames in service with this command. Select one to read its specification. This is a look only: machines are issued once you’re accepted.</p></div>${back}`);
+}
+route('tsf-directory', 'TSF Directory', tsfDirectoryView, { shared: true });
+const _mainHtmlDir = mainHtml;
+mainHtml = function () { return S.route === 'tsf-directory' ? tsfDirectoryView() : _mainHtmlDir(); };
+/* In the directory the specification drawer is read only. */
+const _variantDrawerDir = DRAWERS.variant;
+DRAWERS_REG('variant', d => {
+  const html = _variantDrawerDir(d);
+  if (S.route !== 'tsf-directory') return html;
+  return html.replace(/<button[^>]*data-act="(doc|acquire-submit|acq-pick|unlock-request)"[^>]*>[\s\S]*?<\/button>/g, '')
+    .replace(/<button[^>]*data-type="acquire"[^>]*>[\s\S]*?<\/button>/g, '');
+});
+['doc', 'acquire-submit', 'acq-pick', 'unlock-request'].forEach(n => { const o = ACTIONS[n]; if (o) ACTIONS[n] = (d, el) => S.route === 'tsf-directory' && !S.isGm ? undefined : o(d, el); });
+/* Ways in: the Apply screen, the application itself, and the waiting screen. */
+const DIR_BTN = () => `<button class="btn" data-act="nav" data-route="tsf-directory">${icon('eye', 16)} Browse the TSF directory</button>`;
+const _enlistViewDir = enlistView;
+enlistView = function () { return `<div class="btn-row" style="justify-content:flex-end;margin-bottom:8px">${DIR_BTN()}</div>` + _enlistViewDir.apply(this, arguments); };
+const _appStatusDir = applicationStatusView;
+applicationStatusView = function (p) { return _appStatusDir(p) + `<div class="btn-row" style="margin-top:12px">${DIR_BTN()}</div>`; };
+const _claimViewDir = claimView;
+claimView = function () { const h = _claimViewDir.apply(this, arguments); return h + `<div class="btn-row" style="margin-top:16px">${DIR_BTN()}</div>`; };
 UPLOAD_TARGETS['unit-art'] = id => { S.ui.edit.u.insigniaAssetId = id; };
 ;
 /* start-up: every module has registered its routes, drawers and actions */
