@@ -8869,7 +8869,13 @@ ACTIONS['relation-delete'] = d => askConfirm('Remove this relationship?', 'Remov
 
 /* ---------------------------------------------------------------- service timeline */
 function serviceTimeline(p, publicOnly) {
-  const ev = [], push = (at, kind, title, detail, campaign) => { if (at) ev.push({ at, kind, title, detail, campaign }); };
+  const ev = [], push = (at, kind, title, detail, campaign, label) => { if (at) ev.push({ at, kind, title, detail, campaign, label }); };
+  /* The service history on the record, under the same clearance rules as the dossier. Entries carry only a year, so the
+     index keeps each year's entries in order; a public view shows open entries only. */
+  const acc = dossierAccess(p);
+  if (acc.all || acc.clr >= dossierLevels().history) (p.history || []).filter(x => entryYear(x)).sort((x, y) => entryYear(x) - entryYear(y)).forEach((x, i) => {
+    const level = Number(x.clearance) || 0; if (publicOnly ? level > 0 : !acc.all && acc.clr < level) return;
+    push(new Date(Date.UTC(entryYear(x), 0, 1, 0, 0, i)).toISOString(), 'history', entryName(x), historyFilled(x) ? historyDetails(x).trim() : null, null, String(entryYear(x))); });
   if (p.appliedAt) push(p.appliedAt, 'enlist', 'Applied for service', null);
   list('approvals').filter(a => a.pilotId === p.id && a.type === 'pilot_registration' && a.status === 'approved').forEach(a => push(a.decidedAt, 'enlist', 'Enlisted', 'Application approved by Command Authority'));
   list('unitlog').filter(g => g.pilotId === p.id && ['transfer_in', 'command'].indexOf(g.kind) !== -1).forEach(g => push(g.at, 'posting', g.kind === 'command' ? 'Took command' : 'Posted', g.summary));
@@ -8888,7 +8894,7 @@ function serviceTimeline(p, publicOnly) {
 const TL_ICON = { enlist: 'user', posting: 'users', machine: 'cube', sortie: 'crosshair', wound: 'flag', trial: 'clipboard', course: 'users', qual: 'check', award: 'star', grade: 'chart', journal: 'list', loss: 'x' };
 function serviceTimelineHtml(p, publicOnly) {
   const ev = serviceTimeline(p, publicOnly);
-  return `<h2>Service timeline</h2>${ev.length ? `<ol class="service-tl">${ev.map(e => `<li class="tl-${e.kind}"><span class="tl-dot">${icon(TL_ICON[e.kind] || 'flag', 14)}</span><div><time>${e.campaign ? esc(fmtCampaign(e.campaign)) : fmtDate(e.at)}</time><b>${esc(e.title)}</b>${e.detail ? `<p class="small">${esc(e.detail)}</p>` : ''}</div></li>`).join('')}</ol>` : '<p class="small muted">Their record starts here.</p>'}`;
+  return `<h2>Service timeline</h2>${ev.length ? `<ol class="service-tl">${ev.map(e => `<li class="tl-${e.kind}"><span class="tl-dot">${icon(TL_ICON[e.kind] || 'flag', 14)}</span><div><time>${e.label ? esc(e.label) : e.campaign ? esc(fmtCampaign(e.campaign)) : fmtDate(e.at)}</time><b>${esc(e.title)}</b>${e.detail ? `<p class="small">${esc(e.detail)}</p>` : ''}</div></li>`).join('')}</ol>` : '<p class="small muted">Their record starts here.</p>'}`;
 }
 /* Courses record when they finish, for the timeline. */
 const _advanceCoursesTl = advanceCourses;
@@ -9075,7 +9081,7 @@ function recordBody(p, opt, img) {
   if (on('tsfs')) { const ts = list('tsfs').filter(t => t.ownerPilotId === p.id);
     b += heading('Assigned TSFs') + (ts.length ? wtable(['Serial', 'Machine', 'Status'], ts.map(t => [t.serial + (t.isPrimary ? ' (primary)' : ''), tsfLabel(t), tsfStatus(t.status).label]), [2600, 4800, 2238]) : para('No machines assigned.', { color: '4C5B67' })); }
   if (on('timeline') && typeof serviceTimeline === 'function') { const ev = serviceTimeline(p, true).slice().reverse();
-    b += heading('Service timeline') + (ev.length ? wtable(['Recorded', 'Event', 'Detail'], ev.map(e => [fmtDate(e.at), e.title, [e.campaign ? 'Campaign date ' + fmtCampaign(e.campaign) : '', e.detail || ''].filter(Boolean).join(' · ')]), [1700, 3600, 4338]) : para('Nothing recorded yet.', { color: '4C5B67' })); }
+    b += heading('Service timeline') + (ev.length ? wtable(['Recorded', 'Event', 'Detail'], ev.map(e => [e.label || fmtDate(e.at), e.title, [e.campaign ? 'Campaign date ' + fmtCampaign(e.campaign) : '', e.detail || ''].filter(Boolean).join(' · ')]), [1700, 3600, 4338]) : para('Nothing recorded yet.', { color: '4C5B67' })); }
   if (on('background')) {
     b += heading('Background');
     if (p.motivation) b += para([runs('Why I fight: ', { bold: true }), runs(p.motivation, { italic: true })]);
@@ -10709,7 +10715,7 @@ function obtNode(u, focus) {
   const t = unitType(u.type), slots = slotsOf(u.id), cmd = obCommanderName(u, slots);
   const emblem = u.insignia ? insigniaSvg(u.insignia, u.callsignPrefix || u.designation, 32) : icon(OB_TYPE_ICON[u.type] || 'shield', 20);
   return `<div class="obt-node ob-${esc(u.type)} ${t.support ? 'support' : ''} ${focus === u.id ? 'on' : ''}">
-    <button class="obt-go" data-act="ob-tree-go" data-id="${u.id}" aria-pressed="${focus === u.id}" title="Show ${esc(u.name)} below"><span class="obt-emblem">${emblem}</span>
+    <button class="obt-go" data-act="ob-tree-go" data-id="${u.id}" ${focus === u.id ? 'aria-current="true"' : ''} title="Show ${esc(u.name)}"><span class="obt-emblem">${emblem}</span>
       <span class="obt-text"><span class="obt-type">${esc(t.name)}</span><b>${esc(u.name)}</b>${cmd ? `<span class="obt-cmd">${esc(cmd)}</span>` : ''}</span></button>${obtCrew(u, slots)}</div>`;
 }
 const obtHang = (units, focus) => `<ul class="obt-hang">${units.map(k => `<li>${obtNode(k, focus)}</li>`).join('')}</ul>`;
@@ -10722,12 +10728,22 @@ function obtKids(kids, focus) {
     ${stack.length ? `<li><div class="obt-node obt-group"><span class="obt-text"><span class="obt-type">Support</span><b>Support elements</b></span></div>${obtHang(stack, focus)}</li>` : ''}</ul>`;
 }
 const obtItem = (u, focus) => `<li>${obtNode(u, focus)}${obtKids(obChildren(u.id), focus)}</li>`;
-const obtHtml = (roots, focus) => `<section class="plate obt" aria-label="Chain of command"><h2>Chain of command <span class="sub">Choose a unit to see it below, or a face to open a profile</span></h2>
+const obtHtml = (roots, focus, hint) => `<section class="plate obt" aria-label="Chain of command"><h2>Chain of command <span class="sub">${esc(hint || 'Choose a unit to see it below, or a face to open a profile')}</span></h2>
   <div class="obt-scroll"><ul class="obt-root">${roots.map(u => obtItem(u, focus)).join('')}</ul></div></section>`;
 /* Choosing the unit already shown goes back to everything. */
 ACTIONS['ob-tree-go'] = d => {
-  S.ui.obFocus = S.ui.obFocus === d.id ? '' : d.id; render();
+  const here = S.route === 'orbat';
+  S.ui.obFocus = here && S.ui.obFocus === d.id ? '' : d.id;
+  if (here) render(); else go('orbat');
   requestAnimationFrame(() => { const el = document.querySelector('.orbat'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+};
+/* The same tree heads the player's own Unit and Squadron page, with their posting marked. */
+const _unitViewTree = ROUTES.unit.view;
+ROUTES.unit.view = function () {
+  const html = _unitViewTree.apply(this, arguments), roots = obRoots(), p = currentPilot();
+  const headEnd = html.indexOf('</div></div>') + '</div></div>'.length;
+  if (!roots.length || headEnd < '</div></div>'.length) return html;
+  return html.slice(0, headEnd) + obtHtml(roots, (p && p.unitId) || '', 'Your posting is outlined. Choose a unit to see its people, or a face to open a profile') + html.slice(headEnd);
 };
 ROUTE_DEPT.orbat = 'PERS';
 route('orbat', 'Units and Squadrons', function () {
