@@ -12451,23 +12451,30 @@ ACTIONS['brief-open'] = d => {
   f.level = Number(d.level) || 0; f.update = !!d.update;
   if (S.isGm) discordReady().then(ok => { if (ok && S.ui.form.brief === f && !f.channel) { f.channel = opsChannelFor(S.discordState); render(); } });
 };
-/* Posting a report: share it, with the map as it's shown now, unless the box beside Post is unticked. */
+/* Operation updates are written on the Campaign Map, under the map they go out with: posting saves the report
+   and, unless the box is unticked, opens the share window with the map as it's framed there. */
 const _sitrepPostOps = ACTIONS['sitrep-post'];
 ACTIONS['sitrep-post'] = () => {
-  const t = (S.ui.form.sitrep || '').trim(), lvl = Number(S.ui.form.sitrepLevel || 0), share = S.ui.form.sitrepDiscord !== false;
+  const t = (S.ui.form.sitrep || '').trim(), lvl = Number(S.ui.form.sitrepLevel || 0), share = S.route === 'campaign' && S.ui.form.sitrepDiscord !== false;
   _sitrepPostOps();
   if (!t || !S.isGm || !share) return;
   discordReady().then(ok => { if (ok) ACTIONS['brief-open']({ kind: 'map', mode: 'gm', update: true, level: lvl, message: `📡 **Operation update** · ${fmtCampaign(campaignDate())}\n${t}`.slice(0, 1900) }); });
 };
 ACTIONS['sitrep-discord'] = () => { S.ui.form.sitrepDiscord = S.ui.form.sitrepDiscord === false; render(); };
-const _situationOps = ROUTES.situation.view;
-ROUTES.situation.view = function () {
-  const html = _situationOps.apply(this, arguments);
-  if (!S.isGm || S.ui.previewAs) return html;
+const _campaignOps = ROUTES.campaign.view;
+ROUTES.campaign.view = function () {
+  const html = _campaignOps.apply(this, arguments), anchor = '<div class="grid g3" style="margin-top:12px">';
+  if (!S.isGm || S.ui.previewAs || html.indexOf(anchor) === -1) return html;
   ensureDiscord();
-  if (!S.discordState || S.discordState.status !== 'ready') return html;
-  return html.replace('<button class="btn" data-act="sitrep-post">Post</button>', `<button class="btn" data-act="sitrep-post">Post</button>
-    <label class="small" style="align-self:center"><input type="checkbox" data-act="sitrep-discord" ${S.ui.form.sitrepDiscord !== false ? 'checked' : ''}> Share on Discord with the map</label>`);
+  const ds = S.discordState || {}, ready = ds.status === 'ready', share = ready && S.ui.form.sitrepDiscord !== false, lvl = String(S.ui.form.sitrepLevel || 0);
+  const box = `<section class="plate" style="margin-top:12px"><h2>Operation update <span class="sub">Frame the map above, then post: the report goes to Situation reports${ready ? ' and, with the map, to Discord' : ''}</span></h2>
+    <label class="field">Update<textarea id="ou-t" rows="3" data-bind="ui/form/sitrep" placeholder="e.g. Lantern Battalion pushes north of Lake Biwa; expect heavier laser coverage">${esc(S.ui.form.sitrep || '')}</textarea></label>
+    <div class="btn-row" style="margin-top:8px;align-items:center"><label><span class="sr-only">Report classification</span>${sel('ou-lvl', 'ui/form/sitrepLevel', lvl, CLEARANCE.map(c => [String(c[0]), c[1]]))}</label>
+      <button class="btn primary" data-act="sitrep-post">${share ? 'Post and share the map' : 'Post update'}</button>
+      ${ready ? `<label class="small"><input type="checkbox" data-act="sitrep-discord" ${share ? 'checked' : ''}> Share on Discord with the map</label>`
+        : ds.status === 'loading' ? '<span class="small muted">Checking Discord…</span>' : `<span class="small muted">${esc(ds.error || 'Discord isn’t set up.')}</span>`}</div>
+    ${S.ui.tlSnap ? '<p class="small warn-text">The map is showing a past date on the timeline. The shared map shows the situation now.</p>' : ''}</section>`;
+  return html.replace(anchor, box + anchor);
 };
 /* start-up: every module has registered its routes, drawers and actions */
 'use strict';
