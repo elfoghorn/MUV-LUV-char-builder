@@ -252,6 +252,15 @@
       deleteAccount: async function (uid) { var r = await sb.rpc('admin_delete_account', { p_user: uid }); if (r.error) throw mapError(r.error); }
     };
     var gm = role === 'owner' || role === 'mod';
+    /* Applications in progress, for Command Authority's Applications page (the database only lets them read these). */
+    var drafts = {
+      list: async function () {
+        if (!gm) throw { code: 'forbidden', message: 'Only Command Authority can see applications in progress.' };
+        var r = await sb.from('docs').select('collection,id,data,updated_at').like('collection', 'data/users/%').like('id', 'application-%');
+        if (r.error) throw { code: 'failed', message: r.error.message };
+        return (r.data || []).map(function (x) { return { uid: x.collection.slice(11), key: x.id, data: x.data, updatedAt: x.updated_at }; });
+      }
+    };
     /* Discord: posts go through the site's own relay (functions/api/discord.js), which holds the webhooks and checks
        with Supabase that the sender is Command Authority. The session token proves who is asking. */
     var discord = {
@@ -283,6 +292,7 @@
       if (name === 'assets') return assets;
       if (name === 'downloads') return downloads;
       if (name === 'discord') return discord;
+      if (name === 'drafts') return drafts;
       throw { code: 'unavailable', message: 'Not available in the self-hosted edition.' };
     } };
     liveUpdates();

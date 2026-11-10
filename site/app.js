@@ -7957,7 +7957,7 @@ claimView = function () {
         <div class="track" style="height:8px"><span class="base" style="width:${Math.round(done / (steps.length - 1) * 100)}%"></span></div><p class="small muted">${done} of ${steps.length - 1} sections complete</p>
         <div class="btn-row"><button class="btn primary" data-act="enlist-begin" ${S.readOnly ? 'disabled' : ''}>Continue your application</button><button class="btn ghost" data-act="app-start-over" ${S.readOnly ? 'disabled' : ''}>Start again</button></div></div>`
       : `<div class="btn-row"><button class="btn primary" data-act="enlist-begin" ${S.readOnly ? 'disabled' : ''}>Start your application</button></div>
-        <p class="small muted">${plural(steps.length - 1, 'section')}: ${esc(steps.filter(([k]) => k !== 'review').map(s => s[1]).join(', '))}. It saves as you go.</p>`}
+        <p class="small muted">${plural(steps.length - 1, 'section')}: ${esc(steps.filter(([k]) => k !== 'review').map(s => s[1]).join(', '))}. It saves as you go, and Command Authority can read it while you work on it.</p>`}
     ${free.length ? `<h2 class="section-h" style="margin-top:20px">Or claim a record Command Authority set up for you</h2><div class="grid g2">${free.map(p => `<div class="plate"><div class="desig">${esc(p.callsign || p.fullName)}</div><p class="muted small">${esc(p.fullName)} · ${esc(facName(p.factionId))}</p>
       <button class="btn" data-act="claim-pilot" data-id="${p.id}" ${S.readOnly ? 'disabled' : ''}>${p.npc ? 'Take over this character' : 'This is me'}</button>${p.npc ? '<p class="small muted" style="margin:6px 0 0">An NPC Command Authority has opened to players. Taking it over makes it your character.</p>' : ''}</div>`).join('')}</div>` : ''}</div>`;
 };
@@ -10545,7 +10545,7 @@ Object.assign(ICON_PATHS, {
 /* Command Authority, arranged by what you are doing. */
 const CA_GROUPS = [
   ['cmd', 'Command', 'compass', [['gm', 'compass', 'Command Centre'], ['approvals', 'inbox', 'Approval Centre'], ['campaign', 'map', 'Campaign Map'], ['analytics', 'pulse', 'Analytics'], ['audit', 'history', 'Audit Records']]],
-  ['pers', 'Personnel and units', 'users', [['personnel', 'idcard', 'Personnel Administration'], ['units', 'grid', 'Unit Management'], ['structure', 'sitemap', 'Command Structure'], ['orbat', 'layers', 'Units and Squadrons']]],
+  ['pers', 'Personnel and units', 'users', [['personnel', 'idcard', 'Personnel Administration'], ['applications', 'clipboard', 'Applications'], ['units', 'grid', 'Unit Management'], ['structure', 'sitemap', 'Command Structure'], ['orbat', 'layers', 'Units and Squadrons']]],
   ['ops', 'Operations', 'radio', [['operations', 'radio', 'Operations Record'], ['combat', 'crosshair', 'Combat'], ['evaluation', 'clipboard', 'Evaluation and Training'], ['situation', 'globe', 'Global Situation']], 'operations'],
   ['arm', 'Armament and engineering', 'crosshair', [['tsf-db', 'database', 'TSF Database'], ['equipment-admin', 'crosshair', 'Equipment Management'], ['upgrades', 'upgrade', 'Upgrade Release'], ['design', 'pen', 'Design Approval'], ['research', 'flask', 'Research and Development'], ['orgs', 'factory', 'Manufacturer Registry']]],
   ['log', 'Logistics', 'boxes', [['maintenance', 'tool', 'Maintenance Control'], ['procurement', 'truck', 'Procurement'], ['production', 'factory', 'Production']]],
@@ -12319,6 +12319,85 @@ function unitBadges(p, size, nearestOnly) {
   const show = nearestOnly ? chain.slice(-1) : chain;
   return show.map(u => `<span title="${esc(u.name)}" style="display:inline-block;vertical-align:middle;margin-right:4px;line-height:0">${unitInsignia(u, size)}</span>`).join('');
 }
+/* ---------------------------------------------------------------- Applications (Command Authority)
+   Every character being made and where each application stands: drafts still being written (read from each
+   player's private storage, which the database opens to Command Authority for application drafts only), then
+   submitted, held, sent back and decided applications from the Approval Centre. */
+const APPS = { list: null, loading: false, error: null, at: null };
+async function loadAppDrafts() {
+  if (APPS.loading) return;
+  APPS.loading = true; scheduleRender();
+  try { const api = await window.claude.use('drafts'); APPS.list = await api.list(); APPS.error = null; APPS.at = nowIso(); }
+  catch (e) { APPS.list = APPS.list || []; APPS.error = e && e.code === 'unavailable' ? 'Applications in progress show on the self-hosted site.' : (e && e.message) || 'Couldn’t load applications in progress.'; }
+  APPS.loading = false; scheduleRender();
+}
+/* Work out progress by looking at the draft through the application's own step checks. */
+function draftSummary(rec) {
+  const e = rec && rec.data && rec.data.enlist; if (!e || !e.d) return null;
+  const keep = S.ui.enlist; S.ui.enlist = e;
+  try {
+    const steps = appSteps().filter(([k]) => k !== 'review').map(([k, l]) => { let pr = []; try { pr = stepProblems(k, e.d) || []; } catch (x) { pr = []; } return { k, l, pr }; });
+    const cur = (APP_STEPS_ALL.find(([k]) => k === e.step) || [])[1] || '';
+    return { e, d: e.d, steps, done: steps.filter(x => !x.pr.length).length, total: steps.length, cur, savedAt: rec.data.savedAt || rec.updatedAt, uid: rec.uid, key: rec.key, pilot: e.pilotId ? get('pilots', e.pilotId) : null };
+  } finally { S.ui.enlist = keep; }
+}
+const playerName = uid => (uid && accountName(uid)) || (uid ? 'Player ' + String(uid).slice(0, 6) : '–');
+function appGauge(done, total) {
+  const pct = total ? Math.round(done / total * 100) : 0;
+  return `<span style="display:inline-flex;align-items:center;gap:8px"><span style="display:inline-block;width:90px;height:6px;border-radius:3px;background:var(--line);overflow:hidden"><span style="display:block;height:100%;width:${pct}%;background:${done === total ? 'var(--ok)' : 'var(--accent)'}"></span></span><span class="small">${done}/${total}</span></span>`;
+}
+const lastEventAt = a => ((a.events || []).slice(-1)[0] || {}).at || a.decidedAt || a.submittedAt || '';
+
+route('applications', 'Applications', function () {
+  if (APPS.list === null && !APPS.loading) setTimeout(loadAppDrafts, 0);
+  const drafts = (APPS.list || []).map(draftSummary).filter(Boolean).sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)));
+  const fresh = drafts.filter(x => !x.pilot), revising = drafts.filter(x => x.pilot);
+  const regs = list('approvals').filter(a => a.type === 'pilot_registration').sort((a, b) => String(lastEventAt(b)).localeCompare(String(lastEventAt(a))));
+  const open = regs.filter(a => a.status === 'pending' || a.status === 'on_hold'), back = regs.filter(a => a.status === 'changes_requested');
+  const month = Date.now() - 30 * 864e5, decided = regs.filter(a => (a.status === 'approved' || a.status === 'rejected') && new Date(lastEventAt(a)).getTime() >= month);
+  const charName = d => `${d.callsign ? `<b>${esc(d.callsign)}</b> · ` : ''}${esc(d.fullName || 'Unnamed')}`;
+  const draftRows = rows => rows.map(x => `<tr class="click" data-act="draft-view" data-key="${esc(x.key)}" data-uid="${esc(x.uid)}">
+      <td>${x.d.portraitAssetId ? `<img src="${ASSET_BASE}${esc(x.d.portraitAssetId)}" alt="" style="width:28px;height:28px;object-fit:cover;border-radius:3px;vertical-align:middle;margin-right:8px">` : ''}${charName(x.d)}</td>
+      <td>${esc(playerName(x.uid))}</td><td>${appGauge(x.done, x.total)}</td><td class="small">${esc(x.cur)}</td><td class="small">${x.savedAt ? esc(fmtDT(x.savedAt)) : '–'}</td>
+      <td class="small muted">${esc((x.steps.find(s => s.pr.length) || { pr: [] }).pr[0] || 'Ready to submit')}</td></tr>`).join('');
+  const regRows = rows => rows.map(a => { const p = get('pilots', a.pilotId) || {}, dr = drafts.find(x => x.pilot && x.pilot.id === p.id);
+    return `<tr class="click" data-act="open-drawer" data-type="approval" data-id="${a.id}"><td>${charName(p)}</td><td>${esc(playerName(p.userId))}</td><td>${chip(a.status)}${dr ? ' <span class="chip">Revising</span>' : ''}</td>
+      <td class="small">${a.submittedAt ? esc(fmtDT(a.submittedAt)) : '–'}</td><td class="small">${lastEventAt(a) ? esc(fmtDT(lastEventAt(a))) : '–'}</td></tr>`; }).join('');
+  const tbl = (head, body, empty) => body ? `<div class="scroll-x"><table class="data"><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>` : `<p class="small muted">${empty}</p>`;
+  const DH = ['Character', 'Player', 'Progress', 'Working on', 'Last saved', 'Next thing to fix'], RH = ['Character', 'Player', 'Status', 'Submitted', 'Last update'];
+  return `<div class="page-head"><div><p class="kicker">PERSONNEL DIVISION · APPLICATIONS</p><h1>Applications</h1>
+      <p>Characters being made and where each application stands. Drafts are as last saved by the player.</p></div>
+      <div class="btn-row"><button class="btn" data-act="apps-refresh" ${APPS.loading ? 'disabled' : ''}>${APPS.loading ? 'Loading…' : 'Refresh'}</button></div></div>
+    <div class="grid g4" style="margin-bottom:16px"><div class="plate metric"><b>${fresh.length}</b><span>Being written</span></div>
+      <div class="plate metric ${open.length ? 'warn' : ''}"><b>${open.length}</b><span>Awaiting decision</span></div>
+      <div class="plate metric"><b>${back.length}</b><span>Sent back for changes</span></div>
+      <div class="plate metric"><b>${decided.filter(a => a.status === 'approved').length}</b><span>Approved in 30 days</span></div></div>
+    ${APPS.error ? `<p class="notice warn small">${esc(APPS.error)}</p>` : ''}
+    <section class="plate" style="margin-bottom:16px"><h2>Being written</h2><p class="small muted">Applications players have started but not sent. Choose one to read it.${APPS.at ? ' Loaded ' + esc(fmtDT(APPS.at)) + '.' : ''}</p>
+      ${APPS.list === null ? '<p class="small muted">Loading…</p>' : tbl(DH, draftRows(fresh), 'Nobody is writing an application at the moment.')}</section>
+    <section class="plate" style="margin-bottom:16px"><h2>Awaiting decision</h2>${tbl(RH, regRows(open), 'Nothing waiting. Decide applications in the Approval Centre; they show here too.')}</section>
+    <section class="plate" style="margin-bottom:16px"><h2>Sent back for changes</h2>${revising.length ? `<p class="small muted">${plural(revising.length, 'player')} revising now.</p>` : ''}${tbl(RH, regRows(back), 'None sent back.')}</section>
+    <section class="plate"><h2>Decided in the last 30 days</h2>${tbl(RH, regRows(decided), 'No decisions in the last 30 days.')}</section>`;
+}, { gm: true });
+ROUTE_DEPT.applications = 'PERS'; ROUTES.applications.dept = 'PERS';
+ACTIONS['apps-refresh'] = () => loadAppDrafts();
+ACTIONS['draft-view'] = d => { S.ui.form.draftView = { key: d.key, uid: d.uid }; openDrawer('draft-view'); };
+DRAWERS_REG('draft-view', function () {
+  const v = S.ui.form.draftView, rec = v && (APPS.list || []).find(r => r.key === v.key && r.uid === v.uid), x = rec && draftSummary(rec);
+  if (!x) return `<header><div><h2>Application</h2><p>This draft is no longer there: it may have been sent or discarded.</p></div><button class="btn ghost" data-act="close-drawer" aria-label="Close">${icon('x')}</button></header>`;
+  const d = x.d, fac = d.factionId ? facName(d.factionId) : '', age = (() => { try { return d.dob ? ageAt(birthOf(d.dob), settingDate()) : null; } catch (e) { return null; } })();
+  const row = (l, val) => val || val === 0 ? `<dt>${esc(l)}</dt><dd>${esc(String(val))}</dd>` : '';
+  const choices = (d.postingChoices || []).map(id => { const sl = get('slots', id); return sl ? sl.title + (get('units', sl.unitId) ? ' · ' + get('units', sl.unitId).name : '') : null; }).filter(Boolean);
+  const text = (l, t) => t && String(t).trim() ? `<h3>${esc(l)}</h3><p style="white-space:pre-wrap">${esc(String(t).length > 900 ? String(t).slice(0, 900) + ' …' : t)}</p>` : '';
+  return `<div class="wide-drawer"></div><header><div><p class="kicker">APPLICATION IN PROGRESS · ${esc(playerName(x.uid))}</p><h2>${esc(d.callsign ? d.callsign + ' · ' : '')}${esc(d.fullName || 'Unnamed')}</h2>
+      <p>${x.pilot ? 'Revising after changes were requested. ' : ''}Last saved ${x.savedAt ? esc(fmtDT(x.savedAt)) : '–'}. Read only: the player is still writing it.</p></div><button class="btn ghost" data-act="close-drawer" aria-label="Close">${icon('x')}</button></header>
+    <div class="body"><div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+      ${d.portraitAssetId ? `<img src="${ASSET_BASE}${esc(d.portraitAssetId)}" alt="Portrait" style="width:150px;height:190px;object-fit:cover;border-radius:4px;border:1px solid var(--line)">` : ''}
+      <dl class="kv" style="flex:1 1 260px">${row('Kind', d.kind === 'support' ? 'Support staff' : 'Eishi')}${row('Date of birth', d.dob ? d.dob + (age != null ? ` (age ${age} in ${settingYear()})` : '') : '')}${row('Nationality', d.nationality)}${row('Born in', d.birthplace)}
+        ${row('Native name', d.nativeName)}${row('Discord', d.discord)}${row('Serves with', fac)}${row('Years of service', d.yearsService)}${row('Face claims', [d.fcIrl, d.fcAnime].filter(Boolean).join(' · '))}${row('Posting wanted', choices.join('; '))}</dl></div>
+      <section><h3>Progress · ${x.done} of ${x.total} sections complete</h3><ul class="small" style="margin:6px 0 0;padding-left:18px">${x.steps.map(s => `<li>${s.pr.length ? '○' : '✓'} <b>${esc(s.l)}</b>${s.pr.length ? ` · <span class="muted">${esc(s.pr[0])}</span>` : ''}</li>`).join('')}</ul></section>
+      ${text('Motivation', d.motivation)}${text('Biography', d.biography)}${text('Personality', d.personality)}</div>`;
+});
 UPLOAD_TARGETS['unit-art'] = id => { S.ui.edit.u.insigniaAssetId = id; };
 ;
 /* start-up: every module has registered its routes, drawers and actions */
