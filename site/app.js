@@ -9514,8 +9514,8 @@ function ageAt(b, when) {
   if (!b.approx) { const m = when.getUTCMonth() - b.date.getUTCMonth(); if (m < 0 || (m === 0 && when.getUTCDate() < b.date.getUTCDate())) a--; }
   return a;
 }
-/* Conscription: 18 from 2005; during the war, eishi could join at 16. */
-const minServiceAge = year => year >= 2005 ? 18 : 16;
+/* Eishi training can begin at 16, in every year of the war. */
+const minServiceAge = () => 16;
 function ageProblems(d) {
   const b = birthOf(d.dob), out = []; if (!b) return out;
   const age = ageAt(b, settingDate());
