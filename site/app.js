@@ -7757,10 +7757,10 @@ render = function () { const r = _renderV3d.apply(this, arguments); if (S.ui.dra
 const APP_DEFAULTS = {
   allowClaim: false, minBiography: 80,
   intro: 'Complete your personnel file to apply for service. Your application saves as you go, so you can leave and come back to it at any time.',
-  required: { callsign: true, dob: false, nationality: false, birthplace: false, faceClaims: false, discordId: true, motivation: true, biography: true, personality: false, strengths: false },
+  required: { callsign: true, dob: false, nationality: false, birthplace: false, faceClaims: false, discord: true, motivation: true, biography: true, personality: false, strengths: false },
   questions: []
 };
-const APP_REQUIRABLE = [['callsign', 'Callsign'], ['dob', 'Date of birth'], ['birthplace', 'Place of birth'], ['nationality', 'Nationality'], ['discordId', 'Discord user ID'], ['motivation', 'Why they want to serve'], ['biography', 'Background'], ['personality', 'Personality and conduct'], ['strengths', 'Strengths and weaknesses']];
+const APP_REQUIRABLE = [['callsign', 'Callsign'], ['dob', 'Date of birth'], ['birthplace', 'Place of birth'], ['nationality', 'Nationality'], ['discord', 'Discord username'], ['motivation', 'Why they want to serve'], ['biography', 'Background'], ['personality', 'Personality and conduct'], ['strengths', 'Strengths and weaknesses']];
 /* Face claims (both optional): a real-life and an anime face claim per character. AU versions of existing characters are fine.
    A claim another current character already uses is flagged, not blocked: Command Authority decides. */
 const FC_KINDS = [['fcIrl', 'IRL face claim', 'e.g. Rinko Kikuchi'], ['fcAnime', 'Anime face claim', 'e.g. Mitsuki Hayase (Muv-Luv)']];
@@ -9570,8 +9570,7 @@ function dossierIdentityHtml(d) {
       <label class="field">Height (cm)${num('en-height', P + '/heightCm', d.heightCm)}</label>
       <label class="field">Languages${txt('en-lang', P + '/languages', d.languages, 'e.g. Japanese, English')}</label>
       <label class="field wide">Distinguishing marks${txt('en-marks', P + '/marks', d.marks, 'e.g. Burn scar on the left forearm')}</label>
-      <label class="field">Discord username${txt('en-discord', P + '/discord', d.discord, 'e.g. akari.todo')}</label>
-      <label class="field">${applicationRules().required.discordId ? 'Discord user ID' : 'Discord user ID (optional)'}${txt('en-discordid', P + '/discordId', d.discordId, 'e.g. 412345678901234567')}<span class="small muted">In Discord: Settings → Advanced → turn on Developer Mode, then right-click your name → Copy User ID. It’s a long number, not your username, and lets Command Authority ping you when your character is accepted.</span></label></div>
+      <label class="field">${applicationRules().required.discord ? 'Discord username' : 'Discord username (optional)'}${txt('en-discord', P + '/discord', d.discord, 'e.g. akari.todo')}<span class="small muted">Your Discord username (not your display name), so Command Authority can find you on the server.</span></label></div>
     ${b ? `<p class="small muted">Age in ${settingYear()}: <b>${ageAt(b, settingDate())}</b>${b.approx ? ' (worked out from the year alone)' : ''}.</p>` : String(d.dob || '').trim().length >= 8 ? '<p class="small warn-text">Write the date of birth as, for example, 14 March 1990, so the age can be worked out.</p>' : ''}
     ${ageProblems(d).map(x => `<p class="notice warn small">${esc(x)}</p>`).join('')}`;
 }
@@ -10917,7 +10916,7 @@ function applicationTemplateBody() {
     + heading('Posting') + fields(['Serving with', 'Preferred role', 'Years of service', 'First choice of post', 'Second choice of post'])
     + heading('Service') + SERVICE_CHAPTERS.map(chapter).join('')
     + heading('Background') + BACKGROUND_CHAPTERS.map(chapter).join('') + fields(['Next of kin', 'Family location'])
-    + heading('Dossier particulars') + fields(['Name in native script', 'Birth name or alias', 'Other nationalities', 'Blood type', 'Height (cm)', 'Languages', 'Discord username', 'Discord user ID (Settings → Advanced → Developer Mode, then right-click your name → Copy User ID)', 'Distinguishing marks'])
+    + heading('Dossier particulars') + fields(['Name in native script', 'Birth name or alias', 'Other nationalities', 'Blood type', 'Height (cm)', 'Languages', 'Discord username', 'Distinguishing marks'])
     + heading('Service history entries') + hint('Optional. One line per event, newest first. Classification is Open, Restricted or Secret; Command Authority has the final say.')
     + wtable(['Date', 'Entry', 'Classification'], Array.from({ length: 8 }, () => ['', '', '']), [1500, 6538, 1600])
     + heading('Attributes') + hint('Eishi only. Say how each one compares: their best, very high, high, average or low. Command Authority sets the numbers.')
@@ -12227,6 +12226,16 @@ ACTIONS['accept-post'] = async () => {
   if (S.ui.form.accept) f.posting = false; render();
 };
 CHANGES['accept-channel'] = v => { S.ui.form.accept.channel = v; };
+CHANGES['accept-id'] = v => {
+  const f = S.ui.form.accept, id = String(v || '').trim(); if (!f || !id) return;
+  if (!/^\d{17,20}$/.test(id)) { toast('A Discord user ID is a long number (17 to 20 digits). Copy it with Developer Mode on: right-click their name → Copy User ID.', true); return; }
+  const before = acceptMention(get('pilots', f.pid)).text, rec = clone(S.store.pilots[f.pid]); rec.discordId = id;
+  run(async () => { await Data.put('pilots', f.pid, rec); }).then(ok => {
+    if (!ok) return;
+    f.message = before && f.message.indexOf(before) !== -1 ? f.message.replace(before, `<@${id}>`) : acceptMessage(get('pilots', f.pid));
+    toast('Saved. They’ll be pinged.'); render();
+  });
+};
 ACTIONS['accept-auto'] = (d, el) => { S.ui.form.accept.auto = !!el.checked; };
 DRAWERS_REG('accept-announce', function () {
   const f = S.ui.form.accept; if (!f) return '';
@@ -12236,7 +12245,8 @@ DRAWERS_REG('accept-announce', function () {
     <div class="body"><div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
       <div style="flex:1 1 260px;max-width:380px">${f.url ? `<img src="${f.url}" alt="Poster" style="width:100%;display:block;border-radius:4px;border:1px solid var(--line)">` : f.error ? `<div class="validation bad">${esc(f.error)}</div>` : '<div class="empty">Drawing the poster…</div>'}</div>
       <div style="flex:1 1 300px">
-        ${!m.users.length ? `<p class="notice warn small">No Discord user ID on their record, so this ${m.text ? `names ${esc(m.text)} without pinging them` : 'won’t mention anyone'}. Add the ID in Personnel Administration (Discord user ID) to ping them.</p>` : ''}
+        ${!m.users.length ? `<p class="notice warn small">Discord can only ping someone by their user ID, not their username, so this ${m.text ? `names ${esc(m.text)} without pinging them` : 'won’t mention anyone'}. To ping them: in Discord, right-click ${m.text ? esc(m.text) : 'them'} → Copy User ID (Developer Mode on), and paste it here. It’s saved on their record for next time.</p>
+          <label class="field">Discord user ID<input type="text" id="acc-id" data-change="accept-id" placeholder="e.g. 412345678901234567" inputmode="numeric"></label>` : ''}
         ${ds.channels.length > 1 ? `<label class="field">Channel<select id="acc-ch" data-change="accept-channel">${ds.channels.map(c => `<option value="${esc(c)}" ${f.channel === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>` : ''}
         <label class="field" style="margin-top:8px">Message<textarea id="acc-msg" data-bind="ui/form/accept/message" style="min-height:320px;font-family:var(--font-mono);font-size:12.5px">${esc(f.message)}</textarea></label>
         <label class="small" style="display:block;margin-top:8px"><input type="checkbox" data-act="accept-auto" ${f.auto ? 'checked' : ''}> Post future acceptances automatically${ds.channels.length > 1 ? ' to this channel' : ''}</label></div></div></div>
@@ -12263,14 +12273,14 @@ DRAWERS_REG('approval', d => {
   return html.indexOf('<footer>') !== -1 ? html.replace('<footer>', `<footer><div class="btn-row" style="margin-bottom:8px">${btn}</div>`) : html + `<footer><div class="btn-row">${btn}</div></footer>`;
 });
 
-/* Discord user ID on the application: required unless Command Authority turns it off (Applications settings). */
+/* Discord username on the application: required unless Command Authority turns it off (Applications settings). */
 const _stepProblemsDiscord = stepProblems;
 stepProblems = function (step, d) {
   d = d || S.ui.enlist.d; const out = _stepProblemsDiscord(step, d);
   if (step === 'identity') {
-    const id = String(d.discordId || '').trim();
-    if (!id && applicationRules().required.discordId) out.push('Give your Discord user ID, so Command Authority can ping you when you’re accepted (how to find it is under the box).');
-    else if (id && !/^\d{17,20}$/.test(id)) out.push('The Discord user ID is a long number (17 to 20 digits), not your username. Copy it with Developer Mode on: right-click your name → Copy User ID.');
+    const u = String(d.discord || '').trim().replace(/^@/, '');
+    if (!u && applicationRules().required.discord) out.push('Give your Discord username, so Command Authority can find you on the server.');
+    else if (u && !/^[a-z0-9._]{2,32}$/i.test(u) && !/^.{2,32}#\d{4}$/.test(u)) out.push('That doesn’t look like a Discord username: 2 to 32 letters, numbers, dots or underscores, with no spaces (for example akari.todo).');
   }
   return out;
 };
