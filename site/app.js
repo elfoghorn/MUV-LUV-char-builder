@@ -7918,6 +7918,15 @@ ACTIONS['enlist-revise'] = async () => {
 };
 
 /* Submitting writes the full personnel file and clears the draft. */
+/* The character record's fields from an application: used when it is sent, and for Command Authority's preview of drafts. */
+function applicationFields(d, now) {
+  return { userId: S.uid, fullName: d.fullName.trim(), callsign: d.callsign.trim(), dob: String(d.dob || '').trim() || null, birthplace: d.birthplace.trim(), nationality: d.nationality.trim(), fcIrl: (d.fcIrl || '').trim(), fcAnime: (d.fcAnime || '').trim(),
+      factionId: d.factionId, preferredRoleId: d.roleId || null, priorService: d.priorService.trim(), yearsService: d.yearsService === '' ? null : Number(d.yearsService), motivation: d.motivation.trim(),
+      biography: d.biography, personality: d.personality.trim(), strengths: d.strengths.trim(), weaknesses: d.weaknesses.trim(),
+      claimedQuals: d.claimedQuals.filter(x => (x.title || '').trim()).map(x => ({ title: x.title.trim(), detail: (x.detail || '').trim() })), answers: Object.assign({}, d.answers),
+      nationId: d.nationId || null, postingChoices: (d.postingChoices || []).filter(Boolean), portraitAssetId: d.portraitAssetId || null, insignia: d.insignia, attributes: d.attributes, status: 'pending', appliedAt: now, applicationNotes: null,
+      experienceBracket: d.bracket || null, attributeRoll: d.roll ? Object.fromEntries(Object.entries(d.roll).filter(([k]) => k !== 'fromRecord')) : null, rollsUsed: d.rollsUsed || 0 };
+}
 ACTIONS['enlist-submit'] = () => {
   const e = S.ui.enlist, d = e.d, problems = allProblems(d).concat(stepProblems('review'));
   if (problems.length) { toast(problems[0], true); return; }
@@ -7925,12 +7934,7 @@ ACTIONS['enlist-submit'] = () => {
   const now = nowIso(), pid = e.pilotId || newId('plt'), existing = e.pilotId ? clone(S.store.pilots[e.pilotId]) : null;
   const max = list('pilots').reduce((m, x) => Math.max(m, parseInt(x.personnelId, 10) || 0), 0);
   const pilot = Object.assign(existing || { personnelId: newPersonnelId(settingYear() - (Number(d.yearsService) || 0)), rankId: null, unit: '', squadron: '', access: {} },
-    { userId: S.uid, fullName: d.fullName.trim(), callsign: d.callsign.trim(), dob: String(d.dob || '').trim() || null, birthplace: d.birthplace.trim(), nationality: d.nationality.trim(), fcIrl: (d.fcIrl || '').trim(), fcAnime: (d.fcAnime || '').trim(),
-      factionId: d.factionId, preferredRoleId: d.roleId || null, priorService: d.priorService.trim(), yearsService: d.yearsService === '' ? null : Number(d.yearsService), motivation: d.motivation.trim(),
-      biography: d.biography, personality: d.personality.trim(), strengths: d.strengths.trim(), weaknesses: d.weaknesses.trim(),
-      claimedQuals: d.claimedQuals.filter(x => (x.title || '').trim()).map(x => ({ title: x.title.trim(), detail: (x.detail || '').trim() })), answers: Object.assign({}, d.answers),
-      nationId: d.nationId || null, postingChoices: (d.postingChoices || []).filter(Boolean), portraitAssetId: d.portraitAssetId || null, insignia: d.insignia, attributes: d.attributes, status: 'pending', appliedAt: now, applicationNotes: null,
-      experienceBracket: d.bracket || null, attributeRoll: d.roll ? Object.fromEntries(Object.entries(d.roll).filter(([k]) => k !== 'fromRecord')) : null, rollsUsed: d.rollsUsed || 0 }, dossierFromDraft(d));
+    applicationFields(d, now), dossierFromDraft(d));
   run(async () => {
     for (const a of list('approvals').filter(x => x.pilotId === pid && x.type === 'pilot_registration' && (x.status === 'pending' || x.status === 'on_hold'))) {
       const c = clone(S.store.approvals[a.id]); c.status = 'withdrawn'; c.events.push({ event: 'withdrawn', actor: pilot.personnelId, note: 'Replaced by a revised application', at: now }); await Data.put('approvals', a.id, c);
@@ -12431,6 +12435,53 @@ const _claimViewDir = claimView;
 claimView = function () { const h = _claimViewDir.apply(this, arguments); return h + `<div class="btn-row" style="margin-top:16px">${DIR_BTN()}</div>`; };
 UPLOAD_TARGETS['unit-art'] = id => { S.ui.edit.u.insigniaAssetId = id; };
 ;
+/* ---------------------------------------------------------------- drafts as Personnel sees them
+   A draft opens the way Command Authority would see the character in Personnel Administration: the same record
+   drawer, read only, filled from the draft exactly as sending it would fill the record, with the application's
+   progress on top. Sections only staff fill in (awards, machines, remarks and so on) are left out. */
+const DRAFT_PREVIEW_ID = '__draft-preview';
+const DRAFT_STAFF_ONLY = ['Player character or NPC', 'Combat record adjustments', 'Commanding officer’s remarks', 'Dossier margin notes', 'Chapter classification', 'Experience', 'Awards and commendations', 'Equipment authorisation', 'Machines'];
+function draftPreviewPilot(x) {
+  const d = Object.assign({ fullName: '', callsign: '', dob: '', birthplace: '', nationality: '', fcIrl: '', fcAnime: '', priorService: '', yearsService: '', motivation: '', biography: '',
+    personality: '', strengths: '', weaknesses: '', claimedQuals: [], answers: {}, postingChoices: [] }, clone(x.d));
+  ['fullName', 'callsign', 'birthplace', 'nationality', 'priorService', 'motivation', 'personality', 'strengths', 'weaknesses'].forEach(k => { if (typeof d[k] !== 'string') d[k] = d[k] == null ? '' : String(d[k]); });
+  if (d.yearsService == null || isNaN(Number(d.yearsService))) d.yearsService = '';
+  const base = x.pilot ? clone(x.pilot) : { personnelId: 'Issued on approval', rankId: null, unit: '', squadron: '', access: {} };
+  return Object.assign(base, applicationFields(d, x.savedAt || nowIso()), dossierFromDraft(d), { id: DRAFT_PREVIEW_ID, userId: x.uid, status: 'pending' });
+}
+function draftAsRecordHtml(x) {
+  const p = draftPreviewPilot(x), keepEdit = S.ui.edit, keepPe = S.ui.form.pe;
+  S.ui.edit = { kind: 'pilot', isNew: false, pilot: p, secretsFor: p.id, secrets: Object.assign({ connections: '', secrets: '', hooks: '' }, (x.d && x.d.secrets) || {}) };
+  let html;
+  try { html = DRAWERS['pilot-edit']({ type: 'pilot-edit' }); } finally { S.ui.edit = keepEdit; S.ui.form.pe = keepPe; }
+  const t = document.createElement('template'); t.innerHTML = html;
+  const root = t.content.querySelector('.body') || t.content;
+  root.querySelectorAll('section').forEach(sec => { const h = sec.querySelector('h3'); if (h && DRAFT_STAFF_ONLY.some(s => h.textContent.trim().indexOf(s) === 0)) sec.remove(); });
+  /* The account picker is a staff control: the player writing the draft is already named in the header. */
+  root.querySelectorAll('label, .field').forEach(n => { if (/^\s*Player account/.test(n.textContent)) n.remove(); });
+  root.querySelectorAll('p').forEach(n => { if (/^The account that plays this character/.test(n.textContent.trim())) n.remove(); });
+  root.querySelectorAll('button, input[type=file]').forEach(n => n.remove());
+  root.querySelectorAll('input, textarea, select').forEach(n => {
+    if (n.matches('textarea, input:not([type]), input[type=text], input[type=number], input[type=date], input[type=email], input[type=url]')) n.setAttribute('readonly', ''); else n.setAttribute('disabled', '');
+    n.removeAttribute('id');
+  });
+  root.querySelectorAll('[data-act], [data-bind], [data-change]').forEach(n => { n.removeAttribute('data-act'); n.removeAttribute('data-bind'); n.removeAttribute('data-change'); });
+  return root === t.content ? Array.from(t.content.childNodes).map(n => n.outerHTML || n.textContent).join('') : root.innerHTML;
+}
+const _draftViewSummary = DRAWERS['draft-view'];
+DRAWERS_REG('draft-view', function () {
+  const v = S.ui.form.draftView, rec = v && (APPS.list || []).find(r => r.key === v.key && r.uid === v.uid), x = rec && draftSummary(rec);
+  if (!x) return _draftViewSummary.apply(this, arguments);
+  let body;
+  try { body = draftAsRecordHtml(x); } catch (e) { return _draftViewSummary.apply(this, arguments).replace('<div class="body">', `<div class="body"><p class="notice warn small">The full record view couldn’t be drawn for this draft (${esc((e && e.message) || 'unknown error')}), so this is the summary.</p>`); }
+  const d = x.d;
+  return `<div class="wide-drawer"></div><header><div><p class="kicker">APPLICATION IN PROGRESS · ${esc(playerName(x.uid))}</p><h2>${esc(d.callsign ? d.callsign + ' · ' : '')}${esc(d.fullName || 'Unnamed')}</h2>
+      <p>${x.pilot ? 'Revising after changes were requested. ' : ''}Last saved ${x.savedAt ? esc(fmtDT(x.savedAt)) : '–'}. Read only: the player is still writing it.</p></div><button class="btn ghost" data-act="close-drawer" aria-label="Close">${icon('x')}</button></header>
+    <div class="body draft-record">
+      <section><h3>Progress · ${x.done} of ${x.total} sections complete</h3><ul class="small" style="margin:6px 0 0;padding-left:18px">${x.steps.map(s => `<li>${s.pr.length ? '○' : '✓'} <b>${esc(s.l)}</b>${s.pr.length ? ` · <span class="muted">${esc(s.pr[0])}</span>` : ''}</li>`).join('')}</ul></section>
+      <p class="notice small">Every field as it will appear in Personnel Administration once the application is sent. Sections only staff fill in are left out.</p>
+      ${body}</div>`;
+});
 /* ---------------------------------------------------------------- operation updates on Discord
    Map posts go to a channel of their own: one named for operations (DISCORD_WEBHOOK_OPERATIONS in Cloudflare) unless
    Command Authority picks another, which is then remembered. Posting a situation report offers to send it with the map. */
