@@ -741,7 +741,6 @@ const ICON_PATHS = {
   download: 'M12 3v12M7 10l5 5 5-5M4 21h16',
   x: 'M6 6l12 12M18 6L6 18'
 };
-ICON_PATHS.drive = 'M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9.5a4.25 4.25 0 0 1-.5 8.5M12 21v-8M9 16l3-3 3 3';
 function icon(name, size) {
   return `<svg class="ico" viewBox="0 0 24 24" width="${size || 18}" height="${size || 18}" aria-hidden="true"><path d="${ICON_PATHS[name] || ''}"/></svg>`;
 }
@@ -9804,9 +9803,7 @@ function ddItemsHtml(items, rail) {
 }
 function dossierHtml(p) {
   const m = dossierModel(p), rail = m.service && m.service.rail;
-  /* Google Drive: shown when the self-hosted site has a Google Client ID; Command Authority also sees it before then, to find out what's missing. */
-  const drive = S.downloads && (S.downloads.drive || (S.isOwner && S.downloads.drive === false)) ? `<button class="btn" data-act="dossier-drive" data-id="${esc(p.id)}">${icon('drive', 16)} Save to Google Drive</button>` : '';
-  return `<div class="btn-row dd-tools">${drive}<button class="btn ghost" data-act="dossier-pdf" data-id="${esc(p.id)}">${icon('download', 16)} Export as PDF</button>${S.downloads ? `<button class="btn ghost" data-act="dossier-docx" data-id="${esc(p.id)}">${icon('file', 16)} Export as Word</button>` : ''}<button class="btn ghost" data-act="dossier-export" data-id="${esc(p.id)}">${icon('download', 16)} Export as 1 image</button><button class="btn ghost" data-act="dossier-pages" data-id="${esc(p.id)}">${icon('download', 16)} Export as page images</button></div>
+  return `<div class="btn-row dd-tools"><button class="btn ghost" data-act="dossier-pdf" data-id="${esc(p.id)}">${icon('download', 16)} Export as PDF</button>${S.downloads ? `<button class="btn ghost" data-act="dossier-docx" data-id="${esc(p.id)}">${icon('file', 16)} Export as Word</button>` : ''}<button class="btn ghost" data-act="dossier-export" data-id="${esc(p.id)}">${icon('download', 16)} Export as 1 image</button><button class="btn ghost" data-act="dossier-pages" data-id="${esc(p.id)}">${icon('download', 16)} Export as page images</button></div>
   <article class="dossier-doc dd-web" data-id="${esc(p.id)}" aria-label="Personnel dossier: ${esc(p.callsign || p.fullName)}">${ddBanner(m)}${ddSummaryHtml(m)}${ddItemsHtml(ddRecordItems(m), rail)}${ddItemsHtml(ddPersonalItems(m, true))}${ddFooter(m)}${ddBanner(m)}</article>`;
 }
 /* Export: the dossier as the viewer sees it, redactions included, as a PNG. */
@@ -9824,16 +9821,9 @@ ACTIONS['dossier-export'] = async d => {
   holder.querySelectorAll('.dd-portrait img').forEach(i => { const f = i.parentNode; f.style.cssText = `background:url('${i.src}') center/cover no-repeat`; i.remove(); });
   try {
     const h2c = await loadHtml2canvas(), canvas = await h2c(holder.querySelector('.dossier-doc'), { scale: 2, useCORS: true, backgroundColor: null, scrollX: 0, scrollY: 0 });
-    const name = `dossier-${String(p.callsign || p.fullName || 'eishi').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`;
-    if (S.downloads && S.downloads.drive) {
-      const blob = await new Promise(ok => canvas.toBlob(ok, 'image/png'));
-      const r = await S.downloads.save({ filename: name, data: blob });
-      if (r && r.status !== 'declined') toast(r.driveFileId ? 'Dossier image saved to Google Drive.' : 'Dossier image saved.');
-    } else {
-      const a = document.createElement('a'); a.download = name;
-      a.href = canvas.toDataURL('image/png'); document.body.appendChild(a); a.click(); a.remove(); toast('Dossier image saved.');
-    }
-  } catch (e) { if (!e || e.code !== 'declined') toast('Couldn’t make the image: ' + ((e && e.message) || e), true); }
+    const a = document.createElement('a'); a.download = `dossier-${String(p.callsign || p.fullName || 'eishi').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`;
+    a.href = canvas.toDataURL('image/png'); document.body.appendChild(a); a.click(); a.remove(); toast('Dossier image saved.');
+  } catch (e) { toast('Couldn’t make the image: ' + ((e && e.message) || e), true); }
   finally { holder.remove(); }
 };
 /* ---------------------------------------------------------------- the dossier as a PDF: fixed A4 pages sent to the print dialog */
@@ -10021,18 +10011,10 @@ ACTIONS['dossier-docx'] = async d => {
   try {
     const pic = p.portraitAssetId ? await portraitImage(p.portraitAssetId, 720) : null, img = pic ? Object.assign({ rid: 'rIdImg0' }, pic) : null;
     const sheet = document.createElement('canvas'); sheet.width = sheet.height = 8; const ink = sheet.getContext('2d'); ink.fillStyle = '#' + DX.paper; ink.fillRect(0, 0, 8, 8);
-    const r = await S.downloads.save({ filename, data: dossierDocxFile(dossierModel(p), img, await canvasBytes(sheet, 'image/png')), prefer: d.drive ? 'drive' : undefined });
-    if (r && r.status !== 'declined') toast(r.driveFileId ? 'Dossier saved to Google Drive.' : `${filename} saved.`);
-    if (S.isGm) await Data.audit('records.export', 'pilot', p.id, r && r.driveFileId ? 'Saved a dossier to Google Drive' : 'Exported a dossier as Word');
+    const r = await S.downloads.save({ filename, data: dossierDocxFile(dossierModel(p), img, await canvasBytes(sheet, 'image/png')) });
+    if (r && r.status !== 'declined') toast(`${filename} saved.`);
+    if (S.isGm) await Data.audit('records.export', 'pilot', p.id, 'Exported a dossier as Word');
   } catch (err) { if (!err || err.code !== 'declined') toast('The dossier could not be saved: ' + ((err && err.message) || 'unknown error'), true); }
-};
-ACTIONS['dossier-drive'] = async d => {
-  if (!S.downloads) return;
-  if (!S.downloads.drive) { toast('Google Drive isn’t connected yet. Put your Google Client ID in site/config.js (SETUP.md, Google Drive), then push.', true); return; }
-  /* Open the save window now, while it's still the click: the dossier is built after. */
-  if (S.downloads.prepareDrive) S.downloads.prepareDrive();
-  try { await ACTIONS['dossier-docx'](Object.assign({}, d, { drive: true })); }
-  finally { if (S.downloads.releaseDrive) S.downloads.releaseDrive(); }
 };
 /* Other players' eishi profiles open on the dossier. */
 if (ROUTES.eishi) { const _eishiDossier = ROUTES.eishi.view; ROUTES.eishi.view = function () { const html = _eishiDossier.call(this), p = get('pilots', S.ui.eishiId); return p ? html.replace('<div class="eishi-grid">', dossierHtml(p) + '<div class="eishi-grid">') : html; }; }
