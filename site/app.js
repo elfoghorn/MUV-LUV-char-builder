@@ -7757,10 +7757,10 @@ render = function () { const r = _renderV3d.apply(this, arguments); if (S.ui.dra
 const APP_DEFAULTS = {
   allowClaim: false, minBiography: 80,
   intro: 'Complete your personnel file to apply for service. Your application saves as you go, so you can leave and come back to it at any time.',
-  required: { callsign: true, dob: false, nationality: false, birthplace: false, faceClaims: false, motivation: true, biography: true, personality: false, strengths: false },
+  required: { callsign: true, dob: false, nationality: false, birthplace: false, faceClaims: false, discordId: true, motivation: true, biography: true, personality: false, strengths: false },
   questions: []
 };
-const APP_REQUIRABLE = [['callsign', 'Callsign'], ['dob', 'Date of birth'], ['birthplace', 'Place of birth'], ['nationality', 'Nationality'], ['motivation', 'Why they want to serve'], ['biography', 'Background'], ['personality', 'Personality and conduct'], ['strengths', 'Strengths and weaknesses']];
+const APP_REQUIRABLE = [['callsign', 'Callsign'], ['dob', 'Date of birth'], ['birthplace', 'Place of birth'], ['nationality', 'Nationality'], ['discordId', 'Discord user ID'], ['motivation', 'Why they want to serve'], ['biography', 'Background'], ['personality', 'Personality and conduct'], ['strengths', 'Strengths and weaknesses']];
 /* Face claims (both optional): a real-life and an anime face claim per character. AU versions of existing characters are fine.
    A claim another current character already uses is flagged, not blocked: Command Authority decides. */
 const FC_KINDS = [['fcIrl', 'IRL face claim', 'e.g. Rinko Kikuchi'], ['fcAnime', 'Anime face claim', 'e.g. Mitsuki Hayase (Muv-Luv)']];
@@ -9488,7 +9488,7 @@ const REG_QUALS = [
   ['hive_assault', 'Hive Assault', 'A hive operation in their service story.', hasHiveOp],
   ['evaluation', 'Evaluation Eishi', 'Earned through trials work in service; not available on enlistment.', () => false]
 ];
-const DOSSIER_FIELDS = ['nativeName', 'alias', 'otherNationalities', 'bloodType', 'heightCm', 'marks', 'languages', 'discord', 'nextOfKin', 'familyLocation', 'fears', 'habits'];
+const DOSSIER_FIELDS = ['nativeName', 'alias', 'otherNationalities', 'bloodType', 'heightCm', 'marks', 'languages', 'discord', 'discordId', 'nextOfKin', 'familyLocation', 'fears', 'habits'];
 /* What each section needs to be read by another player; staff and the character's own player see everything.
    A settings record 'dossier' can set { levels, header, coSignature }. */
 const dossierSettings = () => get('settings', 'dossier') || {};
@@ -9570,7 +9570,8 @@ function dossierIdentityHtml(d) {
       <label class="field">Height (cm)${num('en-height', P + '/heightCm', d.heightCm)}</label>
       <label class="field">Languages${txt('en-lang', P + '/languages', d.languages, 'e.g. Japanese, English')}</label>
       <label class="field wide">Distinguishing marks${txt('en-marks', P + '/marks', d.marks, 'e.g. Burn scar on the left forearm')}</label>
-      <label class="field">Discord username${txt('en-discord', P + '/discord', d.discord, 'e.g. akari.todo')}</label></div>
+      <label class="field">Discord username${txt('en-discord', P + '/discord', d.discord, 'e.g. akari.todo')}</label>
+      <label class="field">${applicationRules().required.discordId ? 'Discord user ID' : 'Discord user ID (optional)'}${txt('en-discordid', P + '/discordId', d.discordId, 'e.g. 412345678901234567')}<span class="small muted">In Discord: Settings → Advanced → turn on Developer Mode, then right-click your name → Copy User ID. It’s a long number, not your username, and lets Command Authority ping you when your character is accepted.</span></label></div>
     ${b ? `<p class="small muted">Age in ${settingYear()}: <b>${ageAt(b, settingDate())}</b>${b.approx ? ' (worked out from the year alone)' : ''}.</p>` : String(d.dob || '').trim().length >= 8 ? '<p class="small warn-text">Write the date of birth as, for example, 14 March 1990, so the age can be worked out.</p>' : ''}
     ${ageProblems(d).map(x => `<p class="notice warn small">${esc(x)}</p>`).join('')}`;
 }
@@ -9672,7 +9673,7 @@ enlistReviewHtml = function (a) {
   const extra = `<section><h3>In-world status</h3><p><span class="stamp-chip">${esc(stageLabel(a))}</span></p>
       ${pending ? `<div class="btn-row">${APP_STAGES.filter(s => s[0] !== stage).map(s => `<button class="btn ghost" data-act="app-stage" data-id="${a.id}" data-stage="${s[0]}">${esc(s[2])}</button>`).join('')}</div>` : ''}</section>
     <section><h3>Personnel record</h3><dl class="spec">${row('Native script', p.nativeName)}${row('Birth name or alias', p.alias)}${row('Age in ' + settingYear(), b ? String(ageAt(b, settingDate())) : '')}${row('Other nationalities', p.otherNationalities)}
-      ${row('Royal Guard standing', isGuard(p) && g ? `${g[1]} (${g[3]})` : '')}${row('Blood type', p.bloodType)}${row('Height', p.heightCm ? p.heightCm + ' cm' : '')}${row('Languages', p.languages)}${row('Distinguishing marks', p.marks)}${row('Discord', p.discord)}</dl>
+      ${row('Royal Guard standing', isGuard(p) && g ? `${g[1]} (${g[3]})` : '')}${row('Blood type', p.bloodType)}${row('Height', p.heightCm ? p.heightCm + ' cm' : '')}${row('Languages', p.languages)}${row('Distinguishing marks', p.marks)}${row('Discord', p.discord)}${row('Discord user ID', p.discordId)}</dl>
       ${ageProblems(p).map(x => `<p class="notice warn small">${esc(x)}</p>`).join('')}</section>
     ${(p.history || []).length ? `<section><h3>Service entries on file</h3>${historyListHtml(p, { clr: 99 })}${historyFlags(p).map(x => `<p class="notice warn small">${esc(x.text)}</p>`).join('')}</section>` : ''}
     <section><h3>Personal</h3><dl class="spec">${row('Next of kin', p.nextOfKin)}${row('Family location', p.familyLocation)}${row('Fears', p.fears)}${row('Habits', p.habits)}</dl></section>
@@ -9698,6 +9699,7 @@ DRAWERS_REG('pilot-edit', d => {
       <label class="field">Languages${txt('p-lang', b + '/languages', p.languages)}</label>
       <label class="field wide">Distinguishing marks${txt('p-marks', b + '/marks', p.marks)}</label>
       <label class="field">Discord username${txt('p-discord', b + '/discord', p.discord)}</label>
+      <label class="field">Discord user ID (for pings)${txt('p-discordid', b + '/discordId', p.discordId, 'Numbers only, e.g. 412345678901234567')}</label>
       <label class="field">Service number${txt('p-svcno', b + '/serviceNumber', p.serviceNumber, 'Issued on approval')}</label>
       <div class="field"><span>Personnel ID</span><p style="margin:4px 0"><span class="ref">${esc(REF.pers(p))}</span></p><button class="btn ghost" data-act="pid-regen">Regenerate from service start (${settingYear() - (Number(p.yearsService) || 0)})</button></div>
       ${isGuard(p) ? `<label class="field">Royal Guard standing${sel('p-guard', b + '/guardStanding', p.guardStanding || '', GUARD_STANDING.map(x => [x[0], `${x[1]} (${x[3]})`]), 'Not recorded')}</label>` : ''}</div>
@@ -10915,7 +10917,7 @@ function applicationTemplateBody() {
     + heading('Posting') + fields(['Serving with', 'Preferred role', 'Years of service', 'First choice of post', 'Second choice of post'])
     + heading('Service') + SERVICE_CHAPTERS.map(chapter).join('')
     + heading('Background') + BACKGROUND_CHAPTERS.map(chapter).join('') + fields(['Next of kin', 'Family location'])
-    + heading('Dossier particulars') + fields(['Name in native script', 'Birth name or alias', 'Other nationalities', 'Blood type', 'Height (cm)', 'Languages', 'Discord username', 'Distinguishing marks'])
+    + heading('Dossier particulars') + fields(['Name in native script', 'Birth name or alias', 'Other nationalities', 'Blood type', 'Height (cm)', 'Languages', 'Discord username', 'Discord user ID (Settings → Advanced → Developer Mode, then right-click your name → Copy User ID)', 'Distinguishing marks'])
     + heading('Service history entries') + hint('Optional. One line per event, newest first. Classification is Open, Restricted or Secret; Command Authority has the final say.')
     + wtable(['Date', 'Entry', 'Classification'], Array.from({ length: 8 }, () => ['', '', '']), [1500, 6538, 1600])
     + heading('Attributes') + hint('Eishi only. Say how each one compares: their best, very high, high, average or low. Command Authority sets the numbers.')
@@ -12134,6 +12136,143 @@ ROUTES.pilot.view = function () {
   const html = _pilotViewPoster.apply(this, arguments), p = currentPilot();
   if (!p) return html;
   return html.replace(/(<div class="dossier-band">[\s\S]*?)(<\/div>)/, `$1<button class="btn ghost" data-act="poster-open" data-id="${esc(p.id)}">${icon('star', 16)} Poster</button>$2`);
+};
+
+/* ---------------------------------------------------------------- Discord: acceptance announcements
+   When Command Authority approves an enlistment, the new eishi is announced on Discord with their poster and a
+   ping (if their record has a Discord user ID). The first time, a window shows the post for checking; tick
+   "post automatically" and later approvals go straight out. Settings live in settings/discord (channel names
+   and the toggle only; webhook addresses stay in Cloudflare). */
+const discordSettings = () => Object.assign({ acceptChannel: '', acceptAuto: false }, get('settings', 'discord') || {});
+const SANS_BOLD = t => Array.from(String(t)).map(ch => { const c = ch.charCodeAt(0);
+  return c >= 65 && c <= 90 ? String.fromCodePoint(0x1D5D4 + c - 65) : c >= 97 && c <= 122 ? String.fromCodePoint(0x1D5EE + c - 97) : c >= 48 && c <= 57 ? String.fromCodePoint(0x1D7EC + c - 48) : ch; }).join('');
+function acceptMention(p) {
+  const id = String(p.discordId || '').trim();
+  if (/^\d{15,21}$/.test(id)) return { text: `<@${id}>`, users: [id] };
+  return { text: p.discord ? `@${String(p.discord).replace(/^@/, '')}` : '', users: [] };
+}
+function acceptMessage(p) {
+  const F = posterFacts(p), chain = p.unitId ? unitChain(p.unitId) : [], root = chain[0], below = chain.slice(1);
+  const rk = rankById(p.rankId), who = `${rk ? rk.name + ' ' : ''}${p.fullName}`, m = acceptMention(p);
+  const tsf = list('tsfs').filter(t => t.ownerPilotId === p.id).sort((a, b) => !!b.isPrimary - !!a.isPrimary)[0];
+  const slot = list('slots').find(s => s.holderPilotId === p.id), zone = chain.slice().reverse().map(u => u.homeZoneId && get('zones', u.homeZoneId)).find(Boolean);
+  const unitLine = below.length ? below.map(u => u.name).join(' • ') : (root ? root.name : facName(p.factionId));
+  const lines = [
+    `# ${SANS_BOLD('PERSONNEL')} • ${SANS_BOLD('ACCEPTED')}`, '', '```diff', '+ ENLISTMENT APPROVED', '```', '',
+    '╔════════════════════╗', `        ${SANS_BOLD('UN MILITARY')} • **${root ? root.name : facName(p.factionId)}**`, '╚════════════════════╝', '',
+    `> ${F.support ? 'Staff' : 'Eishi'} :: ${who}${m.text ? ' ' + m.text : ''}`,
+    p.callsign ? `> Callsign :: ${p.callsign}` : null,
+    `> Position :: ${F.appointment}`,
+    `> Unit :: ${unitLine}`,
+    !F.support && tsf ? `> TSF :: ${tsfLabel(tsf)}` : null,
+    '', '━━━━━━━━━━━━━━━━━━', '',
+    'After review by battalion command,', `**${who}** has been accepted into **${root ? root.name : facName(p.factionId)}**.`, '',
+    zone ? `Reporting to: ${zone.name}.` : null,
+    slot ? `Posted: ${slot.title}.` : p.unitId ? `Posted: ${chain[chain.length - 1].name}.` : 'Posting to follow.', '',
+    'Orders have been issued.', F.support ? null : 'The machine is theirs.', '',
+    '━━━━━━━━━━━━━━━━━━', '', `> Welcome to the front line, ${p.callsign || p.fullName}.`, '-# » U.N MILITARY DATABASE « • » DO NOT DISTRIBUTE «'
+  ];
+  return lines.filter(x => x != null).join('\n').slice(0, 1990);
+}
+async function acceptPosterBlob(p) {
+  const prim = list('tsfs').filter(t => t.ownerPilotId === p.id).sort((a, b) => !!b.isPrimary - !!a.isPrimary)[0];
+  const v = prim ? effVariant(prim.variantId) : null, art = v ? variantArtId(v) : null;
+  const opt = { accent: POSTER_ACCENTS[0][0], tagline: '', bgText: p.nativeName ? String(p.nativeName).split(/\s+/)[0] : (p.callsign || ''), cutout: true, tsfAlpha: 0.85 };
+  opt.logoImg = await svgImg(insignia(64).replace(/currentColor/g, POSTER_INK).replace(/Rajdhani, Arial Narrow, sans-serif/, 'Arial Narrow, Arial, sans-serif'), 64, 72).catch(() => null);
+  if (p.portraitAssetId) opt.picImg = await posterImg(ASSET_BASE + p.portraitAssetId).catch(() => null);
+  if (!opt.picImg) { opt.picImg = await svgImg(insigniaSvg(p.insignia, p.callsign, 560), 560, 560).catch(() => null); opt.picIsInsignia = true; }
+  if (art) { opt.tsfImg = await posterImg(ASSET_BASE + art).catch(() => null); opt.tsfKey = art; }
+  return drawPoster(p, opt);
+}
+function acceptChannelFor(ds) {
+  const want = discordSettings().acceptChannel;
+  return want && ds.channels.indexOf(want) !== -1 ? want : ds.channels.find(c => /accept|personnel|enlist/.test(c)) || ds.channels[0];
+}
+async function postAcceptance(f) {
+  const p = get('pilots', f.pid), ds = S.discordState;
+  const name = `${slugOf(p.callsign || p.fullName)}-accepted.png`;
+  await S.discordApi.post({ channel: f.channel, payload: { content: f.message, username: BRAND.code, embeds: [], allowed_users: acceptMention(p).users }, file: { blob: f.blob, name } });
+  await Data.audit('discord.post', 'pilot', p.id, `Acceptance of ${p.callsign || p.fullName} posted to Discord (${f.channel})`).catch(() => {});
+}
+/* Wait for Discord to be checked (it is fetched once per session). */
+async function discordReady() {
+  ensureDiscord();
+  for (let i = 0; i < 50 && S.discordState && S.discordState.status === 'loading'; i++) await new Promise(r => setTimeout(r, 200));
+  return S.discordState && S.discordState.status === 'ready';
+}
+async function announceAcceptance(pid, manual) {
+  const p = get('pilots', pid); if (!p || !S.isGm) return;
+  if (!(await discordReady())) { if (manual) toast((S.discordState && S.discordState.error) || 'Discord isn’t set up.', true); return; }
+  const ds = S.discordState, cfg = discordSettings();
+  const f = { pid, channel: acceptChannelFor(ds), message: acceptMessage(p), blob: null, url: null, drawing: true, posting: false, auto: cfg.acceptAuto };
+  if (cfg.acceptAuto && !manual) {
+    try { f.blob = await acceptPosterBlob(p); await postAcceptance(f); toast(`${p.callsign || p.fullName}’s acceptance posted to Discord (${f.channel}).`); }
+    catch (e) { toast('The Discord announcement didn’t go out: ' + ((e && e.message) || e) + ' Open the enlistment in the Approval Centre to try again.', true); }
+    return;
+  }
+  S.ui.form.accept = f; openDrawer('accept-announce');
+  try { f.blob = await acceptPosterBlob(p); f.url = URL.createObjectURL(f.blob); } catch (e) { f.error = 'Couldn’t draw the poster: ' + ((e && e.message) || e); }
+  f.drawing = false; render();
+}
+ACTIONS['accept-announce'] = d => announceAcceptance(d.id, true);
+ACTIONS['accept-post'] = async () => {
+  const f = S.ui.form.accept; if (!f || !f.blob || f.posting) return;
+  f.posting = true; render();
+  try {
+    await postAcceptance(f);
+    const cfg = discordSettings(), next = Object.assign({}, cfg, { acceptChannel: f.channel, acceptAuto: !!f.auto }); delete next.id;
+    if (next.acceptChannel !== cfg.acceptChannel || next.acceptAuto !== cfg.acceptAuto) await Data.put('settings', 'discord', next).catch(() => {});
+    toast('Acceptance posted to Discord.'); S.ui.drawer = null; S.ui.form.accept = null;
+  } catch (e) { toast((e && e.message) || 'Discord didn’t accept the post.', true); }
+  if (S.ui.form.accept) f.posting = false; render();
+};
+CHANGES['accept-channel'] = v => { S.ui.form.accept.channel = v; };
+ACTIONS['accept-auto'] = (d, el) => { S.ui.form.accept.auto = !!el.checked; };
+DRAWERS_REG('accept-announce', function () {
+  const f = S.ui.form.accept; if (!f) return '';
+  const p = get('pilots', f.pid), ds = S.discordState || { channels: [] }, m = acceptMention(p);
+  return `<div class="wide-drawer"></div><header><div><p class="kicker">PERSONNEL DIVISION · ACCEPTANCE ANNOUNCEMENT</p><h2>${esc(p.callsign ? p.callsign + ' · ' : '')}${esc(p.fullName)}</h2>
+      <p>Posted to Discord with their poster.${m.users.length ? ' They’ll be pinged.' : ''}</p></div><button class="btn ghost" data-act="close-drawer" aria-label="Close">${icon('x')}</button></header>
+    <div class="body"><div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+      <div style="flex:1 1 260px;max-width:380px">${f.url ? `<img src="${f.url}" alt="Poster" style="width:100%;display:block;border-radius:4px;border:1px solid var(--line)">` : f.error ? `<div class="validation bad">${esc(f.error)}</div>` : '<div class="empty">Drawing the poster…</div>'}</div>
+      <div style="flex:1 1 300px">
+        ${!m.users.length ? `<p class="notice warn small">No Discord user ID on their record, so this ${m.text ? `names ${esc(m.text)} without pinging them` : 'won’t mention anyone'}. Add the ID in Personnel Administration (Discord user ID) to ping them.</p>` : ''}
+        ${ds.channels.length > 1 ? `<label class="field">Channel<select id="acc-ch" data-change="accept-channel">${ds.channels.map(c => `<option value="${esc(c)}" ${f.channel === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>` : ''}
+        <label class="field" style="margin-top:8px">Message<textarea id="acc-msg" data-bind="ui/form/accept/message" style="min-height:320px;font-family:var(--font-mono);font-size:12.5px">${esc(f.message)}</textarea></label>
+        <label class="small" style="display:block;margin-top:8px"><input type="checkbox" data-act="accept-auto" ${f.auto ? 'checked' : ''}> Post future acceptances automatically${ds.channels.length > 1 ? ' to this channel' : ''}</label></div></div></div>
+    <footer><div class="btn-row"><button class="btn primary" data-act="accept-post" ${f.blob && !f.posting ? '' : 'disabled'}>${f.posting ? 'Posting…' : 'Post to Discord'}</button>
+      <button class="btn ghost" data-act="close-drawer">Not now</button></div></footer>`;
+});
+/* After an enlistment is approved, announce it. */
+const _decideAnnounce = ACTIONS['decide'];
+ACTIONS['decide'] = (d, el) => {
+  const a = get('approvals', d.id), pid = a && a.pilotId, isEnlist = a && a.type === 'pilot_registration' && d.d === 'approved';
+  const out = _decideAnnounce(d, el);
+  if (isEnlist && S.isGm) (async () => {
+    for (let i = 0; i < 150; i++) { await new Promise(r => setTimeout(r, 200)); const x = get('approvals', d.id); if (!S.busy && x && x.status !== 'pending' && x.status !== 'on_hold') break; }
+    const x = get('approvals', d.id); if (x && x.status === 'approved') announceAcceptance(pid, false);
+  })();
+  return out;
+};
+/* Approved enlistments can be announced (again) from the Approval Centre. */
+const _approvalDrawerAnnounce = DRAWERS.approval;
+DRAWERS_REG('approval', d => {
+  const html = _approvalDrawerAnnounce(d), a = get('approvals', d.id);
+  if (!a || a.type !== 'pilot_registration' || a.status !== 'approved' || !S.isGm) return html;
+  const btn = `<button class="btn" data-act="accept-announce" data-id="${esc(a.pilotId)}">${icon('radio', 16)} Announce on Discord</button>`;
+  return html.indexOf('<footer>') !== -1 ? html.replace('<footer>', `<footer><div class="btn-row" style="margin-bottom:8px">${btn}</div>`) : html + `<footer><div class="btn-row">${btn}</div></footer>`;
+});
+
+/* Discord user ID on the application: required unless Command Authority turns it off (Applications settings). */
+const _stepProblemsDiscord = stepProblems;
+stepProblems = function (step, d) {
+  d = d || S.ui.enlist.d; const out = _stepProblemsDiscord(step, d);
+  if (step === 'identity') {
+    const id = String(d.discordId || '').trim();
+    if (!id && applicationRules().required.discordId) out.push('Give your Discord user ID, so Command Authority can ping you when you’re accepted (how to find it is under the box).');
+    else if (id && !/^\d{17,20}$/.test(id)) out.push('The Discord user ID is a long number (17 to 20 digits), not your username. Copy it with Developer Mode on: right-click your name → Copy User ID.');
+  }
+  return out;
 };
 
 ;

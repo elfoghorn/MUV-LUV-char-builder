@@ -94,6 +94,9 @@ export async function onRequestPost({ request, env }) {
     embeds: Array.isArray(payload.embeds) ? payload.embeds.slice(0, 4) : [],
     allowed_mentions: { parse: ['everyone', 'roles'] }
   };
+  /* Pinging a person needs their numeric Discord user ID, listed explicitly. */
+  const users = (Array.isArray(payload.allowed_users) ? payload.allowed_users : []).map(String).filter(u => /^\d{15,21}$/.test(u)).slice(0, 10);
+  if (users.length) clean.allowed_mentions.users = users;
   const out = new FormData();
   const file = form.get('file');
   if (file && typeof file === 'object') {

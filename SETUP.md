@@ -134,6 +134,8 @@ Discord doesn't accept posts straight from a web page, so the site uses a small 
 3. **Redeploy.** Secrets apply from the next deployment: push any change, or open **Deployments**, then on the latest one **⋯ → Retry deployment**.
 4. **Test it:** open a mission in the Command Centre, click **Mission plan · Discord**, check the preview, and click **Post to Discord**.
 
+**Acceptance announcements.** When you approve an enlistment, the app offers to announce it on Discord with the new eishi's poster, pinging them if their record has a **Discord user ID** (players can add it on the application; you can add it in Personnel Administration). Make a webhook for your accepted channel and add it as `DISCORD_WEBHOOK_ACCEPTED`: the announcement picks a channel named *accepted* (or *personnel*/*enlist*) by itself. Tick **Post future acceptances automatically** once, and later approvals go straight out.
+
 Treat the webhook URL like a password: anyone who has it can post to that channel. If it leaks, delete the webhook in Discord and make a new one. Every post is recorded in Audit Records.
 
 ## Phones
