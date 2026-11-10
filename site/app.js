@@ -9688,7 +9688,7 @@ const ddParas = v => ddText(v).split(/\n{2,}/).map(x => x.trim()).filter(Boolean
 function ddChunks(t, max) {
   const out = []; let rest = t;
   while (rest.length > max) { const head = rest.slice(0, max), stop = Math.max(head.lastIndexOf('. '), head.lastIndexOf('! '), head.lastIndexOf('? ')), cut = stop > max * .5 ? stop + 1 : head.lastIndexOf(' ') > 0 ? head.lastIndexOf(' ') : max; out.push(rest.slice(0, cut).trim()); rest = rest.slice(cut).trim(); }
-  if (rest) out.push(rest); return out;
+  if (rest || !out.length) out.push(rest); return out;  /* always at least one piece: a one-sentence paragraph has nothing left after its lead */
 }
 const ddTrim = (list2, n) => list2.length > n ? list2.slice(0, n).concat([`+${list2.length - n} more`]) : list2;
 function ddMarginNotes(p) { return ddText(p.marginNotes).split('\n').map(x => x.trim().match(/^(\S+)\s+(.+)$/)).filter(Boolean).slice(0, 6).map(x => ({ year: x[1], note: x[2] })); }
