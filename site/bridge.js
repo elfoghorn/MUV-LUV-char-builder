@@ -5,7 +5,7 @@
      db        records in the `docs` table, live through Realtime
      user      account id and role (owner / gm / player)
      assets    image uploads to the public `assets` Storage bucket
-     downloads browser downloads, or Google Drive when googleClientId is set in config.js
+     downloads browser downloads, or the Google Drive save window when googleClientId is set
    The app itself is loaded only after sign-in.
    ===================================================================== */
 (function () {
@@ -206,169 +206,128 @@
   }
 
   /* ------------------------------------------------------------ Google Drive (optional)
-     With googleClientId set in config.js, every export asks where it should go: Google Drive (as a Google Doc or
-     Sheet where the file converts, or as the original file) or this device. Without it, exports download as before.
-     Google sign-in happens in the player's own browser. The access token is kept in memory on this page only, and
-     nothing about the Google account is sent to Supabase. The drive.file permission lets the site see only the files
-     it saved itself, never the rest of anyone's Drive. */
+     With googleClientId set in config.js, exports can go to Google Drive through a save window of its own
+     (drive-save.html). There each player names the file, picks a folder in their own Drive and signs in to their own
+     Google account. The window hands the Google access back to this page, kept in memory only, so the next save
+     doesn't ask again until it expires. Nothing about anyone's Google account is sent to Supabase. */
   var GCLIENT = String(cfg.googleClientId || '').trim();
-  var DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
-  var DRIVE_FOLDER = String(cfg.googleDriveFolder || 'UNTSF-COMM').trim() || 'UNTSF-COMM';
-  var DRIVE_API = 'https://www.googleapis.com/drive/v3/files', DRIVE_UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
-  var GOOGLE_DOC = ['application/vnd.google-apps.document', 'Google Doc'], GOOGLE_SHEET = ['application/vnd.google-apps.spreadsheet', 'Google Sheet'];
-  var CONVERTS = { docx: GOOGLE_DOC, html: GOOGLE_DOC, txt: GOOGLE_DOC, csv: GOOGLE_SHEET };
-  var drive = { token: null, expires: 0, folder: null, client: null, pending: null };
+  var drive = { token: null, expires: 0, session: null };
 
   if (GCLIENT) {
-    var gsi = document.createElement('script'); gsi.src = 'https://accounts.google.com/gsi/client'; gsi.async = true; gsi.defer = true;
-    document.head.appendChild(gsi);
     var gstyle = document.createElement('style');
     gstyle.textContent = '.gsave-scrim{position:fixed;inset:0;background:rgba(8,14,22,.55);z-index:60}'
       + '.gsave{position:fixed;z-index:61;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.35)}'
       + '.gsave .gsave-name{margin:0 0 6px;font:600 15px/1.35 var(--font-mono);word-break:break-all;text-transform:none;letter-spacing:0;display:block}'
       + '.gsave p{margin:0 0 10px}.gsave .gsave-note{color:var(--muted);font-size:13px}.gsave .gsave-err{color:var(--bad)}'
-      + '.gsave-opts{display:grid;gap:8px;margin:14px 0 12px}.gsave-opts .btn{justify-content:center;width:100%;min-height:40px;text-decoration:none}'
-      + '.gsave-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}';
+      + '.gsave-opts{display:grid;gap:8px;margin:14px 0 12px}.gsave-opts .btn{justify-content:center;width:100%;min-height:40px}'
+      + '.gsave-foot{display:flex;justify-content:flex-start;gap:8px}';
     document.head.appendChild(gstyle);
-  }
-  function googleReady() { return !!(window.google && window.google.accounts && window.google.accounts.oauth2); }
-
-  /* Called straight from a tap, so the Google window opens instead of being blocked as a pop-up. */
-  function withToken(done, fail) {
-    if (drive.token && Date.now() < drive.expires) { done(drive.token); return; }
-    if (!googleReady()) { fail(new Error('Google sign-in is still loading. Wait a moment and try again.')); return; }
-    var oauth = window.google.accounts.oauth2;
-    if (!drive.client) {
-      drive.client = oauth.initTokenClient({
-        client_id: GCLIENT, scope: DRIVE_SCOPE,
-        callback: function (resp) {
-          var p = drive.pending; drive.pending = null; if (!p) return;
-          if (!resp || resp.error) { p.fail(new Error((resp && resp.error_description) || 'Google didn’t give access to Drive.')); return; }
-          if (!oauth.hasGrantedAllScopes(resp, DRIVE_SCOPE)) { p.fail(new Error('Google Drive access wasn’t ticked. Try again and allow it when Google asks.')); return; }
-          drive.token = resp.access_token; drive.expires = Date.now() + (Number(resp.expires_in || 3600) - 60) * 1000;
-          p.done(drive.token);
-        },
-        error_callback: function (e) {
-          var p = drive.pending; drive.pending = null; if (!p) return;
-          var t = e && e.type;
-          p.fail(new Error(t === 'popup_closed' ? 'The Google window was closed before Drive access was given.'
-            : t === 'popup_failed_to_open' ? 'The Google window was blocked. Allow pop-ups for this site, then try again.'
-            : 'Google sign-in didn’t complete.'));
-        }
-      });
-    }
-    drive.pending = { done: done, fail: fail };
-    drive.client.requestAccessToken();
-  }
-  async function driveFetch(u, opts, tok) {
-    opts = opts || {}; opts.headers = Object.assign({ Authorization: 'Bearer ' + tok }, opts.headers || {});
-    var r;
-    try { r = await fetch(u, opts); } catch (e) { throw new Error('Couldn’t reach Google Drive. Check your connection.'); }
-    if (r.ok) return r;
-    if (r.status === 401) { drive.token = null; drive.folder = null; throw new Error('Your Google sign-in has expired. Try again to reconnect.'); }
-    var msg = ''; try { var j = await r.json(); msg = j && j.error && j.error.message; } catch (e) { /* ignore */ }
-    if (r.status === 403 && /not been used|disabled/i.test(msg || '')) msg = 'The Google Drive API isn’t switched on for this site yet (see SETUP.md, Google Drive).';
-    if (r.status === 403 && /storage quota|quota exceeded/i.test(msg || '')) msg = 'Your Google Drive is full.';
-    throw new Error(msg || ('Google Drive said no (' + r.status + ').'));
-  }
-  async function driveJson(u, opts, tok) { return (await driveFetch(u, opts, tok)).json(); }
-  async function driveFolder(tok) {
-    if (drive.folder) return drive.folder;
-    var q = "mimeType='application/vnd.google-apps.folder' and name='" + DRIVE_FOLDER.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "' and trashed=false";
-    var found = await driveJson(DRIVE_API + '?spaces=drive&pageSize=1&fields=files(id)&q=' + encodeURIComponent(q), {}, tok);
-    if (found.files && found.files.length) return (drive.folder = found.files[0].id);
-    var made = await driveJson(DRIVE_API + '?fields=id', { method: 'POST', headers: { 'Content-Type': 'application/json; charset=UTF-8' }, body: JSON.stringify({ name: DRIVE_FOLDER, mimeType: 'application/vnd.google-apps.folder' }) }, tok);
-    return (drive.folder = made.id);
-  }
-  async function driveUpload(tok, blob, filename, ext, convertTo) {
-    var folder = await driveFolder(tok);
-    var meta = { name: convertTo ? filename.replace(/\.[^.]+$/, '') : filename, parents: [folder] };
-    if (convertTo) meta.mimeType = convertTo;
-    var type = (blob.type || MIME[ext] || 'application/octet-stream').split(';')[0];
-    if (/^text\//.test(type) || type === 'application/json') type += '; charset=UTF-8';
-    var fields = '&fields=' + encodeURIComponent('id,name,webViewLink');
-    if (blob.size < 4500000) {
-      var b = 'untsf' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-      var body = new Blob(['--' + b + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(meta) + '\r\n--' + b + '\r\nContent-Type: ' + type + '\r\n\r\n', blob, '\r\n--' + b + '--\r\n']);
-      return driveJson(DRIVE_UPLOAD + '?uploadType=multipart' + fields, { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + b }, body: body }, tok);
-    }
-    /* Larger files (big backups, dossiers with large portraits) go up in a resumable session. */
-    var start = await driveFetch(DRIVE_UPLOAD + '?uploadType=resumable' + fields, { method: 'POST', headers: { 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': type }, body: JSON.stringify(meta) }, tok);
-    var session = start.headers.get('Location');
-    if (!session) throw new Error('Google Drive didn’t start the upload. Try again, or download it instead.');
-    return driveJson(session, { method: 'PUT', headers: { 'Content-Type': type }, body: blob }, tok);
+    window.addEventListener('message', function (e) {
+      var s = drive.session, m = e.data || {};
+      /* Each save has its own id, so a window that moved on from an earlier save can't answer for this one. */
+      if (!s || e.origin !== location.origin || e.source !== s.win || m.sid !== s.id) return;
+      if (m.type === 'untsf-drive-ready') { s.ready = true; s.sent = false; deliver(s); }
+      else if (m.type === 'untsf-drive-token') { drive.token = m.token || null; drive.expires = Number(m.expires) || 0; }
+      else if (m.type === 'untsf-drive-done') settle(s, { status: 'saved', driveFileId: m.id, url: m.url });
+      else if (m.type === 'untsf-drive-local') { if (s.payload) saveLocal(s.payload.blob, s.payload.filename); settle(s, { status: 'saved' }); }
+      else if (m.type === 'untsf-drive-cancel') settle(s, null);
+    });
   }
 
-  /* The "where should this go?" window shown for every export while Google Drive is set up. */
-  function chooseSave(blob, filename, ext, prefer) {
+  /* Must run straight from a tap or click, or the browser blocks the window. Reuses the save window if it's open. */
+  function openDriveWindow(sid) {
+    var w = Math.min(760, screen.availWidth || 760), h = Math.min(780, screen.availHeight || 780);
+    var left = Math.max(0, Math.round((window.screenX || 0) + ((window.outerWidth || w) - w) / 2));
+    var top = Math.max(0, Math.round((window.screenY || 0) + ((window.outerHeight || h) - h) / 3));
+    try { return window.open('drive-save.html?v=' + encodeURIComponent(window.UNTSF_BUILD || '1') + '&s=' + sid, 'untsf-drive-save', 'popup=yes,width=' + w + ',height=' + h + ',left=' + left + ',top=' + top) || null; }
+    catch (e) { return null; }
+  }
+  function settle(s, result) {
+    if (s.settled) return;
+    s.settled = true; clearInterval(s.timer);
+    if (drive.session === s) drive.session = null;
+    if (result) s.ok(result); else s.no({ code: 'declined', message: 'Save cancelled.' });
+  }
+  function newSid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+  function startSession(win, sid) {
+    if (drive.session) settle(drive.session, null);
+    var s = { id: sid, win: win, payload: null, ready: false, sent: false, settled: false };
+    s.promise = new Promise(function (ok, no) { s.ok = ok; s.no = no; });
+    /* Closing the window without saving counts as cancelling. */
+    s.timer = setInterval(function () { if (!s.win || s.win.closed) settle(s, null); }, 600);
+    drive.session = s;
+    return s;
+  }
+  function deliver(s) {
+    if (!s.ready || !s.payload || s.sent || s.settled) return;
+    s.sent = true;
+    var live = drive.token && Date.now() < drive.expires;
+    try {
+      s.win.postMessage({ type: 'untsf-drive-file', sid: s.id, blob: s.payload.blob, filename: s.payload.filename, ext: s.payload.ext,
+        token: live ? drive.token : null, expires: live ? drive.expires : 0, theme: document.documentElement.getAttribute('data-theme') || '' }, location.origin);
+    } catch (e) { s.sent = false; }
+  }
+  function sendToWindow(win, sid, payload) { var s = startSession(win, sid); s.payload = payload; deliver(s); return s.promise; }
+
+  /* In-page choice for ordinary exports, and the fallback when the browser blocks the Drive window. */
+  function chooseSave(payload, blocked) {
     return new Promise(function (resolve, reject) {
-      var conv = CONVERTS[ext], back = document.activeElement, settled = false, busy = false;
+      var back = document.activeElement, done = false;
       var scrim = document.createElement('div'); scrim.className = 'gsave-scrim';
       var box = document.createElement('div'); box.className = 'plate gsave';
       box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'gsave-name');
       document.body.appendChild(scrim); document.body.appendChild(box);
       function close() { document.removeEventListener('keydown', onKey, true); scrim.remove(); box.remove(); if (back && back.focus) { try { back.focus(); } catch (e) { /* ignore */ } } }
-      function cancel() { if (busy) return; close(); if (!settled) { settled = true; reject({ code: 'declined', message: 'Save cancelled.' }); } }
-      function onKey(e) { if (e.key === 'Escape') { e.preventDefault(); cancel(); } }
+      function finish(fn, v) { if (done) return; done = true; close(); fn(v); }
+      function onKey(e) { if (e.key === 'Escape') { e.preventDefault(); finish(reject, { code: 'declined', message: 'Save cancelled.' }); } }
       document.addEventListener('keydown', onKey, true);
-      scrim.addEventListener('click', cancel);
-      function show(inner) {
-        box.innerHTML = '<p class="kicker">' + (prefer === 'drive' ? 'Save to Google Drive' : 'Save export') + '</p><h2 class="gsave-name" id="gsave-name">' + esc(filename) + '</h2>' + inner;
+      scrim.addEventListener('click', function () { finish(reject, { code: 'declined', message: 'Save cancelled.' }); });
+      function show(isBlocked) {
+        box.innerHTML = '<p class="kicker">' + (isBlocked ? 'Save to Google Drive' : 'Save export') + '</p><h2 class="gsave-name" id="gsave-name">' + esc(payload.filename) + '</h2>'
+          + (isBlocked ? '<p class="gsave-err" role="alert">The browser stopped the Google Drive window from opening. Tap below to open it, or allow pop-ups for this site.</p>'
+            : '<p class="gsave-note">Google Drive opens a save window where you can rename the file and choose the folder in your own Drive.</p>')
+          + '<div class="gsave-opts"><button class="btn primary" data-g="drive">' + (isBlocked ? 'Open the Google Drive window' : 'Save to Google Drive…') + '</button>'
+          + '<button class="btn" data-g="local">Download to this device' + (isBlocked ? ' instead' : '') + '</button></div>'
+          + '<div class="gsave-foot"><button class="btn ghost" data-g="cancel">Cancel</button></div>';
         var first = box.querySelector('.btn'); if (first) first.focus();
       }
-      function choose(err) {
-        busy = false;
-        var opts = conv
-          ? '<button class="btn primary" data-g="convert">Save to Google Drive as a ' + conv[1] + '</button>'
-            + '<button class="btn" data-g="drive">Save the .' + esc(ext) + ' file to Google Drive</button>'
-          : '<button class="btn primary" data-g="drive">Save to Google Drive</button>';
-        show((err ? '<p class="gsave-err" role="alert">' + esc(err) + '</p>' : '')
-          + '<p class="gsave-note">Google Drive saves go into the <b>' + esc(DRIVE_FOLDER) + '</b> folder in your own Drive. This site can only see the files it saves there.</p>'
-          + '<div class="gsave-opts">' + opts + '<button class="btn" data-g="local">Download to this device' + (prefer === 'drive' ? ' instead' : '') + '</button></div>'
-          + '<div class="gsave-foot"><button class="btn ghost" data-g="cancel">Cancel</button>'
-          + (drive.token ? '<button class="btn ghost" data-g="disconnect">Disconnect Google</button>' : '') + '</div>');
-      }
-      function toDrive(convertTo) {
-        busy = true;
-        show('<p aria-live="polite">Connecting to Google…</p>');
-        withToken(async function (tok) {
-          show('<p aria-live="polite">Saving to Google Drive…</p>');
-          try {
-            var f = await driveUpload(tok, blob, filename, ext, convertTo);
-            busy = false;
-            var what = convertTo ? 'as a ' + conv[1] : 'as ' + esc(f.name || filename);
-            show('<p aria-live="polite">Saved to Google Drive ' + what + ', in the <b>' + esc(DRIVE_FOLDER) + '</b> folder.</p>'
-              + '<div class="gsave-opts">' + (f.webViewLink ? '<a class="btn primary" href="' + esc(f.webViewLink) + '" target="_blank" rel="noopener">Open in Google Drive</a>' : '')
-              + '<button class="btn" data-g="close">Close</button></div>');
-            if (!settled) { settled = true; resolve({ status: 'saved', driveFileId: f.id, url: f.webViewLink }); }
-          } catch (e) { choose(e.message); }
-        }, function (e) { choose(e.message); });
-      }
       box.addEventListener('click', function (e) {
-        var b = e.target.closest('[data-g]'); if (!b || busy) return;
+        var b = e.target.closest('[data-g]'); if (!b) return;
         var g = b.getAttribute('data-g');
-        if (g === 'convert') toDrive(conv[0]);
-        else if (g === 'drive') toDrive(null);
-        else if (g === 'local') { close(); saveLocal(blob, filename); if (!settled) { settled = true; resolve({ status: 'saved' }); } }
-        else if (g === 'close') close();
-        else if (g === 'cancel') cancel();
-        else if (g === 'disconnect') {
-          try { if (googleReady() && drive.token) window.google.accounts.oauth2.revoke(drive.token, function () {}); } catch (err) { /* ignore */ }
-          drive.token = null; drive.expires = 0; drive.folder = null; choose();
-        }
+        if (g === 'drive') {
+          var sid = newSid(), win = openDriveWindow(sid);
+          if (!win) { show(true); return; }
+          if (done) return; done = true; close();
+          sendToWindow(win, sid, payload).then(resolve, reject);
+        } else if (g === 'local') { saveLocal(payload.blob, payload.filename); finish(resolve, { status: 'saved' }); }
+        else if (g === 'cancel') finish(reject, { code: 'declined', message: 'Save cancelled.' });
       });
-      choose();
+      show(!!blocked);
     });
   }
 
   var downloads = {
     /* Tells the app whether to show its "Save to Google Drive" buttons. */
     drive: !!GCLIENT,
+    /* The app calls this straight from the click, before it spends time building the file, so the window opens. */
+    prepareDrive: function () {
+      if (!GCLIENT) return false;
+      var sid = newSid(), win = openDriveWindow(sid); if (!win) return false;
+      startSession(win, sid); return true;
+    },
+    /* And this afterwards: if the file never arrived (it failed to build), the waiting window closes. */
+    releaseDrive: function () {
+      var s = drive.session;
+      if (s && !s.payload) { try { s.win.close(); } catch (e) { /* ignore */ } settle(s, null); }
+    },
     save: async function (req) {
       var filename = req.filename || 'download', ext = String(filename).split('.').pop().toLowerCase(), data = req.data;
       var blob = data instanceof Blob ? data : new Blob([data], { type: MIME[ext] || 'application/octet-stream' });
       if (!GCLIENT) { saveLocal(blob, filename); return { status: 'saved' }; }
-      return chooseSave(blob, filename, ext, req.prefer);
+      var payload = { blob: blob, filename: filename, ext: ext }, s = drive.session;
+      if (s && !s.payload && !s.settled && s.win && !s.win.closed) { s.payload = payload; deliver(s); return s.promise; }
+      if (req.prefer === 'drive') { var sid = newSid(), win = openDriveWindow(sid); return win ? sendToWindow(win, sid, payload) : chooseSave(payload, true); }
+      return chooseSave(payload, false);
     }
   };
 

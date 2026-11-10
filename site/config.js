@@ -6,6 +6,10 @@ window.UNTSF_CONFIG = {
   /* Optional: save exports to Google Drive. Paste your Google OAuth Client ID here (SETUP.md, "Google Drive").
      Also safe to publish. Leave it as '' and exports simply download, as before. */
   googleClientId: '',
-  /* The folder exports go into, in each player's own Drive. */
+  /* Optional: let players choose which Drive folder to save into. Both from SETUP.md, "Google Drive", steps 7 and 8.
+     The API key is safe to publish once it's restricted to the Google Picker API and your site's address. */
+  googleApiKey: '',
+  googleAppId: '',
+  /* The default folder exports go into, in each player's own Drive. */
   googleDriveFolder: 'UNTSF-COMM'
 };

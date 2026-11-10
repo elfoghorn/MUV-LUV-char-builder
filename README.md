@@ -12,6 +12,7 @@ site/                       the website (published by Cloudflare Pages: output d
   app.js                    the application
   bridge.js                 connects the app to Supabase: sign-in, data, live updates, images, downloads
   config.js                 YOUR Supabase Project URL and publishable key (the only file you edit)
+  drive-save.html, drive-save.js   the Google Drive save window (optional, see SETUP.md)
   starter.json              starter catalogue for a fresh campaign
   manifest.webmanifest, sw.js, icon-*.png   installable on phones
   _headers, robots.txt      keep it out of search engines; no referrer leaks

@@ -10026,10 +10026,13 @@ ACTIONS['dossier-docx'] = async d => {
     if (S.isGm) await Data.audit('records.export', 'pilot', p.id, r && r.driveFileId ? 'Saved a dossier to Google Drive' : 'Exported a dossier as Word');
   } catch (err) { if (!err || err.code !== 'declined') toast('The dossier could not be saved: ' + ((err && err.message) || 'unknown error'), true); }
 };
-ACTIONS['dossier-drive'] = d => {
+ACTIONS['dossier-drive'] = async d => {
   if (!S.downloads) return;
   if (!S.downloads.drive) { toast('Google Drive isn’t connected yet. Put your Google Client ID in site/config.js (SETUP.md, Google Drive), then push.', true); return; }
-  return ACTIONS['dossier-docx'](Object.assign({}, d, { drive: true }));
+  /* Open the save window now, while it's still the click: the dossier is built after. */
+  if (S.downloads.prepareDrive) S.downloads.prepareDrive();
+  try { await ACTIONS['dossier-docx'](Object.assign({}, d, { drive: true })); }
+  finally { if (S.downloads.releaseDrive) S.downloads.releaseDrive(); }
 };
 /* Other players' eishi profiles open on the dossier. */
 if (ROUTES.eishi) { const _eishiDossier = ROUTES.eishi.view; ROUTES.eishi.view = function () { const html = _eishiDossier.call(this), p = get('pilots', S.ui.eishiId); return p ? html.replace('<div class="eishi-grid">', dossierHtml(p) + '<div class="eishi-grid">') : html; }; }

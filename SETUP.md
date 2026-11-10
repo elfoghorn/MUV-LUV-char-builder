@@ -111,20 +111,23 @@ Tell them their username and temporary password.
 
 ---
 
-## Optional: save exports to Google Drive (about 15 minutes)
+## Optional: save exports to Google Drive (about 20 minutes)
 
-Once this is set up, every export (dossiers, personnel records, application templates, specification sheets, reports, CSVs, JSON exports and backups) asks where it should go:
+Once this is set up, character sheets (personnel dossiers) get a **Save to Google Drive** button, and every other export (personnel records, application templates, specification sheets, reports, CSVs, JSON exports and backups) asks whether to save to Google Drive or download.
 
-- **Save to Google Drive as a Google Doc** for Word and document exports, or **as a Google Sheet** for CSVs. The file is converted, so it opens and edits straight away in Docs or Sheets.
-- **Save the original file to Google Drive**, e.g. the `.docx` exactly as exported. Pick this for the styled dossier if the conversion shifts its layout.
-- **Download to this device**, as before.
+Google Drive saves happen in a **save window of their own**. In it, each player:
 
-Files go into an **UNTSF-COMM** folder in the player's own Drive. Each player signs in to their own Google account, and only when they first save to Drive. Character sheets (personnel dossiers) also get their own **Save to Google Drive** button at the top. *Export as PDF* still opens the print window, and *Export as page images* still downloads.
+- **renames the file** if they want to;
+- chooses **Google Doc** (or **Google Sheet** for CSVs), converted so it edits straight away, or **the original file**, such as the `.docx` exactly as exported;
+- **chooses the folder** in their own Drive, including shared drives, or uses the default **UNTSF-COMM** folder. Their choice is remembered on that device;
+- signs in to **their own Google account**. It's asked once, then remembered until the page is closed, and **Switch account** changes it.
 
-**Use a Google account that doesn't identify you.** The Google sign-in window shows the app name and the support email you choose below.
+Every player saves to their own Drive; nobody needs access to anyone else's. *Export as PDF* still opens the print window, and *Export as page images* still downloads.
+
+**Use a Google account that doesn't identify you** for the set-up. The Google sign-in window shows the app name and the support email you choose below.
 
 1. Go to **console.cloud.google.com** and sign in. Open the project picker at the top, click **New project**, name it `untsf-comm`, and click **Create**. Make sure it's selected.
-2. Open **APIs & Services → Library**, search for **Google Drive API**, open it and click **Enable**.
+2. Open **APIs & Services → Library** and enable two APIs: search for **Google Drive API**, open it and click **Enable**; then do the same for **Google Picker API** (it powers *Choose folder…*).
 3. Open **Google Auth Platform** (or **APIs & Services → OAuth consent screen**) and click **Get started**:
    - **App name:** `UNTSF-COMM`
    - **User support email:** the account you're signed in with
@@ -138,8 +141,18 @@ Files go into an **UNTSF-COMM** folder in the player's own Drive. Each player si
    - **Name:** `untsf-comm site`
    - **Authorised JavaScript origins → Add URI:** your site address from Part 4, e.g. `https://untsf-comm.pages.dev` (no slash at the end). Leave **Authorised redirect URIs** empty.
    - Click **Create** and copy the **Client ID** (it ends `.apps.googleusercontent.com`). You don't need the client secret: don't put it anywhere.
-7. Open `site/config.js`, paste the Client ID between the quotes after `googleClientId:`, then **Commit to main** and **Push origin**.
-8. Test it: open a personnel dossier (the character sheet), click **Save to Google Drive** at the top, then **Save to Google Drive as a Google Doc**. Allow access in the Google window, then click **Open in Google Drive**. A new client can take a few minutes to start working.
+7. For **Choose folder…**, create an API key: **APIs & Services → Credentials → Create credentials → API key**. Copy it, then click **Edit API key**:
+   - **Application restrictions:** Websites, then **Add** your site address followed by `/*`, e.g. `https://untsf-comm.pages.dev/*`
+   - **API restrictions:** Restrict key, and tick **Google Picker API** only.
+   - **Save.**
+8. Find your **project number**: the **Dashboard** (or **IAM & Admin → Settings**) shows it, a long number such as `412345678901`. This is not the project ID.
+9. Open `site/config.js` and fill in, between the quotes:
+   - `googleClientId:` the Client ID (step 6)
+   - `googleApiKey:` the API key (step 7)
+   - `googleAppId:` the project number (step 8)
+
+   Then **Commit to main** and **Push origin**. The Client ID alone switches Google Drive on; without the other two, saves go to the default folder and *Choose folder…* doesn't appear.
+10. Test it: open a personnel dossier (the character sheet) and click **Save to Google Drive**. The save window opens. Try **Choose folder…**, then **Save to Google Drive**, allow access in the Google window, and click **Open in Google Drive**. A new client can take a few minutes to start working.
 
 To switch it off again, empty `googleClientId` and push. Exports go straight back to downloading.
 
@@ -179,8 +192,11 @@ The free plan has no automatic backups. Every few sessions, download one from **
 | A stranger made an account | Delete it in **Accounts**, then turn on (or change) the **invite code**. |
 | Google window: **Error 400: origin_mismatch** or *not a valid origin* | The site address isn't in **Authorised JavaScript origins** (Google Drive set-up, step 6). It must match exactly: `https://`, no slash at the end. |
 | Google window: **Access blocked** or *app is being tested* | Publish the app: Google Auth Platform → **Audience → Publish app** (step 5). |
-| *"The Google window was blocked"* when saving to Drive | Allow pop-ups for the site in the browser, then try again. |
+| The save window doesn't open, or *"The browser stopped the Google Drive window from opening"* | The browser blocked it as a pop-up. Tap **Open the Google Drive window** in the message, or allow pop-ups for the site (the blocked-window icon in the address bar). |
 | *"The Google Drive API isn't switched on"* | Enable it: APIs & Services → Library → **Google Drive API → Enable** (step 2). |
+| No **Choose folder…** button in the save window | `googleApiKey` or `googleAppId` in `site/config.js` is empty (steps 7 to 9). |
+| *Choose folder…* shows **"The API developer key is invalid"** or a blank box | Check the key is restricted to **Google Picker API**, the Picker API is enabled (step 2), and the website restriction is your address followed by `/*`. If it still fails, remove the website restriction and keep the API restriction. |
+| *"The chosen folder isn't available on this Google account"* | The remembered folder belongs to a different Google account. Choose a folder again, or **Use default**. |
 | No **Save to Google Drive** button on character sheets | `googleClientId` in `site/config.js` is empty (the Administrator still sees the button, and it says so), or the browser has the old version: hard-refresh. |
 
 ## Privacy
@@ -190,7 +206,7 @@ UNTSF-COMM collects **no personal data**:
 - **Each username becomes an internal sign-in name** on your own Supabase project's domain, e.g. `kestrel@jymixxlpueosbnccwgci.supabase.co`. It's not an inbox, it belongs to nobody else, and with Confirm email off nothing is ever sent to it.
 - **No real email address, name or contact detail** is asked for or stored anywhere.
 - **Characters are fiction,** and portraits are whatever players choose to upload.
-- **Google Drive saving is optional and stays in the player's browser.** Sign-in is between the player and Google; the site keeps the access only while the page is open and never stores anything about the Google account. The `drive.file` permission lets it see only the files it saved itself, not the rest of anyone's Drive.
+- **Google Drive saving is optional and stays in the player's browser.** Sign-in is between the player and Google; the site keeps the access only while the page is open and never stores anything about the Google account. The `drive.file` permission lets it see only the files it saved and the folders the player picked, not the rest of anyone's Drive.
 
 **The platforms keep routine logs.** Supabase and GitHub keep short-lived access logs (IP addresses and browser type) for security, as any website host does. The app never reads or stores them.
 
