@@ -1,6 +1,6 @@
 /* UNTSF-COMM offline helper: keeps the app's own files so it opens instantly and survives a patchy signal.
    It never touches Supabase or any other site, so campaign data is always live. */
-const CACHE = 'untsf-98e9bdac6d';
+const CACHE = 'untsf-a7d3e2c19f';
 const SHELL = ['./', './index.html', './app.js', './bridge.js', './config.js', './manifest.webmanifest', './icon-192.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
