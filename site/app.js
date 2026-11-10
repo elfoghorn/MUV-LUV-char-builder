@@ -960,7 +960,7 @@ function topbarHtml() {
 }
 
 function claimView() {
-  const free = list('pilots').filter(p => !p.userId).sort((a, b) => a.personnelId.localeCompare(b.personnelId));
+  const free = list('pilots').filter(p => !p.userId && (!p.npc || p.npcOpen)).sort((a, b) => a.personnelId.localeCompare(b.personnelId));
   return `<div class="page-head"><div><h1>Report for duty</h1>
     <p>Create a new pilot for the GM to approve, or claim the record the GM already set up for you.</p></div></div>
     ${S.readOnly ? `<div class="notice">You have view-only access, so you can browse but not enlist or claim a pilot.</div>` : ''}
@@ -969,7 +969,7 @@ function claimView() {
     <h2 class="section-h">Existing records</h2>
     ${free.length ? `<div class="grid g3">${free.map(p => `<div class="plate"><div class="desig">${esc(p.callsign || p.fullName)}</div>
       <p class="muted small">${esc(p.fullName)} · ${esc((rankById(p.rankId) || {}).name || '')}<br>${esc(facName(p.factionId))}</p>
-      <button class="btn primary" data-act="claim-pilot" data-id="${p.id}" ${S.readOnly ? 'disabled' : ''}>This is me</button></div>`).join('')}</div>`
+      <button class="btn primary" data-act="claim-pilot" data-id="${p.id}" ${S.readOnly ? 'disabled' : ''}>${p.npc ? 'Take over this character' : 'This is me'}</button>${p.npc ? '<p class="small muted" style="margin:6px 0 0">An NPC Command Authority has opened to players. Taking it over makes it your character.</p>' : ''}</div>`).join('')}</div>`
       : `<div class="empty">Every pilot record is already claimed. Ask the GM to create one for you.</div>`}`;
 }
 
@@ -4125,15 +4125,88 @@ DRAWERS_REG('model-edit', function (d) {
       <label class="field">Production${sel('m-prod', P + '/productionStatus', m.productionStatus, PROD_OPTS)}</label><label class="field">Publish status${sel('m-pub', P + '/publishStatus', m.publishStatus, PUB_OPTS)}</label></div>
       <h3 style="margin-top:14px">Variant overrides</h3>${vids.map(vid => { const v = e.variants[vid]; return `<div class="row-edit"><b style="min-width:150px">${esc(v.name)}</b>${sel('v-' + vid + '-av', `ui/edit/variants/${vid}/availability`, v.availability || '', AVAIL_OPTS, 'Same as model')}</div>`; }).join('')}`;
   else if (tab === 'revisions') body = revisionsTab(m);
+  else if (tab === 'issue') body = issueTabHtml(m, vids);
   else body = `<label class="field">Lore and documentation<textarea id="m-lore" data-bind="${P}/lore">${esc(m.lore || '')}</textarea></label>
       ${vids.map(vid => { const v = e.variants[vid]; return `<section class="plate" style="margin-top:12px"><h3>${esc(v.name)} artwork</h3><div class="art-row">${v.artAssetId ? artHtml(v.artAssetId, v.name) : '<p class="small muted">No artwork. The frame drawing is shown instead.</p>'}
         <div class="btn-row">${uploadButton('variant-art', v.artAssetId ? 'Replace artwork' : 'Upload artwork', { vid, max: 1400 })}${v.artAssetId ? `<button class="btn ghost" data-act="set-path" data-path="ui/edit/variants/${vid}/artAssetId" data-value="">Remove</button>` : ''}</div></div></section>`; }).join('')}`;
   return `<div class="wide-drawer"></div><header><div><p class="kicker">ENGINEERING DIVISION · TSF DATABASE · ${esc(REF.model(m))}</p><h2>${esc(m.designation)} ${esc(m.name)}</h2><p>Model master record ${chip(m.publishStatus)}</p></div>
     <button class="btn ghost" data-act="close-drawer" aria-label="Close">${icon('x')}</button></header>
-    <div class="body">${tabsHtml('ui/mdTab', tab, [['identity', 'Identity'], ['class', 'Classification'], ['mfr', 'Manufacturer'], ['stats', 'Base statistics'], ['loadout', 'Factory loadout'], ['compat', 'Compatibility'], ['variants', 'Variants'], ['avail', 'Availability'], ['art', 'Artwork and documentation'], ['revisions', 'Revisions']])}${body}</div>
-    <footer><label class="field">Reason for change (recorded in Audit Records)${txt('m-reason', 'ui/edit/reason', e.reason, 'e.g. Rebalanced after session 4')}</label>
-      <div class="btn-row" style="margin-top:8px"><button class="btn primary" data-act="model-save">Save model and variants</button></div></footer>`;
+    <div class="body">${tabsHtml('ui/mdTab', tab, [['identity', 'Identity'], ['class', 'Classification'], ['mfr', 'Manufacturer'], ['stats', 'Base statistics'], ['loadout', 'Factory loadout'], ['compat', 'Compatibility'], ['variants', 'Variants'], ['avail', 'Availability'], ['issue', 'Issue to pilots'], ['art', 'Artwork and documentation'], ['revisions', 'Revisions']])}${body}</div>
+    ${tab === 'issue' ? '' : `<footer><label class="field">Reason for change (recorded in Audit Records)${txt('m-reason', 'ui/edit/reason', e.reason, 'e.g. Rebalanced after session 4')}</label>
+      <div class="btn-row" style="margin-top:8px"><button class="btn primary" data-act="model-save">Save model and variants</button></div></footer>`}`;
 });
+
+/* ---------------------------------------------------------------- TSF Database: issuing machines to pilots
+   Command Authority can put any frame in a pilot's hangar from the model record, whatever its availability.
+   Restricted and GM-only frames stay hidden from everyone else: a pilot sees only the ones they hold. */
+function issueForm(modelId) {
+  const f = S.ui.form.issue;
+  if (f && f.modelId === modelId) return f;
+  return (S.ui.form.issue = { modelId, variantId: '', pilotId: '', note: '', depot: {} });
+}
+function issuePilots() {
+  return list('pilots').filter(p => p.status !== 'archived' && p.status !== 'kia')
+    .sort((a, b) => String(a.personnelId).localeCompare(String(b.personnelId), undefined, { numeric: true }))
+    .map(p => [p.id, `${p.personnelId} · ${p.callsign ? p.callsign + ' · ' : ''}${p.fullName}${p.status && p.status !== 'active' ? ' (' + p.status.toUpperCase() + ')' : ''}`]);
+}
+function issueTabHtml(m, vids) {
+  const f = issueForm(m.id), pilots = issuePilots();
+  const vs = vids.map(vid => effVariant(vid)).filter(Boolean);
+  const vlabel = v => `${tsfLabelFromVariant(v.id)} · ${AVAIL_LABEL[v.availability] || v.availability}${v.publishStatus !== 'published' ? ' · not published' : ''}`;
+  const ids = new Set(vids), mine = list('tsfs').filter(t => ids.has(t.variantId)).sort((a, b) => String(a.serial).localeCompare(String(b.serial)));
+  const depot = mine.filter(t => !t.ownerPilotId), held = mine.filter(t => t.ownerPilotId);
+  const hidden = vs.some(v => v.availability !== 'public');
+  return `<p class="small">Register a new machine of this model straight into a pilot’s hangar, whatever its availability. It arrives with its factory configuration approved and active, exactly like an approved allocation request.${hidden ? ' Restricted and GM-only frames stay hidden from other players; each pilot sees only the ones they hold.' : ''}</p>
+    <div class="form-grid"><label class="field">Variant${sel('iss-var', 'ui/form/issue/variantId', f.variantId, vs.map(v => [v.id, vlabel(v)]), 'Choose a variant')}</label>
+      <label class="field">Pilot${sel('iss-pil', 'ui/form/issue/pilotId', f.pilotId, pilots, 'Choose a pilot')}</label>
+      <label class="field wide">Note for the TSF’s service record (optional)${txt('iss-note', 'ui/form/issue/note', f.note, 'e.g. Issued for Operation Lightning Shield')}</label></div>
+    <div class="btn-row" style="margin-top:10px"><button class="btn primary" data-act="model-issue">Register and issue</button></div>
+    <h3 style="margin-top:18px">Depot stock</h3>
+    ${depot.length ? `<div class="scroll-x"><table class="data"><thead><tr><th>Serial</th><th>Variant</th><th>Status</th><th>Issue to</th><th></th></tr></thead><tbody>${depot.map(t => `<tr><td><b>${esc(t.serial)}</b></td><td>${esc(tsfLabelFromVariant(t.variantId))}</td><td>${chip(t.status)}</td>
+      <td>${sel('iss-d-' + t.id, 'ui/form/issue/depot/' + t.id, (f.depot || {})[t.id] || '', pilots, 'Choose a pilot')}</td><td><button class="btn" data-act="model-issue-depot" data-id="${t.id}">Issue</button></td></tr>`).join('')}</tbody></table></div>`
+      : '<p class="small muted">No machines of this model are in depot stock.</p>'}
+    <h3 style="margin-top:18px">In service</h3>
+    ${held.length ? `<div class="scroll-x"><table class="data"><thead><tr><th>Serial</th><th>Variant</th><th>Pilot</th><th>Status</th></tr></thead><tbody>${held.map(t => `<tr><td><b>${esc(t.serial)}</b></td><td>${esc(tsfLabelFromVariant(t.variantId))}</td><td>${esc(pilotLabel(get('pilots', t.ownerPilotId)))}</td><td>${chip(t.status)}</td></tr>`).join('')}</tbody></table></div>
+      <p class="small muted">To move a machine between pilots or back to depot stock, use the pilot’s personnel record (Machines).</p>`
+      : '<p class="small muted">No pilot holds one yet.</p>'}`;
+}
+/* An unpublished frame stays hidden even from the pilot holding it, so it is published first. */
+function issueBlocked(vid) {
+  const v = effVariant(vid);
+  if (!v) return 'That variant no longer exists.';
+  if (v.publishStatus !== 'published') return `${tsfLabelFromVariant(vid)} isn’t published yet, so the pilot couldn’t see it. Set it to Published (Variants or Availability tab), save, then issue it.`;
+  return null;
+}
+ACTIONS['model-issue'] = () => {
+  const f = S.ui.form.issue || {};
+  if (!f.variantId) { toast('Choose the variant to issue.', true); return; }
+  if (!f.pilotId) { toast('Choose the pilot to issue it to.', true); return; }
+  const p = get('pilots', f.pilotId), why = issueBlocked(f.variantId);
+  if (!p) { toast('That pilot no longer exists.', true); return; }
+  if (why) { toast(why, true); return; }
+  const note = String(f.note || '').trim(), vid = f.variantId;
+  run(async () => {
+    const serial = await registerTsf(vid, p.id);
+    await Data.service('tsf-' + serial.toLowerCase(), 'transfer', `Issued by Command Authority to ${pilotLabel(p)}`, null, note || null);
+    f.pilotId = ''; f.note = '';
+    toast(`${serial} (${tsfLabelFromVariant(vid)}) issued to ${pilotLabel(p)}.`);
+  });
+};
+ACTIONS['model-issue-depot'] = d => {
+  const f = S.ui.form.issue || {}, pid = (f.depot || {})[d.id], src = S.store.tsfs[d.id];
+  if (!src) return;
+  if (!pid) { toast(`Choose the pilot to issue ${src.serial} to.`, true); return; }
+  const p = get('pilots', pid), why = issueBlocked(src.variantId);
+  if (!p) { toast('That pilot no longer exists.', true); return; }
+  if (why) { toast(why, true); return; }
+  const t = clone(src); t.ownerPilotId = pid; t.isPrimary = !list('tsfs').some(x => x.ownerPilotId === pid && x.isPrimary);
+  run(async () => {
+    await Data.put('tsfs', d.id, t);
+    await Data.service(d.id, 'transfer', `Issued from depot stock to ${pilotLabel(p)}`);
+    await Data.audit('tsf.transfer', 'tsf', d.id, `${t.serial} issued from depot stock to ${p.personnelId}`);
+    if (f.depot) delete f.depot[d.id];
+  }, `${t.serial} issued to ${pilotLabel(p)}.`);
+};
 
 /* ---------------------------------------------------------------- Personnel Administration (§7.5) */
 route('personnel', 'Personnel Administration', function () {
@@ -4142,19 +4215,19 @@ route('personnel', 'Personnel Administration', function () {
   const q = f.q.toLowerCase(), uniq = k => Array.from(new Set(all.map(p => p[k]).filter(Boolean))).sort().map(x => [x, x]);
   const rows = all.filter(p => (!q || (p.fullName + ' ' + (p.callsign || '') + ' ' + p.personnelId).toLowerCase().indexOf(q) !== -1)
     && (!f.rank || p.rankId === f.rank) && (!f.unit || (p.unitId && unitDescendants(f.unit).indexOf(p.unitId) !== -1)) && (!f.squadron || (p.unitId && p.unitRole === f.squadron)) && (!f.fac || p.factionId === f.fac)
-    && (!f.tsf || (f.tsf === 'yes') === tsfs.some(t => t.ownerPilotId === p.id)) && (!f.account || (f.account === 'linked') === !!p.userId) && (f.status ? p.status === f.status : p.status !== 'archived'));
+    && (!f.tsf || (f.tsf === 'yes') === tsfs.some(t => t.ownerPilotId === p.id)) && (!f.account || (f.account === 'npc' ? !!p.npc : f.account === 'pc' ? !p.npc : (f.account === 'linked') === !!p.userId)) && (f.status ? p.status === f.status : p.status !== 'archived'));
   const pg = paged(rows, 'pers', 25);
   return `<div class="page-head"><div><p class="kicker">PERSONNEL DIVISION · COMMAND AUTHORITY</p><h1>Personnel Administration</h1><p>Military personnel directory. Select a record to open it with editing controls.</p></div>
     <button class="btn primary" data-act="pilot-new">New personnel record</button></div>
     <div class="filters sticky-filters"><label class="field">Search<input type="text" id="pf-q" data-bind="ui/pf/q" data-rerender="1" value="${esc(f.q)}" placeholder="Name, callsign or number"></label>
       ${filterSel('pf-rank', 'ui/pf/rank', f.rank, 'Rank', vocab('ranks').map(r => [r.id, r.name]))}${filterSel('pf-unit', 'ui/pf/unit', f.unit, 'Unit (incl. sub-units)', activeUnits().map(u => [u.id, unitChain(u.id).map(x => x.name).join(' › ')]))}
       ${filterSel('pf-sq', 'ui/pf/squadron', f.squadron, 'Unit role', UNIT_ROLES)}${filterSel('pf-fac', 'ui/pf/fac', f.fac, 'Organisation', list('factions').map(x => [x.id, x.name]))}
-      ${filterSel('pf-tsf', 'ui/pf/tsf', f.tsf, 'Assigned TSF', [['yes', 'Has a TSF'], ['no', 'No TSF']])}${filterSel('pf-acc', 'ui/pf/account', f.account, 'Player account', [['linked', 'Linked'], ['unlinked', 'Not linked']])}
+      ${filterSel('pf-tsf', 'ui/pf/tsf', f.tsf, 'Assigned TSF', [['yes', 'Has a TSF'], ['no', 'No TSF']])}${filterSel('pf-acc', 'ui/pf/account', f.account, 'Played by', [['pc', 'Player characters'], ['npc', 'NPCs'], ['linked', 'Linked to an account'], ['unlinked', 'Not linked']])}
       ${filterSel('pf-st', 'ui/pf/status', f.status, 'Status', ['pending', 'active', 'inactive', 'kia', 'mia', 'retired', 'archived'].map(x => [x, x.toUpperCase()]))}</div>
     <div class="scroll-x"><table class="data"><thead><tr><th>Reference</th><th>Personnel</th><th>Rank</th><th>Organisation</th><th>Unit / squadron</th><th>Assigned TSF</th><th>Account</th><th>Status</th></tr></thead><tbody>
     ${pg.rows.map(p => `<tr class="click" data-act="pilot-open" data-id="${p.id}"><td>${ref('pers', p)}</td><td><span class="who">${avatarHtml(p, 28)}<span><b>${esc(p.callsign || '')}</b> ${esc(p.fullName)}</span></span></td>
       <td>${esc((rankById(p.rankId) || {}).name || '–')}</td><td>${esc(facName(p.factionId))}</td><td class="small">${esc(unitPathText(p) || '–')}${p.unitId ? `<br><span class="muted">${esc(roleName(p.unitRole))}</span>` : ''}</td>
-      <td class="small">${tsfs.filter(t => t.ownerPilotId === p.id).map(t => esc(t.serial)).join(', ') || '–'}</td><td>${p.userId ? chip('approved', accountName(p.userId) || 'Linked') : '<span class="small muted">Not linked</span>'}</td>
+      <td class="small">${tsfs.filter(t => t.ownerPilotId === p.id).map(t => esc(t.serial)).join(', ') || '–'}</td><td>${p.npc ? `<span class="chip ${p.npcOpen ? 'ok' : ''}">${p.npcOpen ? 'NPC · OPEN' : 'NPC'}</span> ` : ''}${p.userId ? chip('approved', accountName(p.userId) || 'Linked') : '<span class="small muted">Not linked</span>'}</td>
       <td>${chip(p.status === 'active' ? 'operational' : p.status === 'pending' ? 'pending' : 'retired', p.status)}</td></tr>`).join('')}</tbody></table></div>${pg.bar}${rows.length ? '' : '<div class="empty">No personnel match these filters.</div>'}`;
 });
 
@@ -7872,7 +7945,7 @@ ACTIONS['enlist-submit'] = () => {
 claimView = function () {
   const r = applicationRules(), key = draftKey(null), dr = S.mem.drafts ? S.mem.drafts[key] : undefined;
   if (dr === undefined && S.db) loadDraft(key).then(() => scheduleRender());
-  const free = r.allowClaim ? list('pilots').filter(p => !p.userId).sort((a, b) => a.personnelId.localeCompare(b.personnelId)) : [];
+  const free = r.allowClaim ? list('pilots').filter(p => !p.userId && (!p.npc || p.npcOpen)).sort((a, b) => a.personnelId.localeCompare(b.personnelId)) : [];
   const steps = appSteps(), done = dr && dr.enlist ? steps.filter(([k]) => k !== 'review' && !stepProblems(k, dr.enlist.d).length).length : 0;
   return `<div class="signin apply"><div class="signin-head">${typeof logoSvg === 'function' ? logoSvg(48) : ''}<div><p class="kicker">UNTSF-COMM · PERSONNEL DIVISION</p><h1>Apply for service</h1><p class="muted">${esc(r.intro)}</p></div></div>
     ${S.readOnly ? '<div class="notice">You have view-only access, so you can browse but not apply.</div>' : ''}
@@ -7882,7 +7955,7 @@ claimView = function () {
       : `<div class="btn-row"><button class="btn primary" data-act="enlist-begin" ${S.readOnly ? 'disabled' : ''}>Start your application</button></div>
         <p class="small muted">${plural(steps.length - 1, 'section')}: ${esc(steps.filter(([k]) => k !== 'review').map(s => s[1]).join(', '))}. It saves as you go.</p>`}
     ${free.length ? `<h2 class="section-h" style="margin-top:20px">Or claim a record Command Authority set up for you</h2><div class="grid g2">${free.map(p => `<div class="plate"><div class="desig">${esc(p.callsign || p.fullName)}</div><p class="muted small">${esc(p.fullName)} · ${esc(facName(p.factionId))}</p>
-      <button class="btn" data-act="claim-pilot" data-id="${p.id}" ${S.readOnly ? 'disabled' : ''}>This is me</button></div>`).join('')}</div>` : ''}</div>`;
+      <button class="btn" data-act="claim-pilot" data-id="${p.id}" ${S.readOnly ? 'disabled' : ''}>${p.npc ? 'Take over this character' : 'This is me'}</button>${p.npc ? '<p class="small muted" style="margin:6px 0 0">An NPC Command Authority has opened to players. Taking it over makes it your character.</p>' : ''}</div>`).join('')}</div>` : ''}</div>`;
 };
 
 /* While waiting: status, notes by section and the application history. */
@@ -8748,7 +8821,7 @@ function eishiHero(p, own) {
       ${own ? `<p class="kicker">${isNewEishi(p) && p.unitId ? `Welcome to the ${esc((get('units', p.unitId) || {}).name || 'unit')}` : 'Welcome back'}, ${esc(p.callsign || p.fullName)} · ${esc(fmtCampaign(campaignDate()))}${station ? ' · ' + esc(station.name) : ''}</p>` : `<p class="kicker">EISHI PROFILE · ${esc(REF.pers(p))}</p>`}
       <h1>${rk ? `<span class="rank">${esc(rk.name)}</span> ` : ''}${esc(p.callsign || p.fullName)}</h1><p class="eishi-name">${esc(p.fullName)}${p.nationality ? ' · ' + esc(p.nationality) : ''}</p>
       <p class="small">Eishi · ${esc(roleLabel(p.unitRole))} · ${esc(chain)}</p>
-      <div class="eishi-tags">${gradeBadge(p)}${sp ? `<span class="chip acc">${esc(sp.name.toUpperCase())}</span>` : ''}<span class="chip ${cond.cls}">${esc(cond.text.toUpperCase())}</span>${own ? `<span class="chip">${esc(clearanceName((viewer() || { clearance: 4 }).clearance).toUpperCase())}</span>` : ''}</div></div>
+      <div class="eishi-tags">${p.npc ? '<span class="chip">NPC</span>' : ''}${gradeBadge(p)}${sp ? `<span class="chip acc">${esc(sp.name.toUpperCase())}</span>` : ''}<span class="chip ${cond.cls}">${esc(cond.text.toUpperCase())}</span>${own ? `<span class="chip">${esc(clearanceName((viewer() || { clearance: 4 }).clearance).toUpperCase())}</span>` : ''}</div></div>
     <dl class="eishi-stats"><div><dt>Sorties</dt><dd>${rec.sorties}</dd></div><div><dt>BETA kills</dt><dd>${rec.kills}</dd></div><div><dt>Experience</dt><dd>${pilotXp(p.id).toLocaleString('en-GB')}</dd></div></dl></section>`;
 }
 const clip = (t, n) => { t = (t || '').trim(); return t.length > n ? t.slice(0, n).replace(/\s+\S*$/, '') + '…' : t; };
@@ -10642,7 +10715,8 @@ ROUTES.personnel.view = function () {
     <div class="cc-tile slim static ${ps.some(p => p.status === 'pending') ? 'warn' : ''}"><b>${ps.filter(p => p.status === 'pending').length}</b><span>Awaiting approval</span></div>
     <div class="cc-tile slim static"><b>${ps.filter(p => p.status === 'active' && !isSupport(p)).length}</b><span>Eishi</span></div>
     <div class="cc-tile slim static"><b>${ps.filter(p => p.status === 'active' && isSupport(p)).length}</b><span>Support staff</span></div>
-    <div class="cc-tile slim static"><b>${ps.filter(p => p.status === 'active' && !p.unitId).length}</b><span>Unassigned</span></div></div>`;
+    <div class="cc-tile slim static"><b>${ps.filter(p => p.status === 'active' && !p.unitId).length}</b><span>Unassigned</span></div>
+    <div class="cc-tile slim static"><b>${ps.filter(p => p.npc && p.status !== 'archived').length}</b><span>NPCs</span></div></div>`;
   const i = html.indexOf('<div class="filters'); return i === -1 ? html : html.slice(0, i) + strip + html.slice(i);
 };
 
@@ -10674,7 +10748,7 @@ function obCommanderName(u, slots) {
 function obPerson(sl, p, title) {
   if (p) { const rk = rankById(p.rankId), mine = p.userId && p.userId === S.uid;
     return `<button class="ob-person ${mine ? 'mine' : ''} ${isSupport(p) ? 'sup' : ''}" data-act="eishi-open" data-id="${p.id}" title="Open ${esc(p.callsign || p.fullName)}'s profile">${avatarHtml(p, 52)}
-      <b>${esc(p.callsign || p.fullName)}</b><span class="small">${esc(rk ? rk.abbr + ' ' : '')}${esc(p.callsign ? p.fullName : '')}</span><span class="small muted">${esc(title || (isSupport(p) ? tradeName(p.trade) : roleLabel(p.unitRole)))}</span></button>`; }
+      <b>${esc(p.callsign || p.fullName)}</b><span class="small">${esc(rk ? rk.abbr + ' ' : '')}${esc(p.callsign ? p.fullName : '')}</span><span class="small muted">${esc(title || (isSupport(p) ? tradeName(p.trade) : roleLabel(p.unitRole)))}</span>${p.npc ? '<span class="chip">NPC</span>' : ''}</button>`; }
   if (sl && (sl.holderName || '').trim()) return `<div class="ob-person npc"><span class="ob-npc">${esc(obNpcInitials(sl.holderName))}</span>
       <b>${esc(sl.holderName)}</b><span class="small muted">${esc(sl.title)}</span><span class="chip">NPC</span></div>`;
   return `<div class="ob-person open"><span class="ob-open">${icon('plus', 18)}</span><b>${esc(sl.title)}</b><span class="small muted">${esc(roleLabel(sl.role))}</span>${sl.open ? '<span class="chip ok">OPEN</span>' : '<span class="chip">VACANT</span>'}</div>`;
@@ -11428,6 +11502,329 @@ exportPanel = function () {
   return html.replace('<div class="btn-row">' + (S.downloads ? '<button class="btn primary" data-act="exp-run"' : ''),
     '<div class="btn-row">' + (S.downloads ? '<button class="btn" data-act="xp-admin">Choose individual records…</button><button class="btn primary" data-act="exp-run"' : ''));
 };
+/* ---------------------------------------------------------------- NPCs and player characters
+   Any personnel record can be an NPC: a character Command Authority runs. An NPC stays off the sign-up
+   screen unless Command Authority opens it to players. When a player takes it over, by claiming it or by
+   the Administrator giving the record to a player's account, it becomes that player's character and is
+   no longer an NPC. Linking it to a Command Authority account keeps it an NPC. */
+function commandAccount(uid) {
+  if (!uid) return false;
+  if (uid === S.uid && S.isGm) return true;
+  const m = (S.mem.members || []).find(x => x.user_id === uid);
+  return !!(m && ['owner', 'gm', 'mod'].indexOf(m.role) !== -1);
+}
+function npcSectionHtml(p) {
+  const was = S.ui.edit.isNew ? null : (get('pilots', p.id) || {}).userId || null, now = p.userId || null;
+  const name = id => (typeof accountName === 'function' && accountName(id)) || 'that account';
+  let note = '';
+  if (p.npc && now && now !== was && !commandAccount(now)) note = `<p class="small warn-text" role="status">Saving gives this NPC to ${esc(name(now))}. It becomes their character and stops being an NPC.</p>`;
+  else if (p.npc && now && !commandAccount(now)) note = `<p class="small warn-text" role="status">Still linked to ${esc(name(now))}, who can keep playing it. To take it back, set Player account to No account.</p>`;
+  else if (!p.npc && (p.npcTakenOverAt || '')) note = `<p class="small muted">A player took this character over from Command Authority on ${esc(fmtDT(p.npcTakenOverAt))}.</p>`;
+  return `<section><h3>Player character or NPC</h3><div class="form-grid">
+      <label class="field">Played by<select id="p-npc" data-change="pilot-npc"><option value="pc" ${p.npc ? '' : 'selected'}>A player (player character)</option><option value="npc" ${p.npc ? 'selected' : ''}>Command Authority (NPC)</option></select></label>
+      ${p.npc ? `<label class="field">Player takeover<select id="p-npc-open" data-change="pilot-npc-open"><option value="no" ${p.npcOpen ? '' : 'selected'}>Closed: Command Authority keeps them</option><option value="yes" ${p.npcOpen ? 'selected' : ''}>Open: a player may take them over</option></select></label>` : ''}</div>
+    <p class="small muted">${p.npc ? 'NPCs are marked as NPCs on their profile, the order of battle and here. An open NPC is offered on the sign-up screen; when a player takes it over, it becomes their character.' : 'Set to NPC for a character Command Authority runs. If a player later takes it over, it becomes a player character again automatically.'}</p>${note}</section>`;
+}
+CHANGES['pilot-npc'] = v => { const p = S.ui.edit.pilot; p.npc = v === 'npc'; if (!p.npc) p.npcOpen = false; render(); };
+CHANGES['pilot-npc-open'] = v => { S.ui.edit.pilot.npcOpen = v === 'yes'; render(); };
+const _pilotEditNpc = DRAWERS['pilot-edit'];
+DRAWERS_REG('pilot-edit', d => {
+  const html = _pilotEditNpc(d), p = S.ui.edit && S.ui.edit.pilot;
+  if (!p || !S.isGm) return html;
+  const at = html.indexOf('<div class="body">');
+  return at === -1 ? html : html.slice(0, at + 18) + npcSectionHtml(p) + html.slice(at + 18);
+});
+const _pilotGmSaveNpc = ACTIONS['pilot-gm-save'];
+ACTIONS['pilot-gm-save'] = (d, el) => {
+  const e = S.ui.edit, p = e && e.pilot;
+  if (p) {
+    p.npc = !!p.npc; p.npcOpen = p.npc && !!p.npcOpen;
+    const was = e.isNew ? null : (get('pilots', p.id) || {}).userId || null, now = p.userId || null;
+    if (p.npc && now && now !== was && !commandAccount(now)) {
+      p.npc = false; p.npcOpen = false; p.npcTakenOverAt = nowIso();
+    }
+  }
+  return _pilotGmSaveNpc(d, el);
+};
+const _claimPilotNpc = ACTIONS['claim-pilot'];
+ACTIONS['claim-pilot'] = (d, el) => {
+  const rec = S.store.pilots[d.id];
+  if (rec && rec.npc && S.uid && !rec.userId) {
+    if (!rec.npcOpen && !S.isGm) { toast('Command Authority hasn’t opened this character to players.', true); return; }
+    S.store.pilots[d.id] = Object.assign({}, rec, { npc: false, npcOpen: false, npcTakenOverAt: nowIso() });
+  }
+  return _claimPilotNpc(d, el);
+};
+
+/* ---------------------------------------------------------------- briefing images, map export and Discord
+   Anyone can export the operations map as a styled PNG. Command Authority can also turn a mission into a
+   styled mission plan, and post either image to Discord. Images are drawn in the browser; Discord posts go
+   through the site's relay (functions/api/discord.js), which holds the webhooks and checks the sender. */
+const SVG_PROPS = ['fill', 'fill-opacity', 'fill-rule', 'stroke', 'stroke-width', 'stroke-opacity', 'stroke-dasharray', 'stroke-linejoin', 'stroke-linecap',
+  'opacity', 'display', 'visibility', 'font-family', 'font-size', 'font-weight', 'font-style', 'letter-spacing', 'paint-order', 'text-anchor', 'dominant-baseline'];
+function rootVar(n, fb) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim() || fb; }
+function colourInt(c) { const x = document.createElement('canvas').getContext('2d'); x.fillStyle = '#000'; x.fillStyle = c; const h = /^#[0-9a-f]{6}$/i.test(x.fillStyle) ? x.fillStyle : '#3e6684'; return parseInt(h.slice(1), 16); }
+function offstage(html, width) {
+  const host = document.createElement('div');
+  host.style.cssText = `position:fixed;left:-14000px;top:0;width:${width}px;pointer-events:none`;
+  host.setAttribute('aria-hidden', 'true'); host.innerHTML = html; document.body.appendChild(host);
+  return host;
+}
+const slugOf = t => String(t || 'image').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'image';
+
+/* An SVG drawn as an image can't reach the page's web fonts, so the families it uses are embedded (Latin only). */
+const _svgFonts = {};
+async function svgFontCss(families) {
+  const key = Array.from(families).sort().join('|');
+  if (_svgFonts[key] != null) return _svgFonts[key];
+  let css = '';
+  try {
+    const link = document.querySelector('link[href*="fonts.googleapis.com/css"]');
+    if (link && families.size) {
+      const src = await (await fetch(link.href)).text();
+      for (const part of src.split('@font-face').slice(1)) {
+        const block = '@font-face' + part.slice(0, part.indexOf('}') + 1);
+        const fam = (block.match(/font-family:\s*'([^']+)'/) || [])[1], url = (block.match(/url\((https:[^)]+)\)/) || [])[1];
+        if (!fam || !url || !families.has(fam) || !/unicode-range:[^;]*U\+0000-00FF/i.test(block)) continue;
+        const blob = await (await fetch(url)).blob();
+        const data = await new Promise(ok => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(blob); });
+        css += block.replace(url, data);
+      }
+    }
+  } catch (e) { css = ''; }
+  return (_svgFonts[key] = css);
+}
+/* Paint an on-page SVG onto a canvas with its stylesheet look: computed styles are copied onto a clone, and
+   screen-fixed line widths become map units so lines keep their weight at any export size. */
+async function svgToCanvas(svg, outW, outH) {
+  const vb = (svg.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number), r = svg.getBoundingClientRect();
+  const unit = vb.length === 4 && r.width ? Math.max(vb[2] / r.width, vb[3] / (r.height || 1)) : 1;
+  const clone = svg.cloneNode(true), src = svg.querySelectorAll('*'), dst = clone.querySelectorAll('*'), fams = new Set();
+  src.forEach((el, i) => {
+    const cs = getComputedStyle(el), out = dst[i];
+    const fixed = el.getAttribute('vector-effect') === 'non-scaling-stroke' || cs.getPropertyValue('vector-effect') === 'non-scaling-stroke';
+    let st = '';
+    SVG_PROPS.forEach(p => {
+      let v = cs.getPropertyValue(p);
+      if (!v) return;
+      if (fixed && (p === 'stroke-width' || p === 'stroke-dasharray') && v !== 'none') v = v.replace(/(-?[\d.]+)(px)?/g, (m0, n) => String(Number(n) * unit));
+      if (p === 'font-family') { const f = v.split(',')[0].replace(/["']/g, '').trim(); if (f) fams.add(f); }
+      st += `${p}:${v};`;
+    });
+    out.setAttribute('style', st); out.removeAttribute('vector-effect'); out.removeAttribute('data-act');
+    if (el.tagName.toLowerCase() === 'title') out.textContent = '';
+  });
+  ['data-act', 'data-mode', 'class', 'role', 'aria-label', 'style'].forEach(a => clone.removeAttribute(a));
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg'); clone.setAttribute('width', outW); clone.setAttribute('height', outH);
+  const fonts = await svgFontCss(fams);
+  if (fonts) { const st = document.createElementNS('http://www.w3.org/2000/svg', 'style'); st.textContent = fonts; clone.insertBefore(st, clone.firstChild); }
+  const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' }));
+  try {
+    const img = await new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => no(new Error('the map couldn’t be drawn')); im.src = url; });
+    const c = document.createElement('canvas'); c.width = outW; c.height = outH;
+    const g = c.getContext('2d'); g.fillStyle = rootVar('--sea', '#0b1824'); g.fillRect(0, 0, outW, outH); g.drawImage(img, 0, 0, outW, outH);
+    return c;
+  } finally { URL.revokeObjectURL(url); }
+}
+/* The operations map as it stands (view, zone types shown, selection), drawn at a fixed size. */
+async function opsMapCanvas(mode, outW) {
+  const m = S.ui.map, keep = m.px;
+  m.px = 1000;
+  const host = offstage(mapHtml(mode), 1000);
+  m.px = keep;
+  try {
+    const svg = host.querySelector('svg.worldmap');
+    svg.style.width = '1000px'; svg.style.height = '500px';
+    const pick = (sel, prop, fb) => { const el = svg.querySelector(sel); return el ? getComputedStyle(el).getPropertyValue(prop) || fb : fb; };
+    const keyc = { front: pick('.front', 'stroke', '#e58a8a'), beta: pick('.beta-zone', 'stroke', '#c45a5a') };
+    return { canvas: await svgToCanvas(svg, outW, Math.round(outW / 2)), keyc };
+  } finally { host.remove(); }
+}
+async function missionMapCanvas(m, outW) {
+  const html = missionThumb(m);
+  if (!html) return null;
+  const host = offstage(html, 1000);
+  try { const svg = host.querySelector('svg'); svg.classList.add('worldmap'); svg.style.width = '1000px'; svg.style.height = '500px'; return await svgToCanvas(svg, outW, Math.round(outW / 2)); }
+  finally { host.remove(); }
+}
+async function htmlToBlob(html, width) {
+  const host = offstage(html, width);
+  try {
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    const h2c = await loadHtml2canvas();
+    const canvas = await h2c(host.firstElementChild, { scale: 1.5, useCORS: true, backgroundColor: rootVar('--bg', '#101d2a'), scrollX: 0, scrollY: 0, logging: false });
+    return await new Promise((ok, no) => canvas.toBlob(b => b ? ok(b) : no(new Error('the image couldn’t be saved')), 'image/png'));
+  } finally { host.remove(); }
+}
+
+/* The shared look: title band, classification strip and footer around the content. */
+function briefFrame(kicker, ref, title, sub, body, width) {
+  const ink = rootVar('--text', '#e5edf3'), crest = insignia(54, true).replace(/currentColor/g, ink);
+  const cdate = typeof fmtCampaign === 'function' && typeof campaignDate === 'function' ? fmtCampaign(campaignDate()) : '';
+  return `<div style="width:${width}px;box-sizing:border-box;background:var(--bg);color:var(--text);font-family:var(--font-body);padding:26px 30px 22px">
+    <div style="display:flex;align-items:center;gap:16px;border-bottom:2px solid var(--line);padding-bottom:14px">${crest}
+      <div style="flex:1"><div style="font:700 26px/1 var(--font-cond);letter-spacing:.12em">${esc(BRAND.code)}</div><div style="font:500 12px/1.4 var(--font-mono);letter-spacing:.14em;color:var(--muted);text-transform:uppercase">${esc(kicker)}</div></div>
+      <div style="text-align:right;font:500 12px/1.6 var(--font-mono);letter-spacing:.1em;color:var(--muted)"><div style="color:var(--text)">${esc(ref)}</div>${cdate ? `<div>${esc(cdate.toUpperCase())}</div>` : ''}<div>SECURITY: ${esc(BRAND.security)}</div></div></div>
+    <h1 style="margin:18px 0 2px;font:700 46px/1.05 var(--font-cond);letter-spacing:.04em;text-transform:uppercase">${esc(title)}</h1>
+    <div style="font:500 15px/1.5 var(--font-body);color:var(--muted);margin-bottom:16px">${sub}</div>
+    ${body}
+    <div style="display:flex;justify-content:space-between;margin-top:18px;padding-top:10px;border-top:1px solid var(--line);font:500 11px/1.4 var(--font-mono);letter-spacing:.1em;color:var(--muted)">
+      <span>${esc(BRAND.name.toUpperCase())}</span><span>ISSUED BY COMMAND AUTHORITY · AUTHORISED PERSONNEL ONLY</span></div></div>`;
+}
+const briefChip = (text, colour) => `<span style="display:inline-block;padding:3px 10px;border-radius:3px;border:1px solid ${colour};color:${colour};font:600 12px/1.4 var(--font-mono);letter-spacing:.1em;text-transform:uppercase;margin-right:6px">${esc(text)}</span>`;
+
+async function missionPlanBlob(m) {
+  const z = get('zones', m.zoneId), threatC = rootVar('--z' + m.threat, '#d9a441');
+  const mapC = await missionMapCanvas(m, 1200);
+  const type = (MISSION_TYPES.find(x => x[0] === m.type) || [])[1] || m.type;
+  const date = m.scheduledFor ? fmtDate(m.scheduledFor + 'T00:00:00Z') : 'Date to be confirmed';
+  const brief = String(m.briefing || '').trim(), short = brief.length > 1500 ? brief.slice(0, 1500).replace(/\s+\S*$/, '') + ' …' : brief;
+  const rows = (m.assignments || []).map(a => {
+    const p = get('pilots', a.pilotId), t = get('tsfs', a.tsfId), rk = p ? rankById(p.rankId) : null;
+    return `<tr><td style="padding:7px 10px;font:700 17px/1.2 var(--font-cond);letter-spacing:.06em">${esc(p ? (p.callsign || '–').toUpperCase() : '?')}</td>
+      <td style="padding:7px 10px">${esc(rk ? rk.abbr + ' ' : '')}${esc(p ? p.fullName : '')}</td><td style="padding:7px 10px;color:var(--muted)">${esc(a.role || '–')}</td>
+      <td style="padding:7px 10px;font:500 13px/1.3 var(--font-mono)">${t ? esc(t.serial) + ' · ' + esc(tsfLabel(t)) : '–'}</td></tr>`;
+  }).join('');
+  const body = `<div style="display:grid;grid-template-columns:1.15fr 1fr;gap:20px;align-items:start">
+      <div>${mapC ? `<img src="${mapC.toDataURL('image/png')}" style="width:100%;display:block;border:1px solid var(--line);border-radius:4px">` : ''}
+        <div style="margin-top:8px;font:500 12px/1.4 var(--font-mono);letter-spacing:.08em;color:var(--muted)">${esc(z ? z.name.toUpperCase() : 'NO ZONE')}${z ? ' · ' + esc(Number(z.lat).toFixed(1)) + '°, ' + esc(Number(z.lon).toFixed(1)) + '°' : ''}</div></div>
+      <div><div style="border-left:4px solid ${threatC};background:var(--panel);padding:12px 14px;border-radius:0 4px 4px 0;margin-bottom:12px">
+          <div style="font:600 12px/1.4 var(--font-mono);letter-spacing:.12em;color:var(--muted)">OBJECTIVE</div>
+          <div style="font:600 18px/1.4 var(--font-body);margin-top:4px">${esc(m.objective || 'To be confirmed at briefing.')}</div></div>
+        ${short ? `<div style="font:600 12px/1.4 var(--font-mono);letter-spacing:.12em;color:var(--muted);margin-bottom:4px">BRIEFING</div><div style="white-space:pre-wrap;font:400 14.5px/1.55 var(--font-body)">${esc(short)}</div>` : ''}</div></div>
+    <div style="margin-top:18px;font:600 12px/1.4 var(--font-mono);letter-spacing:.12em;color:var(--muted)">ASSIGNED ELEMENT · ${(m.assignments || []).length} EISHI</div>
+    ${rows ? `<table style="width:100%;border-collapse:collapse;margin-top:6px;background:var(--panel);border-radius:4px;font:400 14.5px/1.3 var(--font-body)"><tbody>${rows}</tbody></table>`
+      : `<div style="margin-top:6px;padding:10px 12px;background:var(--panel);color:var(--muted)">Assignments to follow.</div>`}`;
+  const sub = `${briefChip(THREAT_NAMES[m.threat] + ' threat', threatC)}${briefChip(type, rootVar('--accent', '#8da6b8'))}${briefChip(m.status, rootVar('--muted', '#91a0ab'))} ${esc(date)}`;
+  return htmlToBlob(briefFrame('Operations Division · Mission plan', REF.ops(m), m.name, sub, body, 1200), 1200);
+}
+
+function viewName(vb) {
+  const k = Object.keys(MAP_VIEWS).find(n => MAP_VIEWS[n].every((v, i) => Math.abs(v - vb[i]) < 1));
+  return k ? ({ world: 'World', 'east-asia': 'East Asia', europe: 'Europe', americas: 'Americas', africa: 'Africa', mediterranean: 'Mediterranean' })[k] : 'Theatre view';
+}
+async function opsMapBlob(mode) {
+  const vb = S.ui.map.vb, hide = S.ui.map.hideTypes || {};
+  const { canvas, keyc } = await opsMapCanvas(mode, 2000);
+  const inView = list('zones').filter(z => z.status !== 'archived' && !hide[z.type]).filter(z => { const [x, y] = proj(z.lon, z.lat); return x >= vb[0] && x <= vb[0] + vb[2] && y >= vb[1] && y <= vb[1] + vb[3]; });
+  const top = inView.slice().sort((a, b) => b.threat - a.threat || a.name.localeCompare(b.name)).slice(0, 12);
+  const open = mode === 'gm' ? list('missions').filter(x => x.status === 'briefed' || x.status === 'active') : myMissions().filter(x => x.status === 'briefed' || x.status === 'active');
+  const sw = (c, label) => `<span style="display:inline-flex;align-items:center;gap:7px;margin-right:18px"><i style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${c}"></i>${esc(label)}</span>`;
+  const legend = `<div style="display:flex;flex-wrap:wrap;align-items:center;margin-top:10px;font:500 13px/1.6 var(--font-mono);letter-spacing:.06em;color:var(--muted)">
+    ${[5, 4, 3, 2, 1].map(n => sw(rootVar('--z' + n, '#888'), THREAT_NAMES[n])).join('')}
+    <span style="display:inline-flex;align-items:center;gap:7px;margin-right:18px"><i style="display:inline-block;width:22px;height:12px;background:repeating-linear-gradient(45deg,${keyc.beta} 0 3px,transparent 3px 7px);border:1px solid ${keyc.beta}"></i>BETA territory</span>
+    <span style="display:inline-flex;align-items:center;gap:7px"><i style="display:inline-block;width:24px;height:0;border-top:3px solid ${keyc.front}"></i>Front line</span></div>`;
+  const body = `<img src="${canvas.toDataURL('image/png')}" style="width:100%;display:block;border:1px solid var(--line);border-radius:4px">${legend}
+    ${top.length ? `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px 18px;margin-top:14px">${top.map(z => `<div style="display:flex;gap:8px;align-items:center;padding:6px 10px;background:var(--panel);border-left:4px solid ${rootVar('--z' + z.threat, '#888')}">
+      <b style="font:600 15px/1.3 var(--font-cond);letter-spacing:.04em;flex:1">${esc(z.name)}</b><span style="font:500 11px/1.3 var(--font-mono);color:var(--muted)">${esc(THREAT_NAMES[z.threat].toUpperCase())}</span></div>`).join('')}</div>` : ''}`;
+  const sub = `${plural(inView.length, 'zone')} in view · ${plural(list('fronts').filter(f => f.status !== 'archived').length, 'BETA front')} · ${plural(open.length, 'active operation')}`;
+  return htmlToBlob(briefFrame('Operations Division · Theatre map', 'OPS-MAP', 'Operations map · ' + viewName(vb), esc(sub), body, 1600), 1600);
+}
+
+/* Discord: available to Command Authority on the self-hosted site once the relay and a webhook are set up. */
+function ensureDiscord(force) {
+  if (!S.isGm) return;
+  if (S.discordState && !force && S.discordState.status !== 'off') return;
+  S.discordState = { status: 'loading' };
+  Promise.resolve().then(() => window.claude.use('discord')).then(api => { S.discordApi = api; return api.channels(); })
+    .then(ch => { S.discordState = ch.length ? { status: 'ready', channels: ch } : { status: 'off', error: 'No Discord webhook is set up yet. Add DISCORD_WEBHOOK in Cloudflare (SETUP.md, Discord).' }; scheduleRender(); })
+    .catch(e => { S.discordState = { status: 'off', error: e && e.code === 'unavailable' ? 'Posting to Discord works on the self-hosted site.' : (e && e.message) || 'Discord isn’t available.' }; scheduleRender(); });
+}
+
+ACTIONS['brief-open'] = d => {
+  const f = S.ui.form.brief;
+  if (f && f.url) URL.revokeObjectURL(f.url);
+  const m = d.kind === 'mission' ? get('missions', d.id) : null;
+  if (d.kind === 'mission' && !m) { toast('Save the mission first.', true); return; }
+  S.ui.form.brief = { kind: d.kind, id: d.id || null, mode: d.mode || (S.isGm ? 'gm' : 'player'), blob: null, url: null, error: null, drawing: true, posting: false, channel: '',
+    withBriefing: false, message: m ? `📡 **${m.name}**: mission plan issued.` : '🗺️ Operations map update.' };
+  openDrawer('brief-publish');
+  ensureDiscord();
+  briefDraw();
+};
+async function briefDraw() {
+  const f = S.ui.form.brief; if (!f) return;
+  f.drawing = true; f.error = null; render();
+  try {
+    const blob = f.kind === 'mission' ? await missionPlanBlob(get('missions', f.id)) : await opsMapBlob(f.mode);
+    if (S.ui.form.brief !== f) return;
+    if (f.url) URL.revokeObjectURL(f.url);
+    f.blob = blob; f.url = URL.createObjectURL(blob);
+  } catch (e) { f.error = 'Couldn’t draw the image: ' + ((e && e.message) || e); }
+  f.drawing = false; render();
+}
+function briefFilename(f) {
+  const m = f.kind === 'mission' ? get('missions', f.id) : null;
+  return m ? `${slugOf(m.name)}-mission-plan.png` : `operations-map-${slugOf(viewName(S.ui.map.vb))}.png`;
+}
+ACTIONS['brief-redraw'] = () => briefDraw();
+ACTIONS['brief-download'] = async () => {
+  const f = S.ui.form.brief; if (!f || !f.blob) return;
+  const name = briefFilename(f);
+  try {
+    if (S.downloads) await S.downloads.save({ filename: name, data: f.blob });
+    else { const a = document.createElement('a'); a.href = f.url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
+    toast(`${name} saved.`);
+  } catch (e) { if (!e || e.code !== 'declined') toast('Couldn’t save the image.', true); }
+};
+ACTIONS['brief-post'] = async () => {
+  const f = S.ui.form.brief, ds = S.discordState;
+  if (!f || !f.blob || !ds || ds.status !== 'ready' || f.posting) return;
+  const channel = f.channel || ds.channels[0], name = briefFilename(f), m = f.kind === 'mission' ? get('missions', f.id) : null;
+  let embed;
+  if (m) {
+    const z = get('zones', m.zoneId), team = (m.assignments || []).map(a => { const p = get('pilots', a.pilotId); return p ? (p.callsign || p.fullName) + (a.role ? ` (${a.role})` : '') : null; }).filter(Boolean);
+    const desc = [m.objective ? `**Objective:** ${m.objective}` : '', f.withBriefing && m.briefing ? String(m.briefing).slice(0, 3200) : ''].filter(Boolean).join('\n\n');
+    embed = { title: m.name, description: desc || undefined, color: colourInt(rootVar('--z' + m.threat, '#d9a441')),
+      fields: [{ name: 'Zone', value: z ? z.name : '–', inline: true }, { name: 'Type', value: (MISSION_TYPES.find(x => x[0] === m.type) || [])[1] || m.type || '–', inline: true },
+        { name: 'Threat', value: THREAT_NAMES[m.threat] || '–', inline: true }, { name: 'Date', value: m.scheduledFor ? fmtDate(m.scheduledFor + 'T00:00:00Z') : 'To be confirmed', inline: true },
+        { name: 'Element', value: team.join(', ').slice(0, 1000) || 'Assignments to follow', inline: false }],
+      image: { url: 'attachment://' + name }, footer: { text: `${BRAND.code} · ${REF.ops(m)}` } };
+  } else {
+    embed = { title: 'Operations map · ' + viewName(S.ui.map.vb), color: colourInt(rootVar('--accent', '#3e6684')), image: { url: 'attachment://' + name }, footer: { text: `${BRAND.code} · Operations Division` } };
+  }
+  f.posting = true; render();
+  try {
+    await S.discordApi.post({ channel, payload: { content: (f.message || '').trim(), username: BRAND.code, embeds: [embed] }, file: { blob: f.blob, name } });
+    await Data.audit('discord.post', m ? 'mission' : 'map', m ? m.id : 'map', `${m ? m.name + ' mission plan' : 'Operations map'} posted to Discord (${channel})`).catch(() => {});
+    toast(`Posted to Discord${ds.channels.length > 1 ? ' (' + channel + ')' : ''}.`);
+  } catch (e) { toast((e && e.message) || 'Discord didn’t accept the post.', true); }
+  f.posting = false; render();
+};
+CHANGES['brief-channel'] = v => { S.ui.form.brief.channel = v; };
+
+DRAWERS_REG('brief-publish', function () {
+  const f = S.ui.form.brief; if (!f) return '';
+  const m = f.kind === 'mission' ? get('missions', f.id) : null, ds = S.discordState || {};
+  const preview = f.drawing ? '<div class="empty">Drawing the image…</div>' : f.error ? `<div class="validation bad">${esc(f.error)}</div>` : `<img src="${f.url}" alt="Preview" style="width:100%;display:block;border:1px solid var(--line);border-radius:4px">`;
+  const discord = !S.isGm ? '' : ds.status === 'loading' ? '<p class="small muted">Checking Discord…</p>'
+    : ds.status !== 'ready' ? `<p class="small muted">${esc(ds.error || 'Discord isn’t set up.')} <button class="btn ghost" data-act="brief-recheck">Check again</button></p>`
+    : `${ds.channels.length > 1 ? `<label class="field">Channel<select id="bp-ch" data-change="brief-channel">${ds.channels.map(c => `<option value="${esc(c)}" ${f.channel === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>` : ''}
+      <label class="field" style="margin-top:8px">Message with the image<textarea id="bp-msg" data-bind="ui/form/brief/message">${esc(f.message)}</textarea></label>
+      ${m && m.briefing ? `<label class="small" style="display:block;margin-top:8px"><input type="checkbox" data-act="toggle-bool" data-path="ui/form/brief/withBriefing" ${f.withBriefing ? 'checked' : ''}> Include the full briefing text in the post</label>` : ''}
+      ${m && m.status === 'planning' ? '<p class="small warn-text">This mission is still in planning: pilots don’t see it in the app until it’s briefed, but anyone in the Discord channel will see this post.</p>' : ''}`;
+  return `<div class="wide-drawer"></div><header><div><p class="kicker">OPERATIONS DIVISION · ${m ? 'MISSION PLAN' : 'THEATRE MAP'}</p><h2>${esc(m ? m.name : 'Operations map · ' + viewName(S.ui.map.vb))}</h2>
+      <p>${m ? 'A styled mission plan to share or post to Discord.' : 'The map as it’s shown now: same view, zone types and selection.'}</p></div>
+    <button class="btn ghost" data-act="close-drawer" aria-label="Close">${icon('x')}</button></header>
+    <div class="body"><section>${preview}</section>${S.isGm ? `<section><h3>Discord</h3>${discord}</section>` : ''}</div>
+    <footer><div class="btn-row">${S.isGm && ds.status === 'ready' ? `<button class="btn primary" data-act="brief-post" ${f.blob && !f.posting ? '' : 'disabled'}>${f.posting ? 'Posting…' : 'Post to Discord'}</button>` : ''}
+      <button class="btn ${S.isGm && ds.status === 'ready' ? '' : 'primary'}" data-act="brief-download" ${f.blob ? '' : 'disabled'}>${icon('download', 16)} Download PNG</button>
+      <button class="btn ghost" data-act="brief-redraw" ${f.drawing ? 'disabled' : ''}>Redraw</button></div></footer>`;
+});
+ACTIONS['brief-recheck'] = () => { ensureDiscord(true); render(); };
+
+/* Buttons: the map's tool bar, and a saved mission's drawer. */
+const _mapHtmlBrief = mapHtml;
+mapHtml = function (mode) {
+  return _mapHtmlBrief(mode).replace('<div class="map-tools">', `<div class="map-tools"><button class="btn" data-act="brief-open" data-kind="map" data-mode="${esc(mode)}" title="Save the map as an image${S.isGm ? ' or post it to Discord' : ''}">${icon('download', 14)} Map image</button>`);
+};
+const _missionEditBrief = DRAWERS['mission-edit'];
+DRAWERS_REG('mission-edit', d => {
+  const html = _missionEditBrief(d), e = S.ui.edit;
+  if (!e || e.isNew || !e.m || !get('missions', e.m.id)) return html;
+  return html.replace('<footer><div class="btn-row">', `<footer><div class="btn-row"><button class="btn" data-act="brief-open" data-kind="mission" data-id="${esc(e.m.id)}">${icon('radio', 16)} Mission plan${S.isGm ? ' · Discord' : ''}</button>`);
+});
+
 ;
 /* start-up: every module has registered its routes, drawers and actions */
 'use strict';

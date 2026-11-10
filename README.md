@@ -15,6 +15,7 @@ site/                       the website (published by Cloudflare Pages: output d
   starter.json              starter catalogue for a fresh campaign
   manifest.webmanifest, sw.js, icon-*.png   installable on phones
   _headers, robots.txt      keep it out of search engines; no referrer leaks
+functions/api/discord.js    Discord relay: posts mission plans and maps for Command Authority (optional, see SETUP.md)
 supabase/
   config.toml               Supabase CLI settings
   migrations/               database set-up, applied automatically by GitHub Actions

@@ -115,6 +115,25 @@ Tell them their username and temporary password.
 
 **Export as Word** on a character sheet makes a `.docx` file, which Google Docs opens directly. To turn exports into Google Docs automatically, each player does this once in Google Drive: **Settings (the cog) → General → Convert uploads → Convert uploaded files to Google Docs editor format**. After that, dragging an exported `.docx` into Drive makes it an editable Google Doc. Without the setting, open the file in Drive and choose **File → Save as Google Docs**. CSV exports convert to Google Sheets the same way.
 
+## Optional: post mission plans and maps to Discord (about 10 minutes)
+
+Command Authority can post a styled **mission plan** (open a mission from the Command Centre, then **Mission plan · Discord**) or the **operations map** (**Map image** on the map's toolbar) straight to a Discord channel. Anyone can download either image as a PNG without this set-up; players can save the map from the Missions page.
+
+Discord doesn't accept posts straight from a web page, so the site uses a small relay, `functions/api/discord.js`, which Cloudflare runs alongside the site automatically. The relay holds the Discord webhook as an encrypted Cloudflare secret, so it's never in the code, the database or anyone's browser, and it checks with Supabase that whoever is posting is Command Authority.
+
+1. **Make the webhook in Discord.** You need *Manage Webhooks* on the server. Open **Server Settings → Integrations → Webhooks → New Webhook**, choose the channel, name it `UNTSF-COMM` (add an avatar if you like), and click **Copy Webhook URL**.
+2. **Give it to Cloudflare.** In the Cloudflare dashboard open **Workers & Pages → your project → Settings → Variables and Secrets → Add**:
+   - **Type:** Secret
+   - **Variable name:** `DISCORD_WEBHOOK`
+   - **Value:** the webhook URL
+   - Click **Save**.
+
+   For more channels, add more secrets named `DISCORD_WEBHOOK_` plus a name, e.g. `DISCORD_WEBHOOK_BRIEFINGS`. The site then offers a channel list (*default*, *briefings*, and so on).
+3. **Redeploy.** Secrets apply from the next deployment: push any change, or open **Deployments**, then on the latest one **⋯ → Retry deployment**.
+4. **Test it:** open a mission in the Command Centre, click **Mission plan · Discord**, check the preview, and click **Post to Discord**.
+
+Treat the webhook URL like a password: anyone who has it can post to that channel. If it leaks, delete the webhook in Discord and make a new one. Every post is recorded in Audit Records.
+
 ## Phones
 
 UNTSF-COMM works in any phone browser, with a bottom bar for the main screens and **More** for the full menu. To install it like an app:
@@ -149,6 +168,9 @@ The free plan has no automatic backups. Every few sessions, download one from **
 | **"Project paused"** in Supabase | The keep-awake job was switched off (GitHub does this after 60 days without commits). Resume the project in Supabase, then *Actions → Keep database awake → Enable workflow*. |
 | The site shows an old version | Hard-refresh: **Ctrl + Shift + R** (Windows) or **Cmd + Shift + R** (Mac). On a phone, close the app fully and reopen it. |
 | A stranger made an account | Delete it in **Accounts**, then turn on (or change) the **invite code**. |
+| *"The Discord relay isn't deployed on this site yet"* | The `functions` folder must be at the top of the repository, next to `site`. After pushing, Cloudflare's deployment shows **Functions** with `/api/discord`. |
+| *"No Discord webhook is set up yet"* | The secret must be named exactly `DISCORD_WEBHOOK` (or `DISCORD_WEBHOOK_…`), and it applies from the next deployment: **Retry deployment**. |
+| *"Discord refused the post (404)"* | The webhook was deleted in Discord. Make a new one and replace the secret. |
 
 ## Privacy
 

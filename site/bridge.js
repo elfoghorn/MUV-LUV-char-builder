@@ -252,11 +252,35 @@
       deleteAccount: async function (uid) { var r = await sb.rpc('admin_delete_account', { p_user: uid }); if (r.error) throw mapError(r.error); }
     };
     var gm = role === 'owner' || role === 'mod';
+    /* Discord: posts go through the site's own relay (functions/api/discord.js), which holds the webhooks and checks
+       with Supabase that the sender is Command Authority. The session token proves who is asking. */
+    var discord = {
+      call: async function (method, body) {
+        var ses = (await sb.auth.getSession()).data.session;
+        if (!ses) throw { code: 'signed_out', message: 'You’re signed out. Sign in again.' };
+        var r;
+        try { r = await fetch('api/discord', { method: method, headers: { Authorization: 'Bearer ' + ses.access_token }, body: body || undefined }); }
+        catch (e) { throw { code: 'network', message: 'Couldn’t reach the site’s Discord relay. Check your connection.' }; }
+        var j = null; try { j = await r.json(); } catch (e) { j = null; }
+        if (!j) throw { code: 'not_setup', message: 'The Discord relay isn’t deployed on this site yet (SETUP.md, Discord).' };
+        if (!r.ok) throw { code: r.status === 503 ? 'not_setup' : 'failed', message: j.error || ('Discord relay error ' + r.status) };
+        return j;
+      },
+      channels: async function () { return (await discord.call('GET')).channels || []; },
+      post: async function (o) {
+        var fd = new FormData();
+        fd.append('channel', o.channel || 'default');
+        fd.append('payload_json', JSON.stringify(o.payload || {}));
+        if (o.file) fd.append('file', o.file.blob, o.file.name);
+        return discord.call('POST', fd);
+      }
+    };
     window.claude = { use: async function (name) {
       if (name === 'db') return db;
       if (name === 'user') return { id: async function () { return user.id; }, canEdit: async function () { return gm; }, isOwner: async function () { return member.role === 'owner'; }, can: async function () { return true; } };
       if (name === 'assets') return assets;
       if (name === 'downloads') return downloads;
+      if (name === 'discord') return discord;
       throw { code: 'unavailable', message: 'Not available in the self-hosted edition.' };
     } };
     liveUpdates();
