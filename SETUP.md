@@ -136,6 +136,8 @@ Discord doesn't accept posts straight from a web page, so the site uses a small 
 
 **Acceptance announcements.** When you approve an enlistment, the app offers to announce it on Discord with the new eishi's poster, pinging them if their record has a **Discord user ID** (players can add it on the application; you can add it in Personnel Administration). Make a webhook for your accepted channel and add it as `DISCORD_WEBHOOK_ACCEPTED`: the announcement picks a channel named *accepted* (or *personnel*/*enlist*) by itself. Tick **Post future acceptances automatically** once, and later approvals go straight out.
 
+**Operation updates.** Make a webhook for your operations channel and add it as `DISCORD_WEBHOOK_OPERATIONS`. When Command Authority posts a situation report (Global Situation → **Situation reports**), the app offers to send it to Discord with the operations map as it's shown, unless **Share on Discord with the map** beside **Post** is unticked. Map posts, including **Map image** on the map's toolbar, go to a channel named *operations* (or *ops*/*sitrep*/*map*) by themselves; pick another once and the app remembers it. Reports above Open clearance carry a warning, because everyone in the Discord channel will see them.
+
 Treat the webhook URL like a password: anyone who has it can post to that channel. If it leaks, delete the webhook in Discord and make a new one. Every post is recorded in Audit Records.
 
 ## Phones

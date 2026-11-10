@@ -11789,13 +11789,14 @@ ACTIONS['brief-post'] = async () => {
         { name: 'Element', value: team.join(', ').slice(0, 1000) || 'Assignments to follow', inline: false }],
       image: { url: 'attachment://' + name }, footer: { text: `${BRAND.code} · ${REF.ops(m)}` } };
   } else {
-    embed = { title: 'Operations map · ' + viewName(S.ui.map.vb), color: colourInt(rootVar('--accent', '#3e6684')), image: { url: 'attachment://' + name }, footer: { text: `${BRAND.code} · Operations Division` } };
+    embed = { title: f.update ? 'Operation update · ' + fmtCampaign(campaignDate()) : 'Operations map · ' + viewName(S.ui.map.vb), color: colourInt(rootVar('--accent', '#3e6684')), image: { url: 'attachment://' + name }, footer: { text: `${BRAND.code} · Operations Division` } };
   }
   f.posting = true; render();
   try {
     await S.discordApi.post({ channel, payload: { content: (f.message || '').trim(), username: BRAND.code, embeds: [embed] }, file: { blob: f.blob, name } });
     await Data.audit('discord.post', m ? 'mission' : 'map', m ? m.id : 'map', `${m ? m.name + ' mission plan' : 'Operations map'} posted to Discord (${channel})`).catch(() => {});
     toast(`Posted to Discord${ds.channels.length > 1 ? ' (' + channel + ')' : ''}.`);
+    if (!m) rememberMapChannel(channel);
   } catch (e) { toast((e && e.message) || 'Discord didn’t accept the post.', true); }
   f.posting = false; render();
 };
@@ -11810,7 +11811,8 @@ DRAWERS_REG('brief-publish', function () {
     : `${ds.channels.length > 1 ? `<label class="field">Channel<select id="bp-ch" data-change="brief-channel">${ds.channels.map(c => `<option value="${esc(c)}" ${f.channel === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>` : ''}
       <label class="field" style="margin-top:8px">Message with the image<textarea id="bp-msg" data-bind="ui/form/brief/message">${esc(f.message)}</textarea></label>
       ${m && m.briefing ? `<label class="small" style="display:block;margin-top:8px"><input type="checkbox" data-act="toggle-bool" data-path="ui/form/brief/withBriefing" ${f.withBriefing ? 'checked' : ''}> Include the full briefing text in the post</label>` : ''}
-      ${m && m.status === 'planning' ? '<p class="small warn-text">This mission is still in planning: pilots don’t see it in the app until it’s briefed, but anyone in the Discord channel will see this post.</p>' : ''}`;
+      ${m && m.status === 'planning' ? '<p class="small warn-text">This mission is still in planning: pilots don’t see it in the app until it’s briefed, but anyone in the Discord channel will see this post.</p>' : ''}
+      ${!m && f.level ? `<p class="small warn-text">This report is ${esc(clearanceName(f.level))}: in the app only cleared eishi can read it, but anyone in the Discord channel will see this post.</p>` : ''}`;
   return `<div class="wide-drawer"></div><header><div><p class="kicker">OPERATIONS DIVISION · ${m ? 'MISSION PLAN' : 'THEATRE MAP'}</p><h2>${esc(m ? m.name : 'Operations map · ' + viewName(S.ui.map.vb))}</h2>
       <p>${m ? 'A styled mission plan to share or post to Discord.' : 'The map as it’s shown now: same view, zone types and selection.'}</p></div>
     <button class="btn ghost" data-act="close-drawer" aria-label="Close">${icon('x')}</button></header>
@@ -12429,6 +12431,44 @@ const _claimViewDir = claimView;
 claimView = function () { const h = _claimViewDir.apply(this, arguments); return h + `<div class="btn-row" style="margin-top:16px">${DIR_BTN()}</div>`; };
 UPLOAD_TARGETS['unit-art'] = id => { S.ui.edit.u.insigniaAssetId = id; };
 ;
+/* ---------------------------------------------------------------- operation updates on Discord
+   Map posts go to a channel of their own: one named for operations (DISCORD_WEBHOOK_OPERATIONS in Cloudflare) unless
+   Command Authority picks another, which is then remembered. Posting a situation report offers to send it with the map. */
+function opsChannelFor(ds) {
+  const want = discordSettings().mapChannel;
+  return want && ds.channels.indexOf(want) !== -1 ? want : ds.channels.find(c => /operation|ops|sitrep|map/.test(c)) || ds.channels[0];
+}
+function rememberMapChannel(channel) {
+  const cfg = discordSettings(); if (cfg.mapChannel === channel) return;
+  const next = Object.assign({}, cfg, { mapChannel: channel }); delete next.id;
+  Data.put('settings', 'discord', next).catch(() => {});
+}
+const _briefOpenOps = ACTIONS['brief-open'];
+ACTIONS['brief-open'] = d => {
+  _briefOpenOps(d);
+  const f = S.ui.form.brief; if (!f || f.kind !== 'map') return;
+  if (d.message) f.message = d.message;
+  f.level = Number(d.level) || 0; f.update = !!d.update;
+  if (S.isGm) discordReady().then(ok => { if (ok && S.ui.form.brief === f && !f.channel) { f.channel = opsChannelFor(S.discordState); render(); } });
+};
+/* Posting a report: share it, with the map as it's shown now, unless the box beside Post is unticked. */
+const _sitrepPostOps = ACTIONS['sitrep-post'];
+ACTIONS['sitrep-post'] = () => {
+  const t = (S.ui.form.sitrep || '').trim(), lvl = Number(S.ui.form.sitrepLevel || 0), share = S.ui.form.sitrepDiscord !== false;
+  _sitrepPostOps();
+  if (!t || !S.isGm || !share) return;
+  discordReady().then(ok => { if (ok) ACTIONS['brief-open']({ kind: 'map', mode: 'gm', update: true, level: lvl, message: `📡 **Operation update** · ${fmtCampaign(campaignDate())}\n${t}`.slice(0, 1900) }); });
+};
+ACTIONS['sitrep-discord'] = () => { S.ui.form.sitrepDiscord = S.ui.form.sitrepDiscord === false; render(); };
+const _situationOps = ROUTES.situation.view;
+ROUTES.situation.view = function () {
+  const html = _situationOps.apply(this, arguments);
+  if (!S.isGm || S.ui.previewAs) return html;
+  ensureDiscord();
+  if (!S.discordState || S.discordState.status !== 'ready') return html;
+  return html.replace('<button class="btn" data-act="sitrep-post">Post</button>', `<button class="btn" data-act="sitrep-post">Post</button>
+    <label class="small" style="align-self:center"><input type="checkbox" data-act="sitrep-discord" ${S.ui.form.sitrepDiscord !== false ? 'checked' : ''}> Share on Discord with the map</label>`);
+};
 /* start-up: every module has registered its routes, drawers and actions */
 'use strict';
 markGmRoutes();
