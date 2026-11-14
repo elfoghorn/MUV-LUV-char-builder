@@ -12482,6 +12482,50 @@ DRAWERS_REG('draft-view', function () {
       <p class="notice small">Every field as it will appear in Personnel Administration once the application is sent. Sections only staff fill in are left out.</p>
       ${body}</div>`;
 });
+/* ---------------------------------------------------------------- All Hangars (Command Authority)
+   Every player's TSF hangar on one page: each active character with their machines, the same asset cards the
+   player sees, so nobody has to switch characters to check a machine. NPCs and unassigned frames on request. */
+function allHangarsView() {
+  const f = S.ui.ah || (S.ui.ah = { q: '', status: '', model: '', unit: '', who: '' });
+  const tsfs = list('tsfs'), eff = t => effVariant(t.variantId) || {};
+  const people = list('pilots').filter(p => p.status === 'active' && (f.who === 'all' || p.userId));
+  const q = f.q.trim().toLowerCase();
+  const fits = t => { const v = eff(t), p = get('pilots', t.ownerPilotId);
+    return (!f.status || t.status === f.status) && (!f.model || v.modelId === f.model)
+      && (!q || [t.serial, v.designation, v.modelName, v.name, p && p.callsign, p && p.fullName].some(x => String(x || '').toLowerCase().indexOf(q) !== -1)); };
+  const inUnit = p => !f.unit || (p.unitId && unitChain(p.unitId).some(u => u.id === f.unit));
+  const order = (a, b) => (b.isPrimary - a.isPrimary) || String(a.serial).localeCompare(String(b.serial));
+  const groups = people.filter(inUnit).map(p => ({ p, all: tsfs.filter(t => t.ownerPilotId === p.id), shown: tsfs.filter(t => t.ownerPilotId === p.id && fits(t)).sort(order) }))
+    .sort((a, b) => (b.all.length ? 1 : 0) - (a.all.length ? 1 : 0) || String(a.p.callsign || a.p.fullName).localeCompare(String(b.p.callsign || b.p.fullName)));
+  const withMachines = groups.filter(g => g.shown.length), without = groups.filter(g => !g.all.length);
+  const loose = f.who === 'all' && !f.unit ? tsfs.filter(t => (!t.ownerPilotId || !get('pilots', t.ownerPilotId)) && fits(t)).sort(order) : [];
+  const counted = groups.flatMap(g => g.all), pending = list('approvals').filter(a => a.type === 'acquisition' && a.status === 'pending' && people.some(p => p.id === a.pilotId));
+  const mnt = counted.filter(t => ['maintenance', 'repair', 'damaged'].indexOf(t.status) !== -1).length;
+  const m = (n, l, tone) => `<div class="plate metric ${tone || ''}"><b>${String(n).padStart(2, '0')}</b><span>${l}</span></div>`;
+  const models = Array.from(new Map(counted.map(t => [eff(t).modelId, (eff(t).designation || '') + ' ' + (eff(t).modelName || '')])).entries()).filter(([k]) => k);
+  const units = activeUnits().filter(u => ['regiment', 'battalion', 'squadron'].indexOf(u.type) !== -1).map(u => [u.id, u.name]);
+  const head = g => { const p = g.p, rk = rankById(p.rankId), unit = p.unitId ? unitChain(p.unitId).slice(-2).map(u => u.name).join(' · ') : 'Unassigned';
+    return `<div class="record-head" style="align-items:center;gap:12px">${avatarHtml(p, 44)}<div style="flex:1;min-width:0"><h2 style="margin:0">${esc(p.callsign || p.fullName)}</h2>
+      <p class="small muted" style="margin:2px 0 0">${esc([rk ? rk.name : '', p.callsign ? p.fullName : '', unit].filter(Boolean).join(' · '))}${p.userId ? ` · player <b>${esc(accountName(p.userId) || 'account')}</b>` : ' · <span class="chip">NPC</span>'}</p></div>
+      <span class="small muted">${plural(g.all.length, 'TSF')}${g.shown.length !== g.all.length ? ` · ${g.shown.length} shown` : ''}</span>
+      <button class="btn ghost" data-act="eishi-open" data-id="${esc(p.id)}">Profile</button></div>`; };
+  return `<div class="page-head"><div><p class="kicker">ENGINEERING DIVISION · ALL HANGARS</p><h1>All Hangars</h1>
+      <p>Every ${f.who === 'all' ? 'active character’s' : 'player’s'} TSF hangar on one page. The cards are the ones players see; open a machine for its record, configuration or service history.</p></div></div>
+    <div class="grid g4" style="margin-bottom:16px">${m(withMachines.length, 'Hangars shown')}${m(counted.length, 'Registered TSF')}${m(counted.filter(t => t.status === 'operational').length, 'Operational')}${m(mnt, 'Maintenance or damaged', mnt ? 'warn' : '')}</div>
+    ${pending.length ? `<div class="notice">${plural(pending.length, 'allocation request')} waiting in the Approval Centre. <button class="btn ghost" data-act="nav" data-route="approvals">Open it</button></div>` : ''}
+    <div class="filters sticky-filters"><label class="field">Search<input type="text" id="ah-q" data-bind="ui/ah/q" data-rerender="1" value="${esc(f.q)}" placeholder="Callsign, name, serial or model"></label>
+      ${filterSel('ah-unit', 'ui/ah/unit', f.unit, 'Unit', units)}${filterSel('ah-model', 'ui/ah/model', f.model, 'Model', models)}
+      ${filterSel('ah-status', 'ui/ah/status', f.status, 'Status', tsfStatuses().map(s => [s.code, s.label]))}
+      <label class="field">Whose<select id="ah-who" data-bind="ui/ah/who" data-rerender="1"><option value="">Players</option><option value="all" ${f.who === 'all' ? 'selected' : ''}>Players, NPCs and unassigned</option></select></label></div>
+    ${withMachines.map(g => `<section class="plate" style="margin-bottom:16px">${head(g)}<div class="asset-grid" style="margin-top:12px">${g.shown.map(assetCardHtml).join('')}</div></section>`).join('')}
+    ${loose.length ? `<section class="plate" style="margin-bottom:16px"><h2>Unassigned machines <span class="sub">${plural(loose.length, 'TSF')}</span></h2><div class="asset-grid" style="margin-top:12px">${loose.map(assetCardHtml).join('')}</div></section>` : ''}
+    ${!withMachines.length && !loose.length ? `<div class="empty">${counted.length ? 'No machines match these filters.' : 'No player has a TSF registered yet.'}</div>` : ''}
+    ${without.length && !q && !f.status && !f.model ? `<section class="plate"><h2>No machines yet <span class="sub">${plural(without.length, 'character')}</span></h2><p class="small">${without.map(g => `<button class="btn ghost" data-act="eishi-open" data-id="${esc(g.p.id)}">${esc(g.p.callsign || g.p.fullName)}</button>`).join(' ')}</p></section>` : ''}`;
+}
+route('hangars', 'All Hangars', allHangarsView, { gm: true });
+ROUTE_DEPT.hangars = 'ENG'; ROUTES.hangars.dept = 'ENG';
+(CA_GROUPS.find(g => g[0] === 'arm') || [0, 0, 0, []])[3].splice(1, 0, ['hangars', 'hangar', 'All Hangars']);
+(MOD_TOOLS.find(t => t[0] === 'catalogue') || [0, 0, []])[2].push('hangars');
 /* ---------------------------------------------------------------- operation updates on Discord
    Map posts go to a channel of their own: one named for operations (DISCORD_WEBHOOK_OPERATIONS in Cloudflare) unless
    Command Authority picks another, which is then remembered. Posting a situation report offers to send it with the map. */
