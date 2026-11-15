@@ -549,9 +549,11 @@ const COLLECTIONS = ['vocab', 'rules', 'factions', 'manufacturers', 'models', 'v
 /* Fixed system mounts: propulsion (engines, fuel) and airframe parts. Equipment with an engine profile uses ENGINE_SLOTS. */
 const ENGINE_SLOTS = ['jump_unit', 'thruster', 'power_plant', 'fuel'];
 const PART_SLOTS = ['armour', 'actuator', 'avionics'];
-const SYSTEM_SLOTS = ENGINE_SLOTS.concat(PART_SLOTS);
+/* Fixed armaments (Blade Motors, Spike Vanes, the CIDS Mk. 1 Javelin…) are built into the frame: never empty, swapped only for another the frame is cleared for. */
+const FIXED_SLOTS = ['fixed_armament'];
+const SYSTEM_SLOTS = ENGINE_SLOTS.concat(PART_SLOTS, FIXED_SLOTS);
 const inSlots = set => h => h.slots.length > 0 && h.slots.every(s => set.indexOf(s) !== -1);
-const isEngineMount = inSlots(ENGINE_SLOTS), isPartMount = inSlots(PART_SLOTS), isSystemMount = inSlots(SYSTEM_SLOTS);
+const isEngineMount = inSlots(ENGINE_SLOTS), isPartMount = inSlots(PART_SLOTS), isFixedMount = inSlots(FIXED_SLOTS), isSystemMount = inSlots(SYSTEM_SLOTS);
 const AFTER_RENDER = [];
 
 const S = {
@@ -1168,12 +1170,13 @@ function mountListHtml(cur) {
   const mountBtn = h => {
     const it = itemByHp[h.code], eq = it ? get('equipment', it.eq) : null;
     return `<button class="mount ${eq ? 'filled' : ''} ${hpState(h.code)}" ${cur.editable ? `data-act="ws-open-picker" data-hp="${h.code}"` : 'disabled'}>
-      <span class="lbl">${esc(h.label)}${isEngineMount(h) ? '' : ' · ' + esc(h.slots.map(slotName).join(', '))}</span><span class="lbl">${it && it.stock ? 'factory' : esc(h.maxWeight)}</span>
-      <span class="item ${eq ? '' : 'none'}">${esc(eq ? eq.name : 'Empty')}</span>${it && !isEngineMount(h) ? `<span class="lbl">${esc(slotName(it.slot))}</span>` : '<span></span>'}</button>`;
+      <span class="lbl">${esc(h.label)}${isEngineMount(h) || isFixedMount(h) ? '' : ' · ' + esc(h.slots.map(slotName).join(', '))}</span><span class="lbl">${it && it.stock ? 'factory' : esc(h.maxWeight)}</span>
+      <span class="item ${eq ? '' : 'none'}">${esc(eq ? eq.name : 'Empty')}</span>${it && !isEngineMount(h) && !isFixedMount(h) ? `<span class="lbl">${esc(slotName(it.slot))}</span>` : '<span></span>'}</button>`;
   };
   const mounts = cur.variant.hardpoints.filter(h => !isSystemMount(h)).map(mountBtn).join('');
   const engineMounts = cur.variant.hardpoints.filter(isEngineMount).map(mountBtn).join('');
   const partMounts = cur.variant.hardpoints.filter(isPartMount).map(mountBtn).join('');
+  const fixedMounts = cur.variant.hardpoints.filter(isFixedMount).map(mountBtn).join('');
   const ups = cur.cfg.items.filter(it => !it.hp);
   const rules = activeRules();
   const upgrades = ups.map(it => {
@@ -1186,7 +1189,8 @@ function mountListHtml(cur) {
     <h2 style="margin-top:16px">Upgrades <span class="sub">${ups.length} of ${rules.maxUpgrades}</span></h2>${upgrades || `<p class="muted small">No upgrades fitted.</p>`}
     ${cur.editable ? `<button class="btn" data-act="ws-open-picker" data-hp="upgrade" ${ups.length >= rules.maxUpgrades ? 'disabled' : ''}>Add upgrade</button>` : ''}
     ${engineMounts ? `<h2 style="margin-top:16px">Propulsion <span class="sub">Never empty: unchanged mounts run the factory fit</span></h2>${engineMounts}` : ''}
-    ${partMounts ? `<h2 style="margin-top:16px">Airframe <span class="sub">Armour, actuators and operating system</span></h2>${partMounts}` : ''}</div>`;
+    ${partMounts ? `<h2 style="margin-top:16px">Airframe <span class="sub">Armour, actuators and operating system</span></h2>${partMounts}` : ''}
+    ${fixedMounts ? `<h2 style="margin-top:16px">Fixed armament <span class="sub">Built into the frame: swap only for another this frame is cleared for</span></h2>${fixedMounts}` : ''}</div>`;
 }
 
 function validationHtml(cur) {
@@ -1459,7 +1463,7 @@ function propulsionHtml(cur) {
 
 /* Mount numbering shared by the drawing and its key: weapons, then propulsion, then airframe. */
 function mountNumbers(v) {
-  const order = v.hardpoints.filter(h => !isSystemMount(h)).concat(v.hardpoints.filter(isEngineMount), v.hardpoints.filter(isPartMount));
+  const order = v.hardpoints.filter(h => !isSystemMount(h)).concat(v.hardpoints.filter(isEngineMount), v.hardpoints.filter(isPartMount), v.hardpoints.filter(isFixedMount));
   const out = {}; order.forEach((h, i) => { out[h.code] = i + 1; }); out._order = order; return out;
 }
 /* Readable key: number, mount name, what is fitted. */
@@ -1473,7 +1477,7 @@ function mountKeyHtml(cur, itemByHp, nums) {
     return `<li>${cur.editable ? `<button class="key-row" data-act="ws-open-picker" data-hp="${h.code}">${inner}</button>` : `<div class="key-row">${inner}</div>`}</li>`;
   }).join('') : '';
   const v = cur.variant;
-  return `<ol class="mount-key">${group('Weapons and equipment', v.hardpoints.filter(h => !isSystemMount(h)))}${group('Propulsion', v.hardpoints.filter(isEngineMount))}${group('Airframe', v.hardpoints.filter(isPartMount))}</ol>`;
+  return `<ol class="mount-key">${group('Weapons and equipment', v.hardpoints.filter(h => !isSystemMount(h)))}${group('Propulsion', v.hardpoints.filter(isEngineMount))}${group('Airframe', v.hardpoints.filter(isPartMount))}${group('Fixed armament', v.hardpoints.filter(isFixedMount))}</ol>`;
 }
 
 /* The uploaded frame drawing with numbered markers in the drawing's own pixel coordinates. */
@@ -4992,7 +4996,7 @@ function repairRules() {
 }
 function componentsOf(t) {
   const v = effVariant(t.variantId), out = STRUCTURE.map(([code, label]) => ({ code, label, cls: 'structure' }));
-  (v ? v.hardpoints : []).forEach(h => out.push({ code: h.code, label: h.label, cls: isEngineMount(h) ? 'propulsion' : isPartMount(h) ? 'part' : 'weapon' }));
+  (v ? v.hardpoints : []).forEach(h => out.push({ code: h.code, label: h.label, cls: isEngineMount(h) ? 'propulsion' : isPartMount(h) || isFixedMount(h) ? 'part' : 'weapon' }));
   return out;
 }
 const condOf = (t, code) => t.components && t.components[code] != null ? t.components[code] : 100;
@@ -5544,7 +5548,7 @@ DOCS.dossier = id => {
 
 const LOADOUT_CLASSES = [['propulsion', 'Propulsion (jump units, thrusters, power plant, fuel)'], ['airframe', 'Airframe parts (armour, actuators, OS)'], ['upgrades', 'Upgrades']];
 function loadoutPolicy() { const p = get('settings', 'loadout_policy') || {}; return { propulsion: p.propulsion || 'gm', airframe: p.airframe || 'gm', upgrades: p.upgrades || 'player' }; }
-const mountClass = h => !h ? 'upgrades' : isEngineMount(h) ? 'propulsion' : isPartMount(h) ? 'airframe' : 'weapons';
+const mountClass = h => !h ? 'upgrades' : isEngineMount(h) ? 'propulsion' : isPartMount(h) || isFixedMount(h) ? 'airframe' : 'weapons';
 const isLockedClass = cls => cls !== 'weapons' && loadoutPolicy()[cls] === 'gm';
 const lockedFor = h => !S.isGm && isLockedClass(mountClass(h));
 function wsMount(code) { const cur = wsCurrent(); return cur && code !== 'upgrade' ? cur.variant.hardpoints.find(h => h.code === code) : null; }
