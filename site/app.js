@@ -1623,11 +1623,12 @@ DRAWERS_REG('approval', function (d) {
       ${recheck && !recheck.validation.valid ? `<div class="validation bad"><h3>No longer valid under the current rules</h3><ul>${recheck.validation.issues.filter(i => i.level === 'error').map(i => `<li>${esc(i.message)}</li>`).join('')}</ul></div>` : ''}</section>`;
   } else if (a.type === 'pilot_registration') {
     body = enlistReviewHtml(a);
-  } else if (a.type === 'equipment_unlock' || a.type === 'maintenance' || a.type === 'transfer' || a.type === 'return_to_service') {
-    body = newTypeReview(a);
+  } else if (a.type !== 'acquisition') {
+    /* Refit, research, improvement, procurement and the other request types each add their own review panel. */
+    body = newTypeReview(a) || `<section><p class="small muted">${esc(a.note || 'No further details on this request.')}</p></section>`;
   } else {
     const v = effVariant(a.variantId);
-    body = `<section><dl class="kv"><dt>Requested</dt><dd>${esc(tsfLabelFromVariant(a.variantId))}</dd><dt>Availability</dt><dd>${chip(v.availability)}</dd>
+    body = `<section><dl class="kv"><dt>Requested</dt><dd>${esc(tsfLabelFromVariant(a.variantId))}</dd><dt>Availability</dt><dd>${v ? chip(v.availability) : '–'}</dd>
       <dt>Pilot</dt><dd>${esc(pilotLabel(pilot))}</dd><dt>Current TSFs</dt><dd>${list('tsfs').filter(t => t.ownerPilotId === a.pilotId).map(t => esc(t.serial)).join(', ') || 'None'}</dd>
       <dt>Reason</dt><dd>${esc(a.note || '–')}</dd></dl><p class="small muted">Approving registers a new machine with its factory configuration and adds it to the pilot’s hangar.</p></section>`;
   }
