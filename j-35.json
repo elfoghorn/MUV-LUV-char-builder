@@ -1,0 +1,697 @@
+{
+  "system": "UNTSF-COMM",
+  "importMode": "merge",
+  "note": "J-35 Gyrfalcon (Shenyang, PRC, quasi-fifth generation) with its own parts: forearm blade, control system and two actuator sets. Load with Restore from backup.",
+  "collections": {
+    "models": {
+      "mdl-j35": {
+        "id": "mdl-j35",
+        "designation": "J-35",
+        "name": "Gyrfalcon",
+        "primeManufacturerId": "mfr-shenyang",
+        "partners": [
+          {
+            "manufacturerId": "mfr-chengdu",
+            "role": "subsystems"
+          }
+        ],
+        "originFactionId": "fac-prc",
+        "generationId": "q5",
+        "classificationId": "general_purpose",
+        "productionStatus": "limited",
+        "availability": "restricted",
+        "origin": "original",
+        "lore": "Campaign original (no Muv-Luv canon source). Shenyang's quasi-fifth-generation frame, built to give the PRC a share of the next generation without waiting on Yokohama or Washington. Its power plant, actuators and control system were designed as one, after the fifth-generation definition, but it still flies on fourth-generation jump units and a home-grown control system instead of an XM3 derivative, so it falls short of the true fifth-generation frames. Lighter and cheaper than the J-20, with low-observable shaping and an internal bay for the South China Sea front. The baseline J-35 is navalised for carrier and amphibious-ship operations; the J-35A is the land-based version. Name: Gyrfalcon, after the real-world FC-31 demonstrator. Not to be confused with the Swedish J-35 Draken.",
+        "attribution": "original",
+        "publishStatus": "published"
+      }
+    },
+    "variants": {
+      "var-j35-std": {
+        "generationId": null,
+        "classificationId": null,
+        "productionStatus": null,
+        "availability": null,
+        "lore": "Navalised baseline, with reinforced joints and corrosion-proofed actuators for carrier decks and amphibious ships.",
+        "derivedFromId": null,
+        "publishStatus": "published",
+        "id": "var-j35-std",
+        "modelId": "mdl-j35",
+        "code": "STD",
+        "name": "J-35 Gyrfalcon",
+        "type": "standard",
+        "isDefault": true,
+        "stats": {
+          "tsf.mobility": 93,
+          "tsf.firepower": 87,
+          "tsf.defence": 78,
+          "tsf.accuracy": 92,
+          "tsf.handling": 90,
+          "tsf.durability": 80
+        },
+        "hardpoints": [
+          {
+            "code": "JUMP_L",
+            "fixed": true,
+            "label": "Left jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "JUMP_R",
+            "fixed": true,
+            "label": "Right jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "THRUSTERS",
+            "fixed": true,
+            "label": "Auxiliary thrusters",
+            "slots": [
+              "thruster"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "POWER",
+            "fixed": true,
+            "label": "Power plant",
+            "slots": [
+              "power_plant"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ARMOUR",
+            "fixed": true,
+            "label": "Armour package",
+            "slots": [
+              "armour"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ACTUATORS",
+            "fixed": true,
+            "label": "Actuator set",
+            "slots": [
+              "actuator"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "OS",
+            "fixed": true,
+            "label": "Operating system",
+            "slots": [
+              "avionics"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FUEL",
+            "fixed": true,
+            "label": "Fuel tanks",
+            "slots": [
+              "fuel"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "R_HAND",
+            "label": "Right hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "heavy",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "L_HAND",
+            "label": "Left hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "heavy",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_L",
+            "label": "Left mount pylon",
+            "slots": [
+              "primary",
+              "heavy",
+              "melee"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_R",
+            "label": "Right mount pylon",
+            "slots": [
+              "primary",
+              "heavy",
+              "melee"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "FOREARM_L",
+            "label": "Left forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FOREARM_R",
+            "label": "Right forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "BAY_1",
+            "label": "Internal bay 1",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_2",
+            "label": "Internal bay 2",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_3",
+            "label": "Internal bay 3",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_4",
+            "label": "Internal bay 4",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          }
+        ],
+        "defaultLoadout": {
+          "R_HAND": "eq-eac36",
+          "BACK_L": "eq-halberd77",
+          "BACK_R": "eq-x-hj-12t-missile-container",
+          "FOREARM_L": "eq-x-j-35-forearm-blade",
+          "FOREARM_R": "eq-x-j-35-forearm-blade",
+          "JUMP_L": "eq-ju165",
+          "JUMP_R": "eq-ju165",
+          "THRUSTERS": "eq-at20",
+          "POWER": "eq-fc7",
+          "ARMOUR": "eq-arm-abl",
+          "OS": "eq-x-j-35-control-system",
+          "FUEL": "eq-fuel-std",
+          "ACTUATORS": "eq-x-j-35-naval-actuators"
+        }
+      },
+      "var-j35-a": {
+        "generationId": null,
+        "classificationId": null,
+        "productionStatus": null,
+        "availability": null,
+        "lore": "Land-based version for the PLA front: the naval hardening removed for lighter, quicker J-10X-lineage actuators.",
+        "derivedFromId": "var-j35-std",
+        "publishStatus": "published",
+        "id": "var-j35-a",
+        "modelId": "mdl-j35",
+        "code": "A",
+        "name": "J-35A",
+        "type": "standard",
+        "isDefault": false,
+        "stats": {
+          "tsf.mobility": 94,
+          "tsf.firepower": 87,
+          "tsf.defence": 77,
+          "tsf.accuracy": 92,
+          "tsf.handling": 92,
+          "tsf.durability": 79
+        },
+        "hardpoints": [
+          {
+            "code": "JUMP_L",
+            "fixed": true,
+            "label": "Left jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "JUMP_R",
+            "fixed": true,
+            "label": "Right jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "THRUSTERS",
+            "fixed": true,
+            "label": "Auxiliary thrusters",
+            "slots": [
+              "thruster"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "POWER",
+            "fixed": true,
+            "label": "Power plant",
+            "slots": [
+              "power_plant"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ARMOUR",
+            "fixed": true,
+            "label": "Armour package",
+            "slots": [
+              "armour"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ACTUATORS",
+            "fixed": true,
+            "label": "Actuator set",
+            "slots": [
+              "actuator"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "OS",
+            "fixed": true,
+            "label": "Operating system",
+            "slots": [
+              "avionics"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FUEL",
+            "fixed": true,
+            "label": "Fuel tanks",
+            "slots": [
+              "fuel"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "R_HAND",
+            "label": "Right hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "heavy",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "L_HAND",
+            "label": "Left hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "heavy",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_L",
+            "label": "Left mount pylon",
+            "slots": [
+              "primary",
+              "heavy",
+              "melee"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_R",
+            "label": "Right mount pylon",
+            "slots": [
+              "primary",
+              "heavy",
+              "melee"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "FOREARM_L",
+            "label": "Left forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FOREARM_R",
+            "label": "Right forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "BAY_1",
+            "label": "Internal bay 1",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_2",
+            "label": "Internal bay 2",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_3",
+            "label": "Internal bay 3",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_4",
+            "label": "Internal bay 4",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          }
+        ],
+        "defaultLoadout": {
+          "R_HAND": "eq-eac36",
+          "BACK_L": "eq-halberd77",
+          "BACK_R": "eq-x-hj-12t-missile-container",
+          "FOREARM_L": "eq-x-j-35-forearm-blade",
+          "FOREARM_R": "eq-x-j-35-forearm-blade",
+          "JUMP_L": "eq-ju165",
+          "JUMP_R": "eq-ju165",
+          "THRUSTERS": "eq-at20",
+          "POWER": "eq-fc7",
+          "ARMOUR": "eq-arm-abl",
+          "OS": "eq-x-j-35-control-system",
+          "FUEL": "eq-fuel-std",
+          "ACTUATORS": "eq-x-j-35-integrated-actuators"
+        }
+      }
+    },
+    "equipment": {
+      "eq-x-j-35-forearm-blade": {
+        "code": "EQ-1241",
+        "name": "J-35 Retractable Forearm Blade",
+        "slots": [
+          "melee"
+        ],
+        "compat": [
+          {
+            "type": "model",
+            "match": null,
+            "effect": "allow",
+            "reason": "RESTRICTED: Built for the J-35.",
+            "targetId": "mdl-j35"
+          }
+        ],
+        "engine": null,
+        "levels": [
+          {
+            "name": "A",
+            "note": "Improved production batch",
+            "weapon": {
+              "damage": 2,
+              "accuracy": 1
+            },
+            "modifiers": []
+          },
+          {
+            "name": "B",
+            "note": "Second improved batch",
+            "weapon": {
+              "damage": 3
+            },
+            "modifiers": [
+              {
+                "stat": "tsf.firepower",
+                "value": 1
+              }
+            ]
+          }
+        ],
+        "origin": "original",
+        "rating": 64,
+        "unlock": [],
+        "weapon": {
+          "range": "melee",
+          "damage": 32,
+          "reload": null,
+          "special": "Forearm-mounted and stowed flush: hands stay free, no stealth penalty until drawn",
+          "accuracy": 1,
+          "fireRate": null,
+          "magazine": null
+        },
+        "weight": "light",
+        "category": "melee_weapon",
+        "modifiers": [],
+        "description": "Original design. Longer, heavier successor to the J-10X forearm blade. It retracts flush behind the forearm's low-observable panels, so it costs the J-35 no stealth until it is drawn. Issued to People's Liberation Army.",
+        "availability": "standard",
+        "publishStatus": "published",
+        "duplicatedFrom": null,
+        "manufacturerId": "mfr-shenyang"
+      },
+      "eq-x-j-35-control-system": {
+        "code": "EQ-1242",
+        "name": "J-35 Integrated Control System",
+        "slots": [
+          "avionics"
+        ],
+        "compat": [
+          {
+            "type": "model",
+            "match": null,
+            "effect": "allow",
+            "reason": "RESTRICTED: Built for the J-35.",
+            "targetId": "mdl-j35"
+          }
+        ],
+        "engine": null,
+        "levels": [
+          {
+            "name": "A",
+            "note": "Software block update",
+            "weapon": {},
+            "modifiers": [
+              {
+                "stat": "tsf.handling",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "name": "B",
+            "note": "Second software block",
+            "weapon": {},
+            "modifiers": [
+              {
+                "stat": "pilot.tsf_handling",
+                "value": 1
+              }
+            ]
+          }
+        ],
+        "origin": "original",
+        "rating": 78,
+        "unlock": [],
+        "weapon": null,
+        "weight": "light",
+        "category": "avionics",
+        "modifiers": [
+          {
+            "stat": "tsf.handling",
+            "value": 4
+          },
+          {
+            "stat": "tsf.accuracy",
+            "value": 2
+          },
+          {
+            "stat": "pilot.tsf_handling",
+            "value": 2
+          }
+        ],
+        "description": "Original design. Shenyang's home-grown answer to XM3, written alongside the J-35's power plant and actuators as a single system. It gets close to XM3-class responsiveness but lacks cooperative engagement across a flight, which is one reason the J-35 stays quasi-fifth generation. Issued to People's Liberation Army.",
+        "availability": "restricted",
+        "publishStatus": "published",
+        "duplicatedFrom": null,
+        "manufacturerId": "mfr-shenyang"
+      },
+      "eq-x-j-35-naval-actuators": {
+        "code": "EQ-1243",
+        "name": "J-35 Sealed Naval Actuators",
+        "slots": [
+          "actuator"
+        ],
+        "compat": [
+          {
+            "type": "model",
+            "match": null,
+            "effect": "allow",
+            "reason": "RESTRICTED: Built for the J-35.",
+            "targetId": "mdl-j35"
+          }
+        ],
+        "engine": null,
+        "levels": [
+          {
+            "name": "A",
+            "note": "Improved production batch",
+            "weapon": {},
+            "modifiers": [
+              {
+                "stat": "tsf.handling",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "name": "B",
+            "note": "Second improved batch",
+            "weapon": {},
+            "modifiers": [
+              {
+                "stat": "tsf.durability",
+                "value": 1
+              }
+            ]
+          }
+        ],
+        "origin": "original",
+        "rating": 66,
+        "unlock": [],
+        "weapon": null,
+        "weight": "heavy",
+        "category": "actuator",
+        "modifiers": [
+          {
+            "stat": "tsf.handling",
+            "value": 3
+          },
+          {
+            "stat": "tsf.durability",
+            "value": 1
+          }
+        ],
+        "description": "Original design. Sealed, corrosion-proofed actuators with reinforced knee and hip joints for carrier-deck recoveries and work from amphibious ships. Slower than the land set, but they last. Factory fit on the navalised J-35. Issued to People's Liberation Army Navy.",
+        "availability": "restricted",
+        "publishStatus": "published",
+        "duplicatedFrom": null,
+        "manufacturerId": "mfr-shenyang"
+      },
+      "eq-x-j-35-integrated-actuators": {
+        "code": "EQ-1244",
+        "name": "J-35A Integrated Actuators",
+        "slots": [
+          "actuator"
+        ],
+        "compat": [
+          {
+            "type": "model",
+            "match": null,
+            "effect": "allow",
+            "reason": "RESTRICTED: Built for the J-35.",
+            "targetId": "mdl-j35"
+          }
+        ],
+        "engine": null,
+        "levels": [
+          {
+            "name": "A",
+            "note": "Improved production batch",
+            "weapon": {},
+            "modifiers": [
+              {
+                "stat": "tsf.handling",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "name": "B",
+            "note": "Second improved batch",
+            "weapon": {},
+            "modifiers": [
+              {
+                "stat": "tsf.durability",
+                "value": 1
+              }
+            ]
+          }
+        ],
+        "origin": "original",
+        "rating": 70,
+        "unlock": [],
+        "weapon": null,
+        "weight": "heavy",
+        "category": "actuator",
+        "modifiers": [
+          {
+            "stat": "tsf.handling",
+            "value": 4
+          },
+          {
+            "stat": "tsf.mobility",
+            "value": 2
+          }
+        ],
+        "description": "Original design. Land-based actuator set, designed together with the J-35's control system so the two share response tuning. Quicker than the J-10X set, without the durability cost. Factory fit on the J-35A. Issued to People's Liberation Army.",
+        "availability": "restricted",
+        "publishStatus": "published",
+        "duplicatedFrom": null,
+        "manufacturerId": "mfr-shenyang"
+      }
+    }
+  }
+}

@@ -1,0 +1,1208 @@
+{
+  "system": "UNTSF-COMM",
+  "importMode": "merge",
+  "note": "XFJ-01 Shiranui Second as its own frame. Moves Shiranui Second (as Type-04), XFJ Phase 1, Phase 3 and Shiranui Kai off the Type-94 onto mdl-xfj01, keeping their art, stats and loadouts, and adds the two Phase 2 airframes. Load with Restore from backup.",
+  "collections": {
+    "models": {
+      "mdl-xfj01": {
+        "id": "mdl-xfj01",
+        "designation": "XFJ-01",
+        "name": "Shiranui Second",
+        "primeManufacturerId": "mfr-boeing",
+        "partners": [
+          {
+            "manufacturerId": "mfr-fugaku",
+            "role": "joint developer"
+          },
+          {
+            "manufacturerId": "mfr-mitsubishi",
+            "role": "joint developer"
+          },
+          {
+            "manufacturerId": "mfr-kawasaki",
+            "role": "joint developer"
+          }
+        ],
+        "originFactionId": "fac-ija",
+        "generationId": "3",
+        "classificationId": "general_purpose",
+        "productionStatus": "production",
+        "availability": "restricted",
+        "origin": "canon",
+        "lore": "Product of the Joint Tactical Surface Fighter Development Program (XFJ Program), begun in 2001 to break through the Type-94 Shiranui's development ceiling using American data and technology. Boening partnered with Fugaku, Mitsuhishi and Kawazaki. The targets were mobility on a par with foreign third-generation TSFs such as the EF-2000 and F-22A, at least 30% more operating time, and less performance lost to equipment weight. Developed in stages at Yukon Base under Project PROMINENCE, it went into Imperial Japanese service as the Type-04 in 2004. The Shiranui Kai is a later rebuild of Type-04 airframes.",
+        "attribution": "wiki",
+        "publishStatus": "published"
+      }
+    },
+    "variants": {
+      "var-shiranui-2": {
+        "id": "var-shiranui-2",
+        "code": "T04",
+        "lore": "Trialled as Test Type-01 against the Test Type-02/F-15SEJ Gekkou. First deployed in April 2003 at the Cheorwon Hive in Operation Sledgehammer by the Fuji TFTG's 11th Squadron 'Skuld', equipped with XM3, then at Sakhalin in August 2003. Designated Type-04 in 2004, when Boening licensed component production.",
+        "name": "Type-04 Shiranui Second",
+        "type": "standard",
+        "stats": {
+          "tsf.defence": 68,
+          "tsf.accuracy": 79,
+          "tsf.handling": 82,
+          "tsf.mobility": 86,
+          "tsf.firepower": 74,
+          "tsf.durability": 70
+        },
+        "modelId": "mdl-xfj01",
+        "isDefault": true,
+        "artAssetId": "59221fbba1f24c5e8215874acbe38267",
+        "hardpoints": [
+          {
+            "code": "JUMP_L",
+            "fixed": true,
+            "label": "Left jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "JUMP_R",
+            "fixed": true,
+            "label": "Right jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "THRUSTERS",
+            "fixed": true,
+            "label": "Auxiliary thrusters",
+            "slots": [
+              "thruster"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "POWER",
+            "fixed": true,
+            "label": "Power plant",
+            "slots": [
+              "power_plant"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ARMOUR",
+            "fixed": true,
+            "label": "Armour package",
+            "slots": [
+              "armour"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ACTUATORS",
+            "fixed": true,
+            "label": "Actuator set",
+            "slots": [
+              "actuator"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "OS",
+            "fixed": true,
+            "label": "Operating system",
+            "slots": [
+              "avionics"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FUEL",
+            "fixed": true,
+            "label": "Fuel tanks",
+            "slots": [
+              "fuel"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "R_HAND",
+            "label": "Right hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "L_HAND",
+            "label": "Left hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_L",
+            "label": "Left mount arm",
+            "slots": [
+              "primary",
+              "heavy",
+              "melee"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_R",
+            "label": "Right mount arm",
+            "slots": [
+              "primary",
+              "melee"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "FOREARM_L",
+            "label": "Left forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FOREARM_R",
+            "label": "Right forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "BAY_1",
+            "label": "Internal bay 1",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_2",
+            "label": "Internal bay 2",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_3",
+            "label": "Internal bay 3",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          }
+        ],
+        "availability": "restricted",
+        "generationId": null,
+        "derivedFromId": "var-xfj01-p2a",
+        "publishStatus": "published",
+        "defaultLoadout": {
+          "OS": "eq-os-std",
+          "FUEL": "eq-fuel-std",
+          "POWER": "eq-fc3",
+          "ARMOUR": "eq-arm-std",
+          "BACK_L": "eq-type74",
+          "JUMP_L": "eq-ju108",
+          "JUMP_R": "eq-ju108",
+          "R_HAND": "eq-type87",
+          "ACTUATORS": "eq-act-std",
+          "FOREARM_L": "eq-type65",
+          "FOREARM_R": "eq-type65",
+          "THRUSTERS": "eq-at12"
+        },
+        "classificationId": null,
+        "productionStatus": null
+      },
+      "var-xfj01-p1": {
+        "id": "var-xfj01-p1",
+        "code": "XFJ-P1",
+        "lore": "Phase 1 of the program: a Type-94-1C Shiranui Type-1C fitted with low-power-draw American components, and with its Type-91 jump units re-engined with General Electronics FE140-GE-100s. Tested at Yukon Base by 2nd Lt. Yuuya Bridges, and later fielded the EML-99X on Kamchatka. It was badly damaged in the Ц-04 supply base incident, then rebuilt as the Phase 2.",
+        "name": "XFJ-01a Shiranui Second Phase 1",
+        "type": "experimental",
+        "stats": {
+          "tsf.defence": 68,
+          "tsf.accuracy": 80,
+          "tsf.handling": 83,
+          "tsf.mobility": 86,
+          "tsf.firepower": 75,
+          "tsf.durability": 71
+        },
+        "modelId": "mdl-xfj01",
+        "isDefault": false,
+        "artAssetId": "9c2344700ff34738a3ba9d88bad5e93e",
+        "hardpoints": [
+          {
+            "code": "JUMP_L",
+            "fixed": true,
+            "label": "Left jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "JUMP_R",
+            "fixed": true,
+            "label": "Right jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "THRUSTERS",
+            "fixed": true,
+            "label": "Auxiliary thrusters",
+            "slots": [
+              "thruster"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "POWER",
+            "fixed": true,
+            "label": "Power plant",
+            "slots": [
+              "power_plant"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ARMOUR",
+            "fixed": true,
+            "label": "Armour package",
+            "slots": [
+              "armour"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ACTUATORS",
+            "fixed": true,
+            "label": "Actuator set",
+            "slots": [
+              "actuator"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "OS",
+            "fixed": true,
+            "label": "Operating system",
+            "slots": [
+              "avionics"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FUEL",
+            "fixed": true,
+            "label": "Fuel tanks",
+            "slots": [
+              "fuel"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "R_HAND",
+            "label": "Right hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "L_HAND",
+            "label": "Left hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_L",
+            "label": "Left mount arm",
+            "slots": [
+              "primary",
+              "heavy",
+              "melee"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_R",
+            "label": "Right mount arm",
+            "slots": [
+              "primary",
+              "melee"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "FOREARM_L",
+            "label": "Left forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FOREARM_R",
+            "label": "Right forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "BAY_1",
+            "label": "Internal bay 1",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_2",
+            "label": "Internal bay 2",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_3",
+            "label": "Internal bay 3",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          }
+        ],
+        "availability": "restricted",
+        "generationId": null,
+        "derivedFromId": "var-shiranui-1c",
+        "publishStatus": "published",
+        "defaultLoadout": {
+          "OS": "eq-os-std",
+          "FUEL": "eq-fuel-std",
+          "POWER": "eq-fc3",
+          "ARMOUR": "eq-arm-std",
+          "BACK_L": "eq-type74",
+          "JUMP_L": "eq-ju108",
+          "JUMP_R": "eq-ju108",
+          "R_HAND": "eq-xamws24",
+          "ACTUATORS": "eq-act-std",
+          "FOREARM_L": "eq-type65",
+          "FOREARM_R": "eq-type65",
+          "THRUSTERS": "eq-at12"
+        },
+        "classificationId": null,
+        "productionStatus": "prototype"
+      },
+      "var-xfj01-p3": {
+        "id": "var-xfj01-p3",
+        "code": "XFJ-P3",
+        "lore": "The final form, led by Boening executive Frank Heinemann, which fuses the YF-23 Black Widow II external frame with Phase 2 technology. A stealth-capable, high-performance testbed that closely resembles the YF-23, including its foot-mounted blades and arm-mounted blade sheaths. GM only.",
+        "name": "XFJ-01 Shiranui Second Phase 3",
+        "type": "experimental",
+        "stats": {
+          "tsf.defence": 70,
+          "tsf.accuracy": 82,
+          "tsf.handling": 86,
+          "tsf.mobility": 90,
+          "tsf.firepower": 78,
+          "tsf.durability": 72
+        },
+        "modelId": "mdl-xfj01",
+        "isDefault": false,
+        "artAssetId": "510e3077991b4530b58fca8e228cdb13",
+        "hardpoints": [
+          {
+            "code": "JUMP_L",
+            "fixed": true,
+            "label": "Left jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "JUMP_R",
+            "fixed": true,
+            "label": "Right jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "THRUSTERS",
+            "fixed": true,
+            "label": "Auxiliary thrusters",
+            "slots": [
+              "thruster"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "POWER",
+            "fixed": true,
+            "label": "Power plant",
+            "slots": [
+              "power_plant"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ARMOUR",
+            "fixed": true,
+            "label": "Armour package",
+            "slots": [
+              "armour"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ACTUATORS",
+            "fixed": true,
+            "label": "Actuator set",
+            "slots": [
+              "actuator"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "OS",
+            "fixed": true,
+            "label": "Operating system",
+            "slots": [
+              "avionics"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FUEL",
+            "fixed": true,
+            "label": "Fuel tanks",
+            "slots": [
+              "fuel"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "R_HAND",
+            "label": "Right hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "L_HAND",
+            "label": "Left hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_L",
+            "label": "Left mount arm",
+            "slots": [
+              "primary",
+              "heavy",
+              "melee"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_R",
+            "label": "Right mount arm",
+            "slots": [
+              "primary",
+              "melee"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "FOREARM_L",
+            "label": "Left forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FOREARM_R",
+            "label": "Right forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "BAY_1",
+            "label": "Internal bay 1",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_2",
+            "label": "Internal bay 2",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_3",
+            "label": "Internal bay 3",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          }
+        ],
+        "availability": "gm_only",
+        "generationId": null,
+        "derivedFromId": "var-xfj01-p2a",
+        "publishStatus": "published",
+        "defaultLoadout": {
+          "OS": "eq-os-std",
+          "FUEL": "eq-fuel-std",
+          "POWER": "eq-fc3",
+          "ARMOUR": "eq-arm-std",
+          "BACK_L": "eq-type74",
+          "JUMP_L": "eq-ju108",
+          "JUMP_R": "eq-ju108",
+          "R_HAND": "eq-xamws24",
+          "ACTUATORS": "eq-act-std",
+          "FOREARM_L": "eq-type65",
+          "FOREARM_R": "eq-type65",
+          "THRUSTERS": "eq-at12"
+        },
+        "classificationId": null,
+        "productionStatus": "prototype"
+      },
+      "var-shiranui-kai": {
+        "id": "var-shiranui-kai",
+        "code": "K",
+        "lore": "Original design. Mid-life rebuild of Shiranui Second airframes to hold the line until the Murakumo arrives in numbers: re-sparred structure, rewired for current OS builds and cleared for the Type-09 and Type-10. Rated quasi-fourth generation; it cannot take fourth-generation propulsion or power plants.",
+        "name": "Shiranui Kai",
+        "type": "improved",
+        "stats": {
+          "tsf.defence": 71,
+          "tsf.accuracy": 83,
+          "tsf.handling": 87,
+          "tsf.mobility": 89,
+          "tsf.firepower": 78,
+          "tsf.durability": 73
+        },
+        "modelId": "mdl-xfj01",
+        "isDefault": false,
+        "artAssetId": "005dbdc8a7f145169615af0ebdd9e30b",
+        "hardpoints": [
+          {
+            "code": "JUMP_L",
+            "fixed": true,
+            "label": "Left jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "JUMP_R",
+            "fixed": true,
+            "label": "Right jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "THRUSTERS",
+            "fixed": true,
+            "label": "Auxiliary thrusters",
+            "slots": [
+              "thruster"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "POWER",
+            "fixed": true,
+            "label": "Power plant",
+            "slots": [
+              "power_plant"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ARMOUR",
+            "fixed": true,
+            "label": "Armour package",
+            "slots": [
+              "armour"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ACTUATORS",
+            "fixed": true,
+            "label": "Actuator set",
+            "slots": [
+              "actuator"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "OS",
+            "fixed": true,
+            "label": "Operating system",
+            "slots": [
+              "avionics"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FUEL",
+            "fixed": true,
+            "label": "Fuel tanks",
+            "slots": [
+              "fuel"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "R_HAND",
+            "label": "Right hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "L_HAND",
+            "label": "Left hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_L",
+            "label": "Left mount arm",
+            "slots": [
+              "primary",
+              "heavy",
+              "melee"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_R",
+            "label": "Right mount arm",
+            "slots": [
+              "primary",
+              "melee"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "FOREARM_L",
+            "label": "Left forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FOREARM_R",
+            "label": "Right forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "BAY_1",
+            "label": "Internal bay 1",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_2",
+            "label": "Internal bay 2",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_3",
+            "label": "Internal bay 3",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          }
+        ],
+        "availability": "restricted",
+        "generationId": "q4",
+        "derivedFromId": "var-shiranui-2",
+        "publishStatus": "published",
+        "defaultLoadout": {
+          "OS": "eq-os-std",
+          "FUEL": "eq-fuel-std",
+          "POWER": "eq-fc3",
+          "ARMOUR": "eq-arm-std",
+          "BACK_L": "eq-type10blade",
+          "JUMP_L": "eq-ju108",
+          "JUMP_R": "eq-ju108",
+          "R_HAND": "eq-type09",
+          "ACTUATORS": "eq-act-std",
+          "FOREARM_L": "eq-type65",
+          "FOREARM_R": "eq-type65",
+          "THRUSTERS": "eq-at12"
+        },
+        "classificationId": null,
+        "productionStatus": "limited"
+      },
+      "var-xfj01-p2a": {
+        "generationId": null,
+        "classificationId": null,
+        "productionStatus": "prototype",
+        "availability": null,
+        "lore": "Boening's MSIP stage 2, drawing on lessons from the Phoenix Initiative. Adds a new AESA head radar with IR targeting, shoulder thrusters, vectoring waist thrusters (a response to the Su-37), enlarged propellant legs, and faster knife and PB Blade deployment. Flown by Yuuya Bridges, first in red-and-white demonstrator colours and later in all white, through JIVES, Blue Flag and the defence of Yukon Base.",
+        "derivedFromId": "var-xfj01-p1",
+        "publishStatus": "published",
+        "id": "var-xfj01-p2a",
+        "modelId": "mdl-xfj01",
+        "code": "XFJ-P2A",
+        "name": "XFJ-01a Shiranui Second Phase 2",
+        "type": "experimental",
+        "isDefault": false,
+        "stats": {
+          "tsf.mobility": 88,
+          "tsf.firepower": 76,
+          "tsf.defence": 69,
+          "tsf.accuracy": 81,
+          "tsf.handling": 85,
+          "tsf.durability": 71
+        },
+        "hardpoints": [
+          {
+            "code": "JUMP_L",
+            "fixed": true,
+            "label": "Left jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "JUMP_R",
+            "fixed": true,
+            "label": "Right jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "THRUSTERS",
+            "fixed": true,
+            "label": "Auxiliary thrusters",
+            "slots": [
+              "thruster"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "POWER",
+            "fixed": true,
+            "label": "Power plant",
+            "slots": [
+              "power_plant"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ARMOUR",
+            "fixed": true,
+            "label": "Armour package",
+            "slots": [
+              "armour"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ACTUATORS",
+            "fixed": true,
+            "label": "Actuator set",
+            "slots": [
+              "actuator"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "OS",
+            "fixed": true,
+            "label": "Operating system",
+            "slots": [
+              "avionics"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FUEL",
+            "fixed": true,
+            "label": "Fuel tanks",
+            "slots": [
+              "fuel"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "R_HAND",
+            "label": "Right hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "L_HAND",
+            "label": "Left hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_L",
+            "label": "Left mount arm",
+            "slots": [
+              "primary",
+              "heavy",
+              "melee"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_R",
+            "label": "Right mount arm",
+            "slots": [
+              "primary",
+              "melee"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "FOREARM_L",
+            "label": "Left forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FOREARM_R",
+            "label": "Right forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "BAY_1",
+            "label": "Internal bay 1",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_2",
+            "label": "Internal bay 2",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_3",
+            "label": "Internal bay 3",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          }
+        ],
+        "defaultLoadout": {
+          "FOREARM_L": "eq-type65",
+          "FOREARM_R": "eq-type65",
+          "ARMOUR": "eq-arm-std",
+          "ACTUATORS": "eq-act-std",
+          "FUEL": "eq-fuel-leg",
+          "POWER": "eq-fc3",
+          "R_HAND": "eq-xamws24",
+          "BACK_L": "eq-type74",
+          "JUMP_L": "eq-ju132",
+          "JUMP_R": "eq-ju132",
+          "THRUSTERS": "eq-at20",
+          "OS": "eq-os-std"
+        }
+      },
+      "var-xfj01-p2b": {
+        "generationId": null,
+        "classificationId": null,
+        "productionStatus": "prototype",
+        "availability": null,
+        "lore": "The second Phase 2 airframe, in dark-blue colours, flown by 2nd Lt. Tarisa Manandal. First saw combat against Bao-Feng Test Flight in Blue Flag. Severely damaged by the Scarlet Sisters during the Yukon Base incident.",
+        "derivedFromId": "var-xfj01-p1",
+        "publishStatus": "published",
+        "id": "var-xfj01-p2b",
+        "modelId": "mdl-xfj01",
+        "code": "XFJ-P2B",
+        "name": "XFJ-01b Shiranui Second Phase 2",
+        "type": "experimental",
+        "isDefault": false,
+        "stats": {
+          "tsf.mobility": 88,
+          "tsf.firepower": 76,
+          "tsf.defence": 69,
+          "tsf.accuracy": 81,
+          "tsf.handling": 85,
+          "tsf.durability": 71
+        },
+        "hardpoints": [
+          {
+            "code": "JUMP_L",
+            "fixed": true,
+            "label": "Left jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "JUMP_R",
+            "fixed": true,
+            "label": "Right jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "THRUSTERS",
+            "fixed": true,
+            "label": "Auxiliary thrusters",
+            "slots": [
+              "thruster"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "POWER",
+            "fixed": true,
+            "label": "Power plant",
+            "slots": [
+              "power_plant"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ARMOUR",
+            "fixed": true,
+            "label": "Armour package",
+            "slots": [
+              "armour"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ACTUATORS",
+            "fixed": true,
+            "label": "Actuator set",
+            "slots": [
+              "actuator"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "OS",
+            "fixed": true,
+            "label": "Operating system",
+            "slots": [
+              "avionics"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FUEL",
+            "fixed": true,
+            "label": "Fuel tanks",
+            "slots": [
+              "fuel"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "R_HAND",
+            "label": "Right hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "L_HAND",
+            "label": "Left hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_L",
+            "label": "Left mount arm",
+            "slots": [
+              "primary",
+              "heavy",
+              "melee"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_R",
+            "label": "Right mount arm",
+            "slots": [
+              "primary",
+              "melee"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "FOREARM_L",
+            "label": "Left forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FOREARM_R",
+            "label": "Right forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "BAY_1",
+            "label": "Internal bay 1",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_2",
+            "label": "Internal bay 2",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_3",
+            "label": "Internal bay 3",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          }
+        ],
+        "defaultLoadout": {
+          "FOREARM_L": "eq-type65",
+          "FOREARM_R": "eq-type65",
+          "ARMOUR": "eq-arm-std",
+          "ACTUATORS": "eq-act-std",
+          "FUEL": "eq-fuel-leg",
+          "POWER": "eq-fc3",
+          "R_HAND": "eq-xamws24",
+          "BACK_L": "eq-type74",
+          "JUMP_L": "eq-ju132",
+          "JUMP_R": "eq-ju132",
+          "THRUSTERS": "eq-at20",
+          "OS": "eq-os-std"
+        }
+      }
+    }
+  }
+}

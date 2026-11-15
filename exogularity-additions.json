@@ -1,0 +1,571 @@
+{
+  "system": "UNTSF-COMM",
+  "importMode": "merge",
+  "note": "F-47 Ishkur, BETA TSF and Type-14 Shouki from the Muv-Luv Wiki. Load with Restore from backup.",
+  "collections": {
+    "models": {
+      "mdl-f47": {
+        "id": "mdl-f47",
+        "designation": "F-47",
+        "name": "Ishkur",
+        "primeManufacturerId": "mfr-un",
+        "partners": [],
+        "originFactionId": "fac-un",
+        "generationId": "5",
+        "classificationId": "general_purpose",
+        "productionStatus": "production",
+        "availability": "gm_only",
+        "origin": "canon",
+        "lore": "Canon eighth-generation TSF from Exogularity, the first of its kind. The Union of Mankind began the project in 2044 and fielded it in 2047 to escort an expeditionary fleet hunting for the Siliconians' homeworld. It is so advanced, and so optimised for space, that the TSF label was said to be obsolete. It has surface-to-space capability, gravity manipulation reverse-engineered from BETA biotech, a short-range warp jump, a 0-3 G operating envelope, self-sustaining life support, extreme-range particle cannons and anti-laser Kouzuki-Rutherford Fields. In this campaign, GM only (catalogue generation 5 is the highest tier).",
+        "attribution": "wiki",
+        "publishStatus": "published"
+      },
+      "mdl-betatsf": {
+        "id": "mdl-betatsf",
+        "designation": "BETA TSF",
+        "name": "",
+        "primeManufacturerId": "mfr-unknown",
+        "partners": [],
+        "originFactionId": "fac-unidentified",
+        "generationId": "3",
+        "classificationId": "assault",
+        "productionStatus": "production",
+        "availability": "gm_only",
+        "origin": "canon",
+        "lore": "Canon TSF from Exogularity, grown from reverse-engineered BETA biotechnology by an unidentified terrorist faction sworn to destroy the Union of Mankind. Fielded in the 2040s after a large disruptive event, it performs at parity with third-generation TSFs. It is organic, with a pygidial gland for propulsion, yet it carries conventional TSF weapons. Its only known biological weapon is a laser enclosed in its mouth. In this campaign, GM only.",
+        "attribution": "wiki",
+        "publishStatus": "published"
+      },
+      "mdl-type14": {
+        "id": "mdl-type14",
+        "designation": "Type-14",
+        "name": "Shouki",
+        "primeManufacturerId": "mfr-mitsubishi",
+        "partners": [],
+        "originFactionId": "fac-japan",
+        "generationId": "3",
+        "classificationId": "heavy_assault",
+        "productionStatus": "limited",
+        "availability": "restricted",
+        "origin": "canon",
+        "lore": "Canon prototype heavy battle tank (HT-type14) from Exogularity. The JGSDF began the Yaegaki Plan after the Yakumo Plan's attempt to reproduce the A-10 stalled on advanced materials. It used combat data from the BETA of Megalith. TSF arm manipulators and carbon actuators let it switch between a tank mode for travel and a semi-humanoid mode for fighting. A crew of three runs it through an indirect thought-control system. Its size limits turning and urban use, but it was adopted on the promise of lighter frame materials. Mitsubishi as maker and generation 3 are assumptions; the wiki gives neither.",
+        "attribution": "inferred",
+        "publishStatus": "published"
+      }
+    },
+    "variants": {
+      "var-f47-std": {
+        "generationId": null,
+        "classificationId": null,
+        "productionStatus": null,
+        "availability": null,
+        "lore": null,
+        "derivedFromId": null,
+        "publishStatus": "published",
+        "id": "var-f47-std",
+        "modelId": "mdl-f47",
+        "code": "STD",
+        "name": "Ishkur",
+        "type": "standard",
+        "isDefault": true,
+        "stats": {
+          "tsf.mobility": 97,
+          "tsf.firepower": 93,
+          "tsf.defence": 86,
+          "tsf.accuracy": 94,
+          "tsf.handling": 92,
+          "tsf.durability": 86
+        },
+        "hardpoints": [
+          {
+            "code": "JUMP_L",
+            "fixed": true,
+            "label": "Left jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "JUMP_R",
+            "fixed": true,
+            "label": "Right jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "THRUSTERS",
+            "fixed": true,
+            "label": "Auxiliary thrusters",
+            "slots": [
+              "thruster"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "POWER",
+            "fixed": true,
+            "label": "Power plant",
+            "slots": [
+              "power_plant"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ARMOUR",
+            "fixed": true,
+            "label": "Armour package",
+            "slots": [
+              "armour"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ACTUATORS",
+            "fixed": true,
+            "label": "Actuator set",
+            "slots": [
+              "actuator"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "OS",
+            "fixed": true,
+            "label": "Operating system",
+            "slots": [
+              "avionics"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FUEL",
+            "fixed": true,
+            "label": "Fuel tanks",
+            "slots": [
+              "fuel"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "R_HAND",
+            "label": "Right hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "L_HAND",
+            "label": "Left hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_L",
+            "label": "Left mount arm",
+            "slots": [
+              "primary",
+              "heavy",
+              "melee"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_R",
+            "label": "Right mount arm",
+            "slots": [
+              "primary",
+              "heavy",
+              "melee"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "FOREARM_L",
+            "label": "Left forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FOREARM_R",
+            "label": "Right forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "BAY_1",
+            "label": "Internal bay 1",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_2",
+            "label": "Internal bay 2",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_3",
+            "label": "Internal bay 3",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          }
+        ],
+        "defaultLoadout": {
+          "R_HAND": "eq-xamws24",
+          "BACK_L": "eq-particle",
+          "BACK_R": "eq-particle",
+          "FOREARM_L": "eq-x-ciws-2a-combat-knife",
+          "FOREARM_R": "eq-x-ciws-2a-combat-knife",
+          "JUMP_L": "eq-ju165",
+          "JUMP_R": "eq-ju165",
+          "THRUSTERS": "eq-at20",
+          "POWER": "eq-fc7",
+          "ARMOUR": "eq-arm-abl",
+          "ACTUATORS": "eq-act-hr",
+          "OS": "eq-os-xm3ce",
+          "FUEL": "eq-fuel-std"
+        }
+      },
+      "var-betatsf-std": {
+        "generationId": null,
+        "classificationId": null,
+        "productionStatus": null,
+        "availability": null,
+        "lore": "Organic airframe. The head laser has no catalogue item; treat it as a fixed weapon at the GM's discretion.",
+        "derivedFromId": null,
+        "publishStatus": "published",
+        "id": "var-betatsf-std",
+        "modelId": "mdl-betatsf",
+        "code": "STD",
+        "name": "BETA TSF",
+        "type": "standard",
+        "isDefault": true,
+        "stats": {
+          "tsf.mobility": 82,
+          "tsf.firepower": 72,
+          "tsf.defence": 64,
+          "tsf.accuracy": 72,
+          "tsf.handling": 76,
+          "tsf.durability": 80
+        },
+        "hardpoints": [
+          {
+            "code": "JUMP_L",
+            "fixed": true,
+            "label": "Left jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "JUMP_R",
+            "fixed": true,
+            "label": "Right jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "THRUSTERS",
+            "fixed": true,
+            "label": "Auxiliary thrusters",
+            "slots": [
+              "thruster"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "POWER",
+            "fixed": true,
+            "label": "Power plant",
+            "slots": [
+              "power_plant"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ARMOUR",
+            "fixed": true,
+            "label": "Armour package",
+            "slots": [
+              "armour"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ACTUATORS",
+            "fixed": true,
+            "label": "Actuator set",
+            "slots": [
+              "actuator"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "OS",
+            "fixed": true,
+            "label": "Operating system",
+            "slots": [
+              "avionics"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FUEL",
+            "fixed": true,
+            "label": "Fuel tanks",
+            "slots": [
+              "fuel"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "R_HAND",
+            "label": "Right hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "L_HAND",
+            "label": "Left hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_L",
+            "label": "Left mount arm",
+            "slots": [
+              "primary",
+              "heavy",
+              "melee"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_R",
+            "label": "Right mount arm",
+            "slots": [
+              "primary",
+              "heavy",
+              "melee"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "FOREARM_L",
+            "label": "Left forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FOREARM_R",
+            "label": "Right forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "BAY_1",
+            "label": "Internal bay 1",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_2",
+            "label": "Internal bay 2",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_3",
+            "label": "Internal bay 3",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          }
+        ],
+        "defaultLoadout": {
+          "R_HAND": "eq-amws21",
+          "BACK_L": "eq-type74",
+          "FOREARM_L": "eq-ciws1a",
+          "FOREARM_R": "eq-ciws1a",
+          "JUMP_L": "eq-ju108",
+          "JUMP_R": "eq-ju108",
+          "THRUSTERS": "eq-at12",
+          "POWER": "eq-fc5",
+          "ARMOUR": "eq-arm-std",
+          "ACTUATORS": "eq-act-joint",
+          "OS": "eq-os-std",
+          "FUEL": "eq-fuel-std"
+        }
+      },
+      "var-type14-std": {
+        "generationId": null,
+        "classificationId": null,
+        "productionStatus": null,
+        "availability": null,
+        "lore": "Variable-form tank: no jump units or hand mounts. The 120mm gun sits in the turret mount, with two CIWS on the manipulators.",
+        "derivedFromId": null,
+        "publishStatus": "published",
+        "id": "var-type14-std",
+        "modelId": "mdl-type14",
+        "code": "STD",
+        "name": "Shouki",
+        "type": "standard",
+        "isDefault": true,
+        "stats": {
+          "tsf.mobility": 46,
+          "tsf.firepower": 84,
+          "tsf.defence": 90,
+          "tsf.accuracy": 74,
+          "tsf.handling": 52,
+          "tsf.durability": 92
+        },
+        "hardpoints": [
+          {
+            "code": "POWER",
+            "fixed": true,
+            "label": "Power plant",
+            "slots": [
+              "power_plant"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ARMOUR",
+            "fixed": true,
+            "label": "Armour package",
+            "slots": [
+              "armour"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ACTUATORS",
+            "fixed": true,
+            "label": "Actuator set",
+            "slots": [
+              "actuator"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "OS",
+            "fixed": true,
+            "label": "Operating system",
+            "slots": [
+              "avionics"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FUEL",
+            "fixed": true,
+            "label": "Fuel tanks",
+            "slots": [
+              "fuel"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_L",
+            "label": "Main turret",
+            "slots": [
+              "primary",
+              "heavy"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "FOREARM_L",
+            "label": "Left manipulator CIWS",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FOREARM_R",
+            "label": "Right manipulator CIWS",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "BAY_1",
+            "label": "Internal bay 1",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_2",
+            "label": "Internal bay 2",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          }
+        ],
+        "defaultLoadout": {
+          "BACK_L": "eq-x-rh-120t-battle-cannon",
+          "FOREARM_L": "eq-ciws1a",
+          "FOREARM_R": "eq-ciws1a",
+          "POWER": "eq-fc5",
+          "ARMOUR": "eq-x-chobham-t-anti-laser-armour",
+          "ACTUATORS": "eq-act-joint",
+          "OS": "eq-os-std",
+          "FUEL": "eq-fuel-ext"
+        }
+      }
+    }
+  }
+}

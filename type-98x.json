@@ -1,0 +1,808 @@
+{
+  "system": "UNTSF-COMM",
+  "importMode": "merge",
+  "note": "Type-98X Takemikazuchi prototypes (XR/XF/XA/XC) as their own model. Load with Restore from backup.",
+  "collections": {
+    "models": {
+      "mdl-type98x": {
+        "id": "mdl-type98x",
+        "designation": "Type-98X",
+        "name": "Takemikazuchi (prototype)",
+        "primeManufacturerId": "mfr-mitsubishi",
+        "partners": [
+          {
+            "manufacturerId": "mfr-fugaku",
+            "role": "joint developer"
+          },
+          {
+            "manufacturerId": "mfr-kawasaki",
+            "role": "joint developer"
+          }
+        ],
+        "originFactionId": "fac-guard",
+        "generationId": "3",
+        "classificationId": "close_combat",
+        "productionStatus": "prototype",
+        "availability": "restricted",
+        "origin": "canon",
+        "lore": "Prototype designation for the Type-00, built in the same four Royal Guard variants (XR, XF, XA, XC). During the 1998 Defense of Kyoto, at Takatsukasa Kyoko's request and on the Shogun's orders, one of each variant was pulled from transfer to the rear and sortied to rescue 2nd Lieutenants Takamura Yui, Yamashiro Kazusa and Noto Izumi. Kyoko, piloting the Type-98XR, located Yui and cleared a swarm of Tank-class BETA with only a Type-74 PB Blade and a Type-87 Assault Cannon. The sortie proved the design's melee and close-range capability, and news of it lifted morale among hard-pressed Japanese troops.",
+        "attribution": "wiki",
+        "publishStatus": "published"
+      }
+    },
+    "variants": {
+      "var-type98xr": {
+        "generationId": null,
+        "classificationId": null,
+        "productionStatus": null,
+        "availability": null,
+        "lore": "Regent-colour prototype (purple for the Shogun, blue for the five regent houses), the highest-output of the four. Takatsukasa Kyoko flew one at Kyoto in 1998.",
+        "derivedFromId": null,
+        "publishStatus": "published",
+        "id": "var-type98xr",
+        "modelId": "mdl-type98x",
+        "code": "XR",
+        "name": "Type-98XR",
+        "type": "experimental",
+        "isDefault": true,
+        "stats": {
+          "tsf.mobility": 92,
+          "tsf.firepower": 78,
+          "tsf.defence": 70,
+          "tsf.accuracy": 79,
+          "tsf.handling": 86,
+          "tsf.durability": 70
+        },
+        "hardpoints": [
+          {
+            "code": "JUMP_L",
+            "fixed": true,
+            "label": "Left jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "JUMP_R",
+            "fixed": true,
+            "label": "Right jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "THRUSTERS",
+            "fixed": true,
+            "label": "Auxiliary thrusters",
+            "slots": [
+              "thruster"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "POWER",
+            "fixed": true,
+            "label": "Power plant",
+            "slots": [
+              "power_plant"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ARMOUR",
+            "fixed": true,
+            "label": "Armour package",
+            "slots": [
+              "armour"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ACTUATORS",
+            "fixed": true,
+            "label": "Actuator set",
+            "slots": [
+              "actuator"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "OS",
+            "fixed": true,
+            "label": "Operating system",
+            "slots": [
+              "avionics"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FUEL",
+            "fixed": true,
+            "label": "Fuel tanks",
+            "slots": [
+              "fuel"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "R_HAND",
+            "label": "Right hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "L_HAND",
+            "label": "Left hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_L",
+            "label": "Left mount pylon",
+            "slots": [
+              "primary",
+              "melee"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_R",
+            "label": "Right mount pylon",
+            "slots": [
+              "primary",
+              "melee"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "FOREARM_L",
+            "label": "Left forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FOREARM_R",
+            "label": "Right forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "BAY_1",
+            "label": "Internal bay 1",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_2",
+            "label": "Internal bay 2",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_3",
+            "label": "Internal bay 3",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          }
+        ],
+        "defaultLoadout": {
+          "R_HAND": "eq-type87",
+          "L_HAND": "eq-type74",
+          "FOREARM_L": "eq-type65",
+          "FOREARM_R": "eq-type65",
+          "JUMP_L": "eq-ju108",
+          "JUMP_R": "eq-ju108",
+          "THRUSTERS": "eq-at12",
+          "POWER": "eq-fc3",
+          "ARMOUR": "eq-arm-std",
+          "ACTUATORS": "eq-act-std",
+          "OS": "eq-os-std",
+          "FUEL": "eq-fuel-std"
+        }
+      },
+      "var-type98xf": {
+        "generationId": null,
+        "classificationId": null,
+        "productionStatus": null,
+        "availability": null,
+        "lore": "Prototype for the houses closest to the regent families (red).",
+        "derivedFromId": null,
+        "publishStatus": "published",
+        "id": "var-type98xf",
+        "modelId": "mdl-type98x",
+        "code": "XF",
+        "name": "Type-98XF",
+        "type": "experimental",
+        "isDefault": false,
+        "stats": {
+          "tsf.mobility": 89,
+          "tsf.firepower": 76,
+          "tsf.defence": 68,
+          "tsf.accuracy": 78,
+          "tsf.handling": 85,
+          "tsf.durability": 68
+        },
+        "hardpoints": [
+          {
+            "code": "JUMP_L",
+            "fixed": true,
+            "label": "Left jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "JUMP_R",
+            "fixed": true,
+            "label": "Right jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "THRUSTERS",
+            "fixed": true,
+            "label": "Auxiliary thrusters",
+            "slots": [
+              "thruster"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "POWER",
+            "fixed": true,
+            "label": "Power plant",
+            "slots": [
+              "power_plant"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ARMOUR",
+            "fixed": true,
+            "label": "Armour package",
+            "slots": [
+              "armour"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ACTUATORS",
+            "fixed": true,
+            "label": "Actuator set",
+            "slots": [
+              "actuator"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "OS",
+            "fixed": true,
+            "label": "Operating system",
+            "slots": [
+              "avionics"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FUEL",
+            "fixed": true,
+            "label": "Fuel tanks",
+            "slots": [
+              "fuel"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "R_HAND",
+            "label": "Right hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "L_HAND",
+            "label": "Left hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_L",
+            "label": "Left mount pylon",
+            "slots": [
+              "primary",
+              "melee"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_R",
+            "label": "Right mount pylon",
+            "slots": [
+              "primary",
+              "melee"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "FOREARM_L",
+            "label": "Left forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FOREARM_R",
+            "label": "Right forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "BAY_1",
+            "label": "Internal bay 1",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_2",
+            "label": "Internal bay 2",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_3",
+            "label": "Internal bay 3",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          }
+        ],
+        "defaultLoadout": {
+          "R_HAND": "eq-type87",
+          "BACK_L": "eq-type74",
+          "FOREARM_L": "eq-type65",
+          "FOREARM_R": "eq-type65",
+          "JUMP_L": "eq-ju108",
+          "JUMP_R": "eq-ju108",
+          "THRUSTERS": "eq-at12",
+          "POWER": "eq-fc3",
+          "ARMOUR": "eq-arm-std",
+          "ACTUATORS": "eq-act-std",
+          "OS": "eq-os-std",
+          "FUEL": "eq-fuel-std"
+        }
+      },
+      "var-type98xa": {
+        "generationId": null,
+        "classificationId": null,
+        "productionStatus": null,
+        "availability": null,
+        "lore": "Prototype for samurai-class Royal Guard eishi (white).",
+        "derivedFromId": null,
+        "publishStatus": "published",
+        "id": "var-type98xa",
+        "modelId": "mdl-type98x",
+        "code": "XA",
+        "name": "Type-98XA",
+        "type": "experimental",
+        "isDefault": false,
+        "stats": {
+          "tsf.mobility": 87,
+          "tsf.firepower": 75,
+          "tsf.defence": 68,
+          "tsf.accuracy": 77,
+          "tsf.handling": 84,
+          "tsf.durability": 68
+        },
+        "hardpoints": [
+          {
+            "code": "JUMP_L",
+            "fixed": true,
+            "label": "Left jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "JUMP_R",
+            "fixed": true,
+            "label": "Right jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "THRUSTERS",
+            "fixed": true,
+            "label": "Auxiliary thrusters",
+            "slots": [
+              "thruster"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "POWER",
+            "fixed": true,
+            "label": "Power plant",
+            "slots": [
+              "power_plant"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ARMOUR",
+            "fixed": true,
+            "label": "Armour package",
+            "slots": [
+              "armour"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ACTUATORS",
+            "fixed": true,
+            "label": "Actuator set",
+            "slots": [
+              "actuator"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "OS",
+            "fixed": true,
+            "label": "Operating system",
+            "slots": [
+              "avionics"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FUEL",
+            "fixed": true,
+            "label": "Fuel tanks",
+            "slots": [
+              "fuel"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "R_HAND",
+            "label": "Right hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "L_HAND",
+            "label": "Left hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_L",
+            "label": "Left mount pylon",
+            "slots": [
+              "primary",
+              "melee"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_R",
+            "label": "Right mount pylon",
+            "slots": [
+              "primary",
+              "melee"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "FOREARM_L",
+            "label": "Left forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FOREARM_R",
+            "label": "Right forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "BAY_1",
+            "label": "Internal bay 1",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_2",
+            "label": "Internal bay 2",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_3",
+            "label": "Internal bay 3",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          }
+        ],
+        "defaultLoadout": {
+          "R_HAND": "eq-type87",
+          "BACK_L": "eq-type74",
+          "FOREARM_L": "eq-type65",
+          "FOREARM_R": "eq-type65",
+          "JUMP_L": "eq-ju108",
+          "JUMP_R": "eq-ju108",
+          "THRUSTERS": "eq-at12",
+          "POWER": "eq-fc3",
+          "ARMOUR": "eq-arm-std",
+          "ACTUATORS": "eq-act-std",
+          "OS": "eq-os-std",
+          "FUEL": "eq-fuel-std"
+        }
+      },
+      "var-type98xc": {
+        "generationId": null,
+        "classificationId": null,
+        "productionStatus": null,
+        "availability": null,
+        "lore": "Prototype for commoner Royal Guard eishi (black).",
+        "derivedFromId": null,
+        "publishStatus": "published",
+        "id": "var-type98xc",
+        "modelId": "mdl-type98x",
+        "code": "XC",
+        "name": "Type-98XC",
+        "type": "experimental",
+        "isDefault": false,
+        "stats": {
+          "tsf.mobility": 85,
+          "tsf.firepower": 74,
+          "tsf.defence": 66,
+          "tsf.accuracy": 76,
+          "tsf.handling": 83,
+          "tsf.durability": 66
+        },
+        "hardpoints": [
+          {
+            "code": "JUMP_L",
+            "fixed": true,
+            "label": "Left jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "JUMP_R",
+            "fixed": true,
+            "label": "Right jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "THRUSTERS",
+            "fixed": true,
+            "label": "Auxiliary thrusters",
+            "slots": [
+              "thruster"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "POWER",
+            "fixed": true,
+            "label": "Power plant",
+            "slots": [
+              "power_plant"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ARMOUR",
+            "fixed": true,
+            "label": "Armour package",
+            "slots": [
+              "armour"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ACTUATORS",
+            "fixed": true,
+            "label": "Actuator set",
+            "slots": [
+              "actuator"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "OS",
+            "fixed": true,
+            "label": "Operating system",
+            "slots": [
+              "avionics"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FUEL",
+            "fixed": true,
+            "label": "Fuel tanks",
+            "slots": [
+              "fuel"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "R_HAND",
+            "label": "Right hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "L_HAND",
+            "label": "Left hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_L",
+            "label": "Left mount pylon",
+            "slots": [
+              "primary",
+              "melee"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_R",
+            "label": "Right mount pylon",
+            "slots": [
+              "primary",
+              "melee"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "FOREARM_L",
+            "label": "Left forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FOREARM_R",
+            "label": "Right forearm bay",
+            "slots": [
+              "melee"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "BAY_1",
+            "label": "Internal bay 1",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_2",
+            "label": "Internal bay 2",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_3",
+            "label": "Internal bay 3",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          }
+        ],
+        "defaultLoadout": {
+          "R_HAND": "eq-type87",
+          "BACK_L": "eq-type74",
+          "FOREARM_L": "eq-type65",
+          "FOREARM_R": "eq-type65",
+          "JUMP_L": "eq-ju108",
+          "JUMP_R": "eq-ju108",
+          "THRUSTERS": "eq-at12",
+          "POWER": "eq-fc3",
+          "ARMOUR": "eq-arm-std",
+          "ACTUATORS": "eq-act-std",
+          "OS": "eq-os-std",
+          "FUEL": "eq-fuel-std"
+        }
+      }
+    }
+  }
+}

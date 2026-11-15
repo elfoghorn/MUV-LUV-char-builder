@@ -1,0 +1,443 @@
+{
+  "system": "UNTSF-COMM",
+  "importMode": "merge",
+  "note": "A-10C 'Tank Buster' (US) and A-10C Kanonenvogel (EU) variants, plus the AMWS-21 cleared for the US A-10C. Load with Restore from backup.",
+  "collections": {
+    "variants": {
+      "var-a10-c": {
+        "id": "var-a10-c",
+        "code": "C",
+        "lore": "US second-generation refurbishment of every A-10. Operation By Light avionics and new lightweight armour make it faster, more accurate and more responsive than the original, while it keeps the twin GAU-8 Avenger mounts and Javelin CIDS. Cleared for the AMWS-21, which replaced the WS-16 in US service, as well as the WS-16, GWS-9 and Mk.57 Squad Support Gun.",
+        "name": "A-10C “Tank Buster”",
+        "type": "improved",
+        "stats": {
+          "tsf.mobility": 46,
+          "tsf.firepower": 86,
+          "tsf.defence": 78,
+          "tsf.accuracy": 70,
+          "tsf.handling": 48,
+          "tsf.durability": 82
+        },
+        "modelId": "mdl-a10",
+        "isDefault": false,
+        "availability": null,
+        "generationId": null,
+        "derivedFromId": "var-a10-std",
+        "publishStatus": "published",
+        "classificationId": null,
+        "productionStatus": null,
+        "hardpoints": [
+          {
+            "code": "JUMP_L",
+            "fixed": true,
+            "label": "Left jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "JUMP_R",
+            "fixed": true,
+            "label": "Right jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "THRUSTERS",
+            "fixed": true,
+            "label": "Auxiliary thrusters",
+            "slots": [
+              "thruster"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "POWER",
+            "fixed": true,
+            "label": "Power plant",
+            "slots": [
+              "power_plant"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ARMOUR",
+            "fixed": true,
+            "label": "Armour package",
+            "slots": [
+              "armour"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ACTUATORS",
+            "fixed": true,
+            "label": "Actuator set",
+            "slots": [
+              "actuator"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "OS",
+            "fixed": true,
+            "label": "Operating system",
+            "slots": [
+              "avionics"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FUEL",
+            "fixed": true,
+            "label": "Fuel tanks",
+            "slots": [
+              "fuel"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "R_HAND",
+            "label": "Right hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "heavy",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "L_HAND",
+            "label": "Left hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "heavy",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_L",
+            "label": "Left mount pylon",
+            "slots": [
+              "primary",
+              "heavy"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_R",
+            "label": "Right mount pylon",
+            "slots": [
+              "primary",
+              "heavy"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "SHOULDER_L",
+            "label": "Left shoulder launcher",
+            "slots": [
+              "heavy"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "SHOULDER_R",
+            "label": "Right shoulder launcher",
+            "slots": [
+              "heavy"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BAY_1",
+            "label": "Internal bay 1",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_2",
+            "label": "Internal bay 2",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          }
+        ],
+        "defaultLoadout": {
+          "OS": "eq-os-std",
+          "FUEL": "eq-fuel-std",
+          "POWER": "eq-fc3",
+          "ARMOUR": "eq-arm-light",
+          "BACK_L": "eq-x-gau-8t-avenger-cannon",
+          "BACK_R": "eq-x-gau-8t-avenger-cannon",
+          "JUMP_L": "eq-ju140h",
+          "JUMP_R": "eq-ju140h",
+          "R_HAND": "eq-amws21",
+          "ACTUATORS": "eq-act-std",
+          "THRUSTERS": "eq-at12",
+          "SHOULDER_L": "eq-mmc4",
+          "SHOULDER_R": "eq-mmc4",
+          "L_HAND": "eq-mk57"
+        }
+      },
+      "var-a10-kv": {
+        "id": "var-a10-kv",
+        "code": "CK",
+        "lore": "European A-10C with the same specification as the US version, built for EU forces and loaned to the Bundeswehr, including the 109th Independent TSA Squadron Kanonendoktor in Saxony. Armed with the GWS-9, the EU's replacement for the WS-16, and the Mk.57 Squad Support Gun; it isn't cleared for the US-only AMWS-21. The name comes from what German civilians called the A-10, after the Ju-87.",
+        "name": "A-10C Kanonenvogel",
+        "type": "improved",
+        "stats": {
+          "tsf.mobility": 46,
+          "tsf.firepower": 86,
+          "tsf.defence": 78,
+          "tsf.accuracy": 70,
+          "tsf.handling": 48,
+          "tsf.durability": 82
+        },
+        "modelId": "mdl-a10",
+        "isDefault": false,
+        "availability": null,
+        "generationId": null,
+        "derivedFromId": "var-a10-std",
+        "publishStatus": "published",
+        "classificationId": null,
+        "productionStatus": null,
+        "hardpoints": [
+          {
+            "code": "JUMP_L",
+            "fixed": true,
+            "label": "Left jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "JUMP_R",
+            "fixed": true,
+            "label": "Right jump unit",
+            "slots": [
+              "jump_unit"
+            ],
+            "maxWeight": "heavy",
+            "pairGroup": "jump"
+          },
+          {
+            "code": "THRUSTERS",
+            "fixed": true,
+            "label": "Auxiliary thrusters",
+            "slots": [
+              "thruster"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "POWER",
+            "fixed": true,
+            "label": "Power plant",
+            "slots": [
+              "power_plant"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ARMOUR",
+            "fixed": true,
+            "label": "Armour package",
+            "slots": [
+              "armour"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "ACTUATORS",
+            "fixed": true,
+            "label": "Actuator set",
+            "slots": [
+              "actuator"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "OS",
+            "fixed": true,
+            "label": "Operating system",
+            "slots": [
+              "avionics"
+            ],
+            "maxWeight": "light"
+          },
+          {
+            "code": "FUEL",
+            "fixed": true,
+            "label": "Fuel tanks",
+            "slots": [
+              "fuel"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "R_HAND",
+            "label": "Right hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "heavy",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "L_HAND",
+            "label": "Left hand",
+            "slots": [
+              "primary",
+              "secondary",
+              "heavy",
+              "melee",
+              "defensive"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_L",
+            "label": "Left mount pylon",
+            "slots": [
+              "primary",
+              "heavy"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BACK_R",
+            "label": "Right mount pylon",
+            "slots": [
+              "primary",
+              "heavy"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "SHOULDER_L",
+            "label": "Left shoulder launcher",
+            "slots": [
+              "heavy"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "SHOULDER_R",
+            "label": "Right shoulder launcher",
+            "slots": [
+              "heavy"
+            ],
+            "maxWeight": "heavy"
+          },
+          {
+            "code": "BAY_1",
+            "label": "Internal bay 1",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          },
+          {
+            "code": "BAY_2",
+            "label": "Internal bay 2",
+            "slots": [
+              "support"
+            ],
+            "maxWeight": "medium"
+          }
+        ],
+        "defaultLoadout": {
+          "OS": "eq-os-std",
+          "FUEL": "eq-fuel-std",
+          "POWER": "eq-fc3",
+          "ARMOUR": "eq-arm-light",
+          "BACK_L": "eq-x-gau-8t-avenger-cannon",
+          "BACK_R": "eq-x-gau-8t-avenger-cannon",
+          "JUMP_L": "eq-ju140h",
+          "JUMP_R": "eq-ju140h",
+          "R_HAND": "eq-gws9",
+          "ACTUATORS": "eq-act-std",
+          "THRUSTERS": "eq-at12",
+          "SHOULDER_L": "eq-mmc4",
+          "SHOULDER_R": "eq-mmc4",
+          "L_HAND": "eq-mk57"
+        }
+      }
+    },
+    "equipment": {
+      "eq-amws21": {
+        "id": "eq-amws21",
+        "code": "EQ-0003",
+        "name": "AMWS-21 Combat System",
+        "slots": [
+          "primary"
+        ],
+        "compat": [
+          {
+            "type": "model",
+            "match": null,
+            "effect": "allow",
+            "reason": "RESTRICTED: Dedicated F-22A combat system.",
+            "targetId": "mdl-raptor"
+          },
+          {
+            "type": "variant",
+            "match": null,
+            "effect": "allow",
+            "reason": "RESTRICTED: Cleared for the F-22A and the US A-10C only.",
+            "targetId": "var-a10-c"
+          }
+        ],
+        "engine": null,
+        "origin": "canon",
+        "rating": 74,
+        "unlock": [],
+        "weapon": {
+          "range": "medium",
+          "damage": 34,
+          "reload": "1 action",
+          "special": null,
+          "accuracy": 8,
+          "fireRate": 3,
+          "magazine": 6
+        },
+        "weight": "medium",
+        "category": "primary_weapon",
+        "modifiers": [
+          {
+            "stat": "tsf.firepower",
+            "value": 5
+          },
+          {
+            "stat": "tsf.accuracy",
+            "value": 3
+          }
+        ],
+        "description": "Dedicated rifle system developed alongside the F-22A. It replaced the WS-16 across US forces and was cleared for the refurbished A-10C.",
+        "availability": "restricted",
+        "publishStatus": "published",
+        "duplicatedFrom": null,
+        "manufacturerId": "mfr-lockheed"
+      }
+    }
+  }
+}
