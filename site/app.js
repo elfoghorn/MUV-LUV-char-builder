@@ -12583,6 +12583,99 @@ ACTIONS['apr-close-issued'] = d => {
   const a = get('approvals', d.id); if (!a || APR_OPEN.indexOf(a.status) === -1) return;
   run(async () => { await closeRequest(a.id, d.serial || ''); S.ui.drawer = null; }, 'Request closed: the machine was already issued.');
 };
+/* ---------------------------------------------------------------- position boards on Discord
+   Each squadron (with its flights) and the HQ and support staff get a board: every post, who holds it, and which are
+   open for applications, drawn as an image. Each board posts to its own channel: a webhook named for the squadron
+   (DISCORD_WEBHOOK_KAGARIBI…) or, for the staff board, DISCORD_WEBHOOK_HQ. Posting again edits the same message; with
+   "Keep it up to date" on, it updates itself a few seconds after a posting changes. (As in F1 SIM's Discord grid.) */
+function positionBoards() {
+  const units = activeUnits(), slotsUnder = ids => ids.flatMap(id => slotsOf(id).map(s => ({ s, u: get('units', id) })));
+  const squadrons = units.filter(u => u.type === 'squadron').sort((a, b) => a.name.localeCompare(b.name))
+    .map(u => ({ key: 'sq-' + u.id, title: u.name, unit: u, kind: 'squadron', rows: slotsUnder(unitDescendants(u.id)) }));
+  const staffUnits = units.filter(u => unitType(u.type).support || unitType(u.type).echelon > unitType('squadron').echelon)
+    .filter(u => !units.some(x => x.type === 'squadron' && unitDescendants(x.id).indexOf(u.id) !== -1));
+  const staff = { key: 'hq', title: 'HQ and support staff', unit: null, kind: 'staff', rows: slotsUnder(staffUnits.sort((a, b) => unitType(b.type).echelon - unitType(a.type).echelon || a.name.localeCompare(b.name)).map(u => u.id)) };
+  return squadrons.concat(staff.rows.length ? [staff] : []).filter(b => b.rows.length);
+}
+const boardDoc = key => Object.assign({ channel: '', messageId: null, auto: false, at: null, sig: '' }, get('settings', 'discord-board-' + key) || {});
+const slotState = s => slotHolder(s) ? 'held' : (s.holderName || '').trim() ? 'npc' : s.open ? 'open' : 'vacant';
+function boardSig(b) { return JSON.stringify(b.rows.map(({ s }) => [s.id, s.title, slotState(s), s.holderPilotId || s.holderName || ''])); }
+function boardChannelFor(b, chans) {
+  const want = boardDoc(b.key).channel; if (want && chans.indexOf(want) !== -1) return want;
+  const u = b.unit, words = u ? [slugOf(u.name), slugOf(u.name.replace(/\b(squadron|company|flight)\b/ig, '')), slugOf(u.callsignPrefix || ''), slugOf(u.designation || '')].filter(x => x && x !== 'image')
+    : ['hq', 'hq-staff', 'headquarters', 'staff', 'support'];
+  return words.map(w => chans.find(c => c === w) || chans.find(c => c.indexOf(w) !== -1)).find(Boolean) || chans.find(c => /position|recruit|vacanc/.test(c)) || chans[0];
+}
+/* The image renderer can't read color-mix(), so the open-post tint is a plain translucent colour. */
+const boardTint = c => /^#[0-9a-f]{6}$/i.test(String(c).trim()) ? String(c).trim() + '38' : 'rgba(95,184,120,.22)';
+function boardHtml(b) {
+  const tone = { held: ['var(--panel)', 'var(--text)', ''], npc: ['var(--panel)', 'var(--text)', 'NPC'], open: [boardTint(rootVar('--ok', '#5fb878')), 'var(--text)', 'OPEN · APPLY ON UNTSF-COMM'], vacant: ['transparent', 'var(--muted)', 'VACANT'] };
+  const groups = []; b.rows.forEach(r => { let g = groups.find(x => x.u.id === r.u.id); if (!g) groups.push(g = { u: r.u, rows: [] }); g.rows.push(r); });
+  const cell = ({ s }) => { const st = slotState(s), p = slotHolder(s), [bg, fg, tag] = tone[st];
+    const who = p ? `${p.callsign ? p.callsign + ' · ' : ''}${p.fullName}` : st === 'npc' ? s.holderName : st === 'open' ? 'Open post' : '–';
+    return `<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;padding:9px 12px;background:${bg};border:1px ${st === 'vacant' ? 'dashed' : 'solid'} ${st === 'open' ? 'var(--ok)' : 'var(--line)'};border-radius:4px">
+      <div style="min-width:0"><div style="font:500 12px/1.3 var(--font-mono);letter-spacing:.08em;color:var(--muted);text-transform:uppercase">${esc(s.title)}</div>
+        <div style="font:600 17px/1.3 var(--font-body);color:${fg}">${esc(who)}</div></div>
+      ${tag ? `<span style="flex:none;font:600 11px/1 var(--font-mono);letter-spacing:.08em;color:${st === 'open' ? 'var(--ok)' : 'var(--muted)'}">${tag}</span>` : ''}</div>`; };
+  const body = groups.map(g => `<div style="margin-top:14px"><div style="font:700 19px/1.2 var(--font-cond);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">${esc(g.u.name)}
+      <span style="font:500 12px var(--font-mono);color:var(--muted);letter-spacing:.08em"> · ${esc(unitType(g.u.type).name.toUpperCase())}</span></div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px">${g.rows.map(cell).join('')}</div></div>`).join('');
+  const n = st => b.rows.filter(r => slotState(r.s) === st).length;
+  const sub = `${n('held') + n('npc')} of ${b.rows.length} posts filled · <b style="color:var(--ok)">${n('open')} open for applications</b>${n('vacant') ? ` · ${n('vacant')} vacant` : ''}`;
+  return briefFrame('Personnel Division · Positions', b.kind === 'staff' ? 'HQ-STAFF' : (b.unit.designation || b.unit.callsignPrefix || 'SQN').toUpperCase(), b.title + ' · positions', sub, body, 1100);
+}
+async function postBoard(b, force) {
+  const api = S.discordApi || await window.claude.use('discord'), chans = (S.discordState && S.discordState.channels) || await api.channels(), ch = boardChannelFor(b, chans), doc = boardDoc(b.key), sig = boardSig(b);
+  const open = b.rows.filter(r => slotState(r.s) === 'open').length;
+  const payload = { username: BRAND.code, content: `**${b.title}** · positions${open ? ` · ${open} open for applications` : ''}\n-# Kept up to date by ${BRAND.code} · last change <t:${Math.floor(Date.now() / 1000)}:R>` };
+  const file = { blob: await htmlToBlob(boardHtml(b), 1100), name: `${slugOf(b.title)}-positions.png` };
+  let r = null, edited = false;
+  if (doc.messageId && doc.channel === ch) { try { r = await api.post({ channel: ch, payload, file, edit: doc.messageId }); edited = true; } catch (e) { if (!e || e.code !== 'gone') throw e; } }
+  if (!r) r = await api.post({ channel: ch, payload, file });
+  const next = Object.assign({}, doc, { messageId: (r && r.messageId) || doc.messageId || null, channel: ch, at: nowIso(), sig }); delete next.id;
+  await Data.put('settings', 'discord-board-' + b.key, next);
+  await Data.audit('discord.board', 'unit', b.unit ? b.unit.id : 'hq', `${b.title} positions ${edited ? 'updated' : 'posted'} on Discord (${ch})`).catch(() => {});
+  return { ch, edited };
+}
+ACTIONS['board-post'] = d => { const b = positionBoards().find(x => x.key === d.k); if (!b || !S.isGm) return;
+  S.ui.boardBusy = d.k; render();
+  postBoard(b).then(x => toast(`${b.title}: positions ${x.edited ? 'updated' : 'posted'} on Discord (${x.ch}).`)).catch(e => toast(`${b.title}: ${(e && e.message) || 'Discord didn’t take the post.'}`, true))
+    .finally(() => { S.ui.boardBusy = null; render(); }); };
+CHANGES['board-channel'] = (v, d) => { const doc = boardDoc(d.k), next = Object.assign({}, doc, { channel: v }); delete next.id; Data.put('settings', 'discord-board-' + d.k, next).then(() => render()); };
+ACTIONS['board-auto'] = (d, el) => { const doc = boardDoc(d.k), next = Object.assign({}, doc, { auto: !!el.checked }); delete next.id; Data.put('settings', 'discord-board-' + d.k, next).then(() => render()); };
+/* Keep it up to date: a few seconds after any posting or unit change, boards that changed and have it switched on repost. */
+let boardTimer = null;
+function boardsChanged() {
+  if (!S.isGm || S.readOnly) return;
+  clearTimeout(boardTimer);
+  boardTimer = setTimeout(async () => {
+    if (!S.discordState || S.discordState.status !== 'ready') return;
+    for (const b of positionBoards()) { const doc = boardDoc(b.key); if (!doc.auto || !doc.messageId || doc.sig === boardSig(b)) continue;
+      try { const x = await postBoard(b); toast(`${b.title}: Discord positions ${x.edited ? 'updated' : 'posted'}.`); } catch (e) { toast(`${b.title}: the Discord positions didn’t update (${(e && e.message) || e}).`, true); } }
+  }, 4000);
+}
+const _dataPutBoards = Data.put;
+Data.put = async function (col, id, data) { const r = await _dataPutBoards.apply(this, arguments); if (col === 'slots' || col === 'units' || col === 'pilots') boardsChanged(); return r; };
+function boardsPanelHtml() {
+  if (!S.isGm || S.ui.previewAs) return '';
+  ensureDiscord();
+  const ds = S.discordState || {}, boards = positionBoards();
+  if (!boards.length) return '';
+  const head = `<h2>Positions on Discord <span class="sub">One board per squadron and one for HQ and support staff: who holds each post and which are open. Posting again updates the same message.</span></h2>`;
+  if (ds.status !== 'ready') return `<section class="plate" style="margin-bottom:16px">${head}<p class="small muted">${ds.status === 'loading' ? 'Checking Discord…' : esc(ds.error || 'Discord isn’t set up.')}</p></section>`;
+  const rows = boards.map(b => { const doc = boardDoc(b.key), ch = boardChannelFor(b, ds.channels), open = b.rows.filter(r => slotState(r.s) === 'open').length, busy = S.ui.boardBusy === b.key, stale = doc.messageId && doc.sig !== boardSig(b);
+    return `<tr><td><b>${esc(b.title)}</b><div class="small muted">${plural(b.rows.length, 'post')} · ${open} open</div></td>
+      <td><label><span class="sr-only">Channel for ${esc(b.title)}</span><select data-change="board-channel" data-k="${esc(b.key)}">${ds.channels.map(c => `<option value="${esc(c)}" ${c === ch ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label></td>
+      <td class="small">${doc.at ? `${doc.channel === ch ? '' : '<span class="warn-text">Channel changed · </span>'}${stale ? '<span class="warn-text">Out of date · </span>' : ''}${esc(fmtDT(doc.at))}` : '<span class="muted">Not posted</span>'}</td>
+      <td><label class="small"><input type="checkbox" data-act="board-auto" data-k="${esc(b.key)}" ${doc.auto ? 'checked' : ''}> Keep it up to date</label></td>
+      <td><button class="btn ${doc.messageId ? '' : 'primary'}" data-act="board-post" data-k="${esc(b.key)}" ${busy ? 'disabled' : ''}>${busy ? 'Posting…' : doc.messageId ? 'Update on Discord' : 'Post to Discord'}</button></td></tr>`; }).join('');
+  return `<section class="plate" style="margin-bottom:16px">${head}<div class="scroll-x"><table class="data"><thead><tr><th>Board</th><th>Channel</th><th>Last posted</th><th>Updates</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
+}
+const _orbatBoards = ROUTES.orbat.view;
+ROUTES.orbat.view = function () {
+  const html = _orbatBoards.apply(this, arguments), panel = boardsPanelHtml();
+  return panel ? html.replace('<div class="apr-stats">', panel + '<div class="apr-stats">') : html;
+};
 /* ---------------------------------------------------------------- operation updates on Discord
    Map posts go to a channel of their own: one named for operations (DISCORD_WEBHOOK_OPERATIONS in Cloudflare) unless
    Command Authority picks another, which is then remembered. Posting a situation report offers to send it with the map. */
