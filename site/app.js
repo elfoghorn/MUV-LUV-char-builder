@@ -12535,19 +12535,27 @@ ROUTE_DEPT.hangars = 'ENG'; ROUTES.hangars.dept = 'ENG';
    another way (with the enlistment, from Personnel, from the catalogue) left the request open, and approving it then
    issued a second machine. Issuing a TSF now closes that pilot's open requests for the same variant, and an open
    request for a variant they already hold says so and offers to close it. */
+const APR_OPEN = ['pending', 'on_hold', 'changes_requested'];
 function issuedMatches(a) {
-  return list('tsfs').filter(t => t.ownerPilotId === a.pilotId && t.variantId === a.variantId).sort((x, y) => String(y.registeredAt || '').localeCompare(String(x.registeredAt || '')));
+  const newest = (x, y) => String(y.registeredAt || '').localeCompare(String(x.registeredAt || ''));
+  return list('tsfs').filter(t => t.ownerPilotId === a.pilotId && t.variantId === a.variantId).sort(newest);
+}
+/* The same model in another variant (a Su-27SM for a Su-27 request, say): most likely the request was met with a substitute. */
+function issuedSameModel(a) {
+  const want = effVariant(a.variantId), model = want && want.modelId;
+  return model ? list('tsfs').filter(t => t.ownerPilotId === a.pilotId && t.variantId !== a.variantId && (effVariant(t.variantId) || {}).modelId === model) : [];
+}
+async function closeRequest(id, serial) {
+  const now = nowIso(), a = clone(S.store.approvals[id]), note = `Closed: ${serial} has been issued to this pilot.`;
+  a.status = 'cancelled'; a.decidedBy = S.isGm ? 'GM' : 'System'; a.decidedAt = now; a.reason = note;
+  a.events = (a.events || []).concat([{ event: 'cancelled', actor: a.decidedBy, note, at: now }]);
+  await Data.put('approvals', id, a);
+  await Data.audit('approval.cancelled', 'approval', id, `Cancelled: ${approvalTitle(a)} (${serial} already issued)`).catch(() => {});
 }
 async function closeIssuedRequests(pilotId, variantId, serial) {
   if (!pilotId || !variantId) return 0;
-  const now = nowIso(), open = list('approvals').filter(a => a.type === 'acquisition' && a.pilotId === pilotId && a.variantId === variantId && (a.status === 'pending' || a.status === 'on_hold'));
-  for (const a0 of open) {
-    const a = clone(S.store.approvals[a0.id]), note = `Closed: ${serial} has been issued to this pilot.`;
-    a.status = 'cancelled'; a.decidedBy = S.isGm ? 'GM' : 'System'; a.decidedAt = now; a.reason = note;
-    a.events = (a.events || []).concat([{ event: 'cancelled', actor: a.decidedBy, note, at: now }]);
-    await Data.put('approvals', a0.id, a);
-    await Data.audit('approval.cancelled', 'approval', a0.id, `Cancelled: ${approvalTitle(a)} (${serial} already issued)`).catch(() => {});
-  }
+  const open = list('approvals').filter(a => a.type === 'acquisition' && a.pilotId === pilotId && a.variantId === variantId && APR_OPEN.indexOf(a.status) !== -1);
+  for (const a of open) await closeRequest(a.id, serial);
   return open.length;
 }
 const _registerTsfIssued = registerTsf;
@@ -12559,18 +12567,20 @@ registerTsf = async function (variantId, pilotId) {
 const _approvalDrawerIssued = DRAWERS.approval;
 DRAWERS_REG('approval', d => {
   const html = _approvalDrawerIssued(d), a = get('approvals', d.id);
-  if (!a || a.type !== 'acquisition' || !(a.status === 'pending' || a.status === 'on_hold') || !S.isGm) return html;
-  const held = issuedMatches(a);
-  if (!held.length) return html;
-  const list2 = held.map(t => `<b>${esc(t.serial)}</b>${t.registeredAt ? ' (issued ' + esc(fmtDate(t.registeredAt)) + ')' : ''}`).join(', ');
-  const note = `<div class="notice bad"><b>Already issued.</b> This pilot already holds ${esc(tsfLabelFromVariant(a.variantId))}: ${list2}. Approving would issue another machine.
-    <div class="btn-row" style="margin-top:8px"><button class="btn" data-act="apr-close-issued" data-id="${esc(a.id)}">Close as already issued</button></div></div>`;
-  return html.replace('<div class="body">', '<div class="body">' + note);
+  if (!a || !a.pilotId || APR_OPEN.indexOf(a.status) === -1 || !S.isGm) return html;
+  const fmt = t => `<b>${esc(t.serial)}</b> ${esc(tsfLabel(t))}${t.registeredAt ? ' (issued ' + esc(fmtDate(t.registeredAt)) + ')' : ''}`;
+  const hangar = list('tsfs').filter(t => t.ownerPilotId === a.pilotId);
+  let note = `<div class="notice small"><b>${esc(pilotLabel(get('pilots', a.pilotId)) || 'This pilot')}’s hangar:</b> ${hangar.length ? hangar.map(fmt).join('; ') : 'no machines yet'}.</div>`;
+  if (a.type === 'acquisition') {
+    const exact = issuedMatches(a), near = exact.length ? [] : issuedSameModel(a), held = exact.length ? exact : near;
+    if (held.length) note = `<div class="notice bad"><b>Already issued.</b> This pilot ${exact.length ? 'already holds' : 'already holds another variant of'} ${esc(tsfLabelFromVariant(a.variantId))}: ${held.map(fmt).join(', ')}. Approving would issue another machine.
+      <div class="btn-row" style="margin-top:8px"><button class="btn" data-act="apr-close-issued" data-id="${esc(a.id)}" data-serial="${esc(held[0].serial)}">Close as already issued</button></div></div>` + note;
+  }
+  return html.indexOf('<div class="body">') !== -1 ? html.replace('<div class="body">', '<div class="body">' + note) : html.replace('</header>', '</header>' + note);
 });
 ACTIONS['apr-close-issued'] = d => {
-  const a = get('approvals', d.id), held = a ? issuedMatches(a) : [];
-  if (!a || !held.length) return;
-  run(async () => { await closeIssuedRequests(a.pilotId, a.variantId, held[0].serial); S.ui.drawer = null; }, 'Request closed: the machine was already issued.');
+  const a = get('approvals', d.id); if (!a || APR_OPEN.indexOf(a.status) === -1) return;
+  run(async () => { await closeRequest(a.id, d.serial || ''); S.ui.drawer = null; }, 'Request closed: the machine was already issued.');
 };
 /* ---------------------------------------------------------------- operation updates on Discord
    Map posts go to a channel of their own: one named for operations (DISCORD_WEBHOOK_OPERATIONS in Cloudflare) unless
